@@ -33,10 +33,10 @@ if (isset($_GET['logout'])) {
             <h2 style="font-size: 1.25rem; color: #fff; margin-bottom: 2rem;">Lavandería App</h2>
             <nav>
                 <a href="dashboard.php" style="display:block;color:var(--primary);font-weight:600;text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Dashboard</a>
-                <a href="../src/modules/catalog/views/gestion_productos.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Catálogo de Productos</a>
-                <a href="../src/modules/customers/views/gestion_clientes.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Clientes</a>
+                <a href="productos.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Catálogo de Productos</a>
+                <a href="clientes.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Clientes</a>
                 <?php if($auth->isAdmin()): ?>
-                <a href="../src/modules/auth/views/gestion_usuarios.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Usuarios y Roles</a>
+                <a href="usuarios.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Usuarios y Roles</a>
                 <?php endif; ?>
                 <a href="?logout=1" style="display:block;color:#f87171;text-decoration:none;padding:0.75rem 0;margin-top:2rem;">Cerrar Sesión</a>
             </nav>
