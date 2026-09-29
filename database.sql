@@ -27,7 +27,7 @@ VALUES (
     UUID(), 
     'Administrador Principal', 
     'admin@lavanderia.com', 
-    '$2y$10$wO3l7V6.G.jE3zD5e5n/9.C1L4V0vI/1W9nE5z0O6D8m/4x3f7tP2', 
+    '$2y$10$NPk8o6YgHBOCR1rJL1PdFe8P/eSU.dzwiL5.kr/FnOOHYyPGDl/q2', 
     'ADMINISTRADOR', 
     'ACTIVO'
 );
