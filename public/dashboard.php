@@ -14,6 +14,10 @@ if (!$auth->checkAuth()) {
     exit;
 }
 
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+
 if (isset($_GET['logout'])) {
     $auth->logout();
     header("Location: login.php");

@@ -6,8 +6,18 @@ require_once __DIR__ . '/../src/modules/auth/AuthService.php';
 use App\Config\Database;
 use App\Modules\Auth\AuthService;
 
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+
 $db = (new Database())->getConnection();
 $auth = new AuthService($db);
+
+// Si ya tiene sesión activa, redirigir automáticamente al dashboard
+if ($auth->checkAuth()) {
+    header("Location: dashboard.php");
+    exit;
+}
 
 $error = '';
 
@@ -61,5 +71,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </form>
         </div>
     </div>
+    <script>
+        // Prevenir carga desde la memoria caché del navegador al presionar atrás
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        });
+    </script>
 </body>
 </html>
