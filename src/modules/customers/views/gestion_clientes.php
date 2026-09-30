@@ -20,58 +20,10 @@ if (!$auth->checkAuth()) {
 
 $mensaje = "";
 $error = "";
-$modo = $_GET['modo'] ?? 'lista'; // lista | editar
-$clienteEditar = null;
 
 // Caso de uso: BuscarCliente
 $busqueda = $_GET['buscar'] ?? '';
 $clientes = $busqueda ? $clienteModel->buscar($busqueda) : $clienteModel->obtenerTodos();
-
-// Caso de uso: RegistrarCliente (Admins y Cajeros)
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $action = $_POST['action'] ?? '';
-
-    if ($action === 'crear') {
-        $clienteModel->nombre = trim($_POST['nombre']);
-        $clienteModel->telefono = trim($_POST['telefono']);
-        $clienteModel->whatsapp_disponible = isset($_POST['whatsapp_disponible']) ? true : false;
-        $clienteModel->correo = trim($_POST['correo']) ?: null;
-        $clienteModel->direccion = trim($_POST['direccion']) ?: null;
-        $clienteModel->observaciones = trim($_POST['observaciones']) ?: null;
-        $clienteModel->estado = 'ACTIVO';
-
-        if ($clienteModel->crear()) {
-            $mensaje = "Cliente registrado exitosamente.";
-        } else {
-            $error = "Error al registrar el cliente.";
-        }
-        $clientes = $clienteModel->obtenerTodos();
-    }
-
-    // Caso de uso: ActualizarCliente
-    if ($action === 'actualizar') {
-        $clienteModel->id = $_POST['id'];
-        $clienteModel->nombre = trim($_POST['nombre']);
-        $clienteModel->telefono = trim($_POST['telefono']);
-        $clienteModel->whatsapp_disponible = isset($_POST['whatsapp_disponible']) ? true : false;
-        $clienteModel->correo = trim($_POST['correo']) ?: null;
-        $clienteModel->direccion = trim($_POST['direccion']) ?: null;
-        $clienteModel->observaciones = trim($_POST['observaciones']) ?: null;
-
-        if ($clienteModel->actualizar()) {
-            $mensaje = "Cliente actualizado correctamente.";
-        } else {
-            $error = "Error al actualizar el cliente.";
-        }
-        $modo = 'lista';
-        $clientes = $clienteModel->obtenerTodos();
-    }
-}
-
-// Cargar datos para edición
-if ($modo === 'editar' && isset($_GET['id'])) {
-    $clienteEditar = $clienteModel->obtenerPorId($_GET['id']);
-}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -90,12 +42,9 @@ if ($modo === 'editar' && isset($_GET['id'])) {
         .badge-no-wp { background: rgba(148,163,184,0.1); color: var(--text-muted); border: 1px solid var(--border); }
         .search-bar { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; }
         .search-bar input { flex: 1; }
-        .btn-sm { padding: 0.4rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; }
+        .btn-sm { padding: 0.4rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; text-decoration: none; display: inline-flex; align-items: center; }
         .btn-edit { background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
-        .btn-edit:hover { background: rgba(59,130,246,0.3); }
-        .checkbox-group { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
-        .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; accent-color: #25d366; cursor: pointer; }
-        .checkbox-group label { color: var(--text-main); cursor: pointer; font-size: 0.95rem; }
+        .btn-edit:hover { background: rgba(59,130,246,0.3); color: #fff; }
     </style>
 </head>
 <body>
@@ -105,18 +54,39 @@ if ($modo === 'editar' && isset($_GET['id'])) {
         <nav>
             <a href="../../../../public/dashboard.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Dashboard</a>
             <a href="../../../../src/modules/catalog/views/gestion_productos.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Catálogo de Productos</a>
-            <a href="#" style="display:block;color:var(--primary);font-weight:600;text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Clientes</a>
+            <div class="menu-dropdown">
+                <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-clientes')" style="display:flex;justify-content:space-between;align-items:center;color:var(--primary);font-weight:600;text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
+                    <span>Clientes</span>
+                    <span style="font-size:0.75rem;">▾</span>
+                </a>
+                <div id="submenu-clientes" class="submenu open">
+                    <a href="cliente_registro.php">Registro</a>
+                    <a href="gestion_clientes.php" style="color:var(--primary);font-weight:600;">Listado</a>
+                </div>
+            </div>
             <?php if($auth->isAdmin()): ?>
-            <a href="../../../../src/modules/auth/views/gestion_usuarios.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Usuarios y Roles</a>
+            <div class="menu-dropdown">
+                <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-usuarios')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
+                    <span>Usuarios y Roles</span>
+                    <span style="font-size:0.75rem;">▾</span>
+                </a>
+                <div id="submenu-usuarios" class="submenu">
+                    <a href="../../../../src/modules/auth/views/usuario_alta.php">Altas</a>
+                    <a href="../../../../src/modules/auth/views/gestion_usuarios.php">Listado</a>
+                </div>
+            </div>
             <?php endif; ?>
             <a href="../../../../public/dashboard.php?logout=1" style="display:block;color:#f87171;text-decoration:none;padding:0.75rem 0;margin-top:2rem;">Cerrar Sesión</a>
         </nav>
     </aside>
 
     <main class="main-content">
-        <header style="margin-bottom: 2rem;">
-            <h1 style="font-size: 2rem;">Clientes</h1>
-            <p style="color: var(--text-muted);">Registro y gestión de clientes del sistema.</p>
+        <header style="margin-bottom: 2.5rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 style="font-size: 2rem;">Clientes</h1>
+                <p style="color: var(--text-muted);">Listado y búsqueda de clientes registrados.</p>
+            </div>
+            <a href="cliente_registro.php" class="btn-primary" style="text-decoration:none; display:inline-block; width:auto; padding:0.6rem 1.25rem; font-size:0.9rem;">➕ Nuevo Cliente</a>
         </header>
 
         <?php if ($mensaje): ?>
@@ -128,75 +98,10 @@ if ($modo === 'editar' && isset($_GET['id'])) {
             <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
         <?php endif; ?>
 
-        <div style="display: flex; flex-direction: column; gap: 2rem;">
-
-            <!-- Formulario Nuevo / Editar -->
-            <div class="auth-card" style="width:100%;max-width:100%;padding:2rem;">
-                <h3 style="margin-bottom:1.5rem;">
-                    <?= $modo === 'editar' ? '✏️ Editar Cliente' : '➕ Nuevo Cliente' ?>
-                </h3>
-                <form method="POST">
-                    <input type="hidden" name="action" value="<?= $modo === 'editar' ? 'actualizar' : 'crear' ?>">
-                    <?php if ($modo === 'editar' && $clienteEditar): ?>
-                        <input type="hidden" name="id" value="<?= htmlspecialchars($clienteEditar['id']) ?>">
-                    <?php endif; ?>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div class="form-group">
-                            <label class="form-label">Nombre completo *</label>
-                            <input type="text" name="nombre" class="form-control" required
-                                value="<?= htmlspecialchars($clienteEditar['nombre'] ?? '') ?>"
-                                placeholder="Ej: María García">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Teléfono *</label>
-                            <input type="tel" name="telefono" class="form-control" required
-                                value="<?= htmlspecialchars($clienteEditar['telefono'] ?? '') ?>"
-                                placeholder="Ej: 55 1234 5678">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Correo electrónico</label>
-                            <input type="email" name="correo" class="form-control"
-                                value="<?= htmlspecialchars($clienteEditar['correo'] ?? '') ?>"
-                                placeholder="Opcional">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Dirección</label>
-                            <input type="text" name="direccion" class="form-control"
-                                value="<?= htmlspecialchars($clienteEditar['direccion'] ?? '') ?>"
-                                placeholder="Opcional">
-                        </div>
-                        <div class="form-group" style="grid-column: 1 / -1;">
-                            <label class="form-label">Observaciones</label>
-                            <input type="text" name="observaciones" class="form-control"
-                                value="<?= htmlspecialchars($clienteEditar['observaciones'] ?? '') ?>"
-                                placeholder="Notas adicionales del cliente...">
-                        </div>
-                        <!-- Regla de Negocio: WhatsApp flag -->
-                        <div class="form-group" style="grid-column: 1 / -1;">
-                            <label class="form-label">Notificaciones</label>
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="whatsapp" name="whatsapp_disponible" value="1"
-                                    <?= (!empty($clienteEditar) && $clienteEditar['whatsapp_disponible']) ? 'checked' : '' ?>>
-                                <label for="whatsapp">📱 El cliente acepta notificaciones por <strong>WhatsApp</strong></label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="display:flex;gap:1rem;margin-top:0.5rem;">
-                        <button type="submit" class="btn-primary" style="padding:0.75rem;">
-                            <?= $modo === 'editar' ? 'Guardar Cambios' : 'Registrar Cliente' ?>
-                        </button>
-                        <?php if ($modo === 'editar'): ?>
-                            <a href="?" style="padding:0.75rem 1.5rem;border-radius:12px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);display:inline-flex;align-items:center;">Cancelar</a>
-                        <?php endif; ?>
-                    </div>
-                </form>
-            </div>
-
+        <div>
             <!-- Lista + Búsqueda -->
             <div class="auth-card" style="width:100%;max-width:100%;padding:2rem;">
-                <h3>Clientes Registrados</h3>
+                <h3 style="margin-bottom: 0;">Clientes Registrados</h3>
 
                 <!-- Caso de uso: BuscarCliente -->
                 <form method="GET" class="search-bar" style="margin-top:1.5rem;">
@@ -205,7 +110,7 @@ if ($modo === 'editar' && isset($_GET['id'])) {
                         value="<?= htmlspecialchars($busqueda) ?>">
                     <button type="submit" class="btn-primary" style="width:auto;padding:0.875rem 1.5rem;">Buscar</button>
                     <?php if ($busqueda): ?>
-                        <a href="?" style="padding:0.875rem 1.5rem;border-radius:12px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);display:inline-flex;align-items:center;white-space:nowrap;">✕ Limpiar</a>
+                        <a href="gestion_clientes.php" style="padding:0.875rem 1.5rem;border-radius:12px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);display:inline-flex;align-items:center;white-space:nowrap;">✕ Limpiar</a>
                     <?php endif; ?>
                 </form>
 
@@ -217,7 +122,7 @@ if ($modo === 'editar' && isset($_GET['id'])) {
                             <th>WhatsApp</th>
                             <th>Correo</th>
                             <th>Registro</th>
-                            <th>Acción</th>
+                            <th style="text-align: right;">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -240,8 +145,8 @@ if ($modo === 'editar' && isset($_GET['id'])) {
                             </td>
                             <td style="font-size:0.85rem;color:var(--text-muted);"><?= htmlspecialchars($c['correo'] ?? '—') ?></td>
                             <td style="font-size:0.8rem;color:var(--text-muted);"><?= date('d/m/Y', strtotime($c['fecha_registro'])) ?></td>
-                            <td>
-                                <a href="?modo=editar&id=<?= $c['id'] ?>" class="btn-sm btn-edit">Editar</a>
+                            <td style="text-align: right;">
+                                <a href="cliente_registro.php?modo=editar&id=<?= $c['id'] ?>" class="btn-sm btn-edit">Editar</a>
                             </td>
                         </tr>
                         <?php endforeach; endif; ?>
@@ -251,5 +156,11 @@ if ($modo === 'editar' && isset($_GET['id'])) {
         </div>
     </main>
 </div>
+    <script>
+        function toggleSubmenu(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('open');
+        }
+    </script>
 </body>
 </html>

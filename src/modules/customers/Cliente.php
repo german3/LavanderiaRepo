@@ -66,10 +66,18 @@ class Cliente {
     }
 
     public function obtenerTodos() {
-        $query = "SELECT * FROM " . $this->table_name . " ORDER BY fecha_registro DESC";
+        $query = "SELECT * FROM " . $this->table_name . " WHERE estado = 'ACTIVO' ORDER BY fecha_registro DESC";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Caso de uso: DarDeBajaCliente
+    public function desactivar($id) {
+        $query = "UPDATE " . $this->table_name . " SET estado = 'INACTIVO' WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":id", $id);
+        return $stmt->execute();
     }
 
     public function obtenerPorId($id) {

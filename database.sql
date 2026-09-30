@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS productos (
     descripcion VARCHAR(255) NOT NULL,
     tipo ENUM('NORMAL', 'SERVICIO', 'KIT') NOT NULL,
     unidad_medida ENUM('PIEZA', 'KG', 'GRAMO', 'LITRO', 'MILILITRO', 'METRO', 'SERVICIO', 'CARGA') NOT NULL,
+    stock_cantidad DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     costo DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     precio_venta DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     estado ENUM('ACTIVO', 'INACTIVO') DEFAULT 'ACTIVO',
@@ -46,6 +47,10 @@ CREATE TABLE IF NOT EXISTS productos (
     fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (usuario_registro_id) REFERENCES usuarios(id)
 );
+
+-- Migración: agregar stock_cantidad si ya existe la tabla sin esa columna
+-- Ejecutar manualmente en BD existente:
+-- ALTER TABLE productos ADD COLUMN stock_cantidad DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER unidad_medida;
 
 CREATE TABLE IF NOT EXISTS productos_kits (
     kit_id VARCHAR(36) NOT NULL,

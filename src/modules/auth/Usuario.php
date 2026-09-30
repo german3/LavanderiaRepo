@@ -70,9 +70,9 @@ class Usuario {
         $stmt->execute();
     }
 
-    // Obtener todos los usuarios
+    // Obtener todos los usuarios activos
     public function obtenerTodos() {
-        $query = "SELECT id, nombre, correo, rol, estado, ultima_actividad FROM " . $this->table_name . " ORDER BY fecha_creacion DESC";
+        $query = "SELECT id, nombre, correo, rol, estado, ultima_actividad FROM " . $this->table_name . " WHERE estado = 'ACTIVO' ORDER BY fecha_creacion DESC";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

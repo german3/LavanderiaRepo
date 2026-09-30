@@ -162,3 +162,29 @@ body {
     flex: 1;
     padding: 2rem 3rem;
 }
+
+/* Sidebar Submenu */
+.submenu {
+    display: none;
+    flex-direction: column;
+    padding-left: 1.25rem;
+    margin-top: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.submenu.open {
+    display: flex;
+}
+
+.submenu a {
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 0.4rem 0;
+    font-size: 0.9rem;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.submenu a:hover {
+    color: #60a5fa;
+    transform: translateX(4px);
+}

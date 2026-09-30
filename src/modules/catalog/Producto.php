@@ -7,7 +7,8 @@ use Exception;
 
 class Producto {
     private $conn;
-    private $table_name = "productos";
+    private $table_name      = "productos";
+    private $table_kits      = "productos_kits";
 
     public $id;
     public $codigo_barras;
@@ -15,6 +16,7 @@ class Producto {
     public $descripcion;
     public $tipo;
     public $unidad_medida;
+    public $stock_cantidad;
     public $costo;
     public $precio_venta;
     public $estado;
@@ -24,11 +26,41 @@ class Producto {
         $this->conn = $db;
     }
 
+    // Caso de uso: GenerarSKUConsecutivo
+    public function obtenerSiguienteSku() {
+        $query = "SELECT codigo_interno_sku FROM " . $this->table_name . "
+                  WHERE codigo_interno_sku REGEXP '^SKU-[0-9]+$'
+                  ORDER BY CAST(SUBSTRING(codigo_interno_sku, 5) AS UNSIGNED) DESC
+                  LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row && isset($row['codigo_interno_sku'])) {
+            $ultimo = (int) substr($row['codigo_interno_sku'], 4);
+            return 'SKU-' . str_pad($ultimo + 1, 4, '0', STR_PAD_LEFT);
+        }
+        return 'SKU-0001';
+    }
+
+    // Obtener todos los productos de tipo NORMAL (para selector de insumos en Kit)
+    public function obtenerProductosNormales() {
+        $query = "SELECT id, descripcion, unidad_medida, precio_venta
+                  FROM " . $this->table_name . "
+                  WHERE tipo = 'NORMAL' AND estado = 'ACTIVO'
+                  ORDER BY descripcion ASC";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     // Caso de uso: CrearProducto
     public function crear() {
+        $this->codigo_interno_sku = $this->obtenerSiguienteSku();
+
         $query = "INSERT INTO " . $this->table_name . " 
-                  (id, codigo_barras, codigo_interno_sku, descripcion, tipo, unidad_medida, costo, precio_venta, estado, usuario_registro_id) 
-                  VALUES (:id, :codigo_barras, :codigo_interno_sku, :descripcion, :tipo, :unidad_medida, :costo, :precio_venta, :estado, :usuario_registro_id)";
+                  (id, codigo_barras, codigo_interno_sku, descripcion, tipo, unidad_medida, stock_cantidad, costo, precio_venta, estado, usuario_registro_id) 
+                  VALUES (:id, :codigo_barras, :codigo_interno_sku, :descripcion, :tipo, :unidad_medida, :stock_cantidad, :costo, :precio_venta, :estado, :usuario_registro_id)";
 
         $stmt = $this->conn->prepare($query);
 
@@ -38,9 +70,8 @@ class Producto {
             mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
         );
 
-        // Si no hay código de barras, generamos uno interno simple
-        if(empty($this->codigo_barras)) {
-            $this->codigo_barras = "EAN" . time() . rand(100,999);
+        if (empty($this->codigo_barras)) {
+            $this->codigo_barras = "EAN" . time() . rand(100, 999);
         }
 
         $stmt->bindParam(":id", $this->id);
@@ -49,23 +80,44 @@ class Producto {
         $stmt->bindParam(":descripcion", $this->descripcion);
         $stmt->bindParam(":tipo", $this->tipo);
         $stmt->bindParam(":unidad_medida", $this->unidad_medida);
+        $stmt->bindParam(":stock_cantidad", $this->stock_cantidad);
         $stmt->bindParam(":costo", $this->costo);
         $stmt->bindParam(":precio_venta", $this->precio_venta);
         $stmt->bindParam(":estado", $this->estado);
         $stmt->bindParam(":usuario_registro_id", $this->usuario_registro_id);
 
-        if($stmt->execute()) {
+        if ($stmt->execute()) {
             return true;
         }
         return false;
     }
 
+    // Caso de uso: GuardarInsumosKit — guarda los insumos de un kit en productos_kits
+    public function guardarInsumosKit($kitId, array $insumos) {
+        // Eliminar insumos previos (si existieran)
+        $del = $this->conn->prepare("DELETE FROM " . $this->table_kits . " WHERE kit_id = :kit_id");
+        $del->bindParam(":kit_id", $kitId);
+        $del->execute();
+
+        $query = "INSERT INTO " . $this->table_kits . " (kit_id, insumo_id, cantidad_consumida, unidad)
+                  VALUES (:kit_id, :insumo_id, :cantidad, :unidad)";
+        $stmt = $this->conn->prepare($query);
+
+        foreach ($insumos as $insumo) {
+            $stmt->bindParam(":kit_id",    $kitId);
+            $stmt->bindParam(":insumo_id", $insumo['id']);
+            $stmt->bindParam(":cantidad",  $insumo['cantidad']);
+            $stmt->bindParam(":unidad",    $insumo['unidad']);
+            $stmt->execute();
+        }
+        return true;
+    }
+
     public function obtenerTodos() {
-        // Obtenemos los productos incluyendo el nombre del usuario que los registró
         $query = "SELECT p.*, u.nombre as usuario_nombre 
                   FROM " . $this->table_name . " p 
                   LEFT JOIN usuarios u ON p.usuario_registro_id = u.id 
-                  ORDER BY p.fecha_registro DESC";
+                  ORDER BY CAST(SUBSTRING(p.codigo_interno_sku, 5) AS UNSIGNED) DESC";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

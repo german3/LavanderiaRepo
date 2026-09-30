@@ -73,7 +73,16 @@ $productos = $productoModel->obtenerTodos();
                 <a href="#" style="display:block;color:var(--primary);font-weight:600;text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Catálogo de Productos</a>
                 <a href="../../../../src/modules/customers/views/gestion_clientes.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Clientes</a>
                 <?php if($auth->isAdmin()): ?>
-                <a href="../../../../src/modules/auth/views/gestion_usuarios.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Usuarios y Roles</a>
+                <div class="menu-dropdown">
+                    <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-usuarios')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
+                        <span>Usuarios y Roles</span>
+                        <span style="font-size:0.75rem;">▾</span>
+                    </a>
+                    <div id="submenu-usuarios" class="submenu">
+                        <a href="../../../../src/modules/auth/views/usuario_alta.php">Altas</a>
+                        <a href="../../../../src/modules/auth/views/gestion_usuarios.php">Listado</a>
+                    </div>
+                </div>
                 <?php endif; ?>
                 <a href="../../../../public/dashboard.php?logout=1" style="display:block;color:#f87171;text-decoration:none;padding:0.75rem 0;margin-top:2rem;">Cerrar Sesión</a>
             </nav>
@@ -196,5 +205,11 @@ $productos = $productoModel->obtenerTodos();
             </div>
         </main>
     </div>
+    <script>
+        function toggleSubmenu(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('open');
+        }
+    </script>
 </body>
 </html>
