@@ -60,6 +60,16 @@ $productos = $productoModel->obtenerTodos();
                         <a href="productos.php" style="color:var(--primary);font-weight:600;">Catálogo</a>
                     </div>
                 </div>
+                <!-- Stock -->
+                <div class="menu-dropdown">
+                    <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-stock')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
+                        <span>Stock</span>
+                        <span style="font-size:0.75rem;">▾</span>
+                    </a>
+                    <div id="submenu-stock" class="submenu">
+                        <a href="stock_entradas.php">Entradas</a>
+                    </div>
+                </div>
                 <!-- Clientes -->
                 <div class="menu-dropdown">
                     <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-clientes')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
@@ -108,13 +118,13 @@ $productos = $productoModel->obtenerTodos();
                             <th>Cantidad</th>
                             <th>Costo</th>
                             <th>Precio Venta</th>
-                            <th>Registrado por</th>
+                            <th>Unidad de Medida</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($productos)): ?>
                         <tr>
-                            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2.5rem 1rem;">
+                            <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2.5rem 1rem;">
                                 No hay elementos en el catálogo aún.
                                 <a href="productos_registro.php" style="color:var(--primary);text-decoration:none;margin-left:0.5rem;">Registrar primero →</a>
                             </td>
@@ -133,16 +143,15 @@ $productos = $productoModel->obtenerTodos();
                                     if ($p['tipo'] == 'KIT')      $badgeClass = 'badge-kit';
                                     if ($p['tipo'] == 'SERVICIO') $badgeClass = 'badge-servicio';
                                 ?>
-                                <span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($p['tipo']) ?></span><br>
-                                <small style="color: var(--text-muted); font-size: 0.75rem;"><?= htmlspecialchars($p['unidad_medida']) ?></small>
+                                <span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($p['tipo']) ?></span>
                             </td>
-                            <td style="font-weight: 600; color: <?= ($p['stock_cantidad'] <= 0) ? '#f87171' : 'var(--text-main)' ?>">
-                                <?= number_format($p['stock_cantidad'], 2) ?>
+                            <td style="font-weight: 600; color: <?= ($p['tipo'] === 'KIT') ? '#c4b5fd' : (($p['stock_cantidad'] <= 0) ? '#f87171' : 'var(--text-main)') ?>">
+                                <?= ($p['tipo'] === 'KIT') ? (number_format($p['ropa_kg'] ?? 0, 2) . ' Kg') : number_format($p['stock_cantidad'], 2) ?>
                             </td>
                             <td style="color: var(--text-muted); font-size: 0.9rem;">$<?= number_format($p['costo'], 2) ?></td>
                             <td style="font-weight: 600;">$<?= number_format($p['precio_venta'], 2) ?></td>
-                            <td style="font-size: 0.85rem; color: var(--text-muted);">
-                                <?= htmlspecialchars($p['usuario_nombre'] ?? 'Desconocido') ?>
+                            <td style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                                <?= htmlspecialchars($p['unidad_medida'] ?? '') ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>

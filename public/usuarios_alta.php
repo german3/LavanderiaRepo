@@ -61,11 +61,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
                 <div class="menu-dropdown">
                     <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-productos')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
                         <span>Productos</span>
-                        <span style="font-size:0.75rem;">&#9662;</span>
+                        <span style="font-size:0.75rem;">▾</span>
                     </a>
                     <div id="submenu-productos" class="submenu">
                         <a href="productos_registro.php">Registro</a>
-                        <a href="productos.php">Cat&aacute;logo</a>
+                        <a href="productos.php">Catálogo</a>
+                    </div>
+                </div>
+                <!-- Stock -->
+                <div class="menu-dropdown">
+                    <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-stock')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
+                        <span>Stock</span>
+                        <span style="font-size:0.75rem;">▾</span>
+                    </a>
+                    <div id="submenu-stock" class="submenu">
+                        <a href="stock_entradas.php">Entradas</a>
                     </div>
                 </div>
                 <!-- Clientes -->
@@ -126,8 +136,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
                         </div>
                         
                         <div class="form-group">
-                            <label class="form-label">Correo</label>
-                            <input type="email" name="correo" class="form-control" placeholder="admin@lavanderia.com" required>
+                            <label class="form-label">Usuario</label>
+                            <input type="text" name="correo" class="form-control" placeholder="Nombre de usuario o correo" required>
                         </div>
                         
                         <div class="form-group">

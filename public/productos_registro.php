@@ -35,17 +35,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
     } else {
         $tipo = $_POST['tipo'];
 
-        // Para Kit, unidad_medida / costo / precio fijos (no vienen del form activo)
+        // Para Kit, unidad_medida / stock_cantidad / costo fijos
         $unidadMedida  = ($tipo === 'KIT') ? 'PIEZA'  : ($_POST['unidad_medida']  ?? 'PIEZA');
         $stockCantidad = ($tipo === 'KIT') ? 0        : ($_POST['stock_cantidad'] ?? 0);
         $costo         = ($tipo === 'KIT') ? 0        : ($_POST['costo']          ?? 0);
-        $precioVenta   = ($tipo === 'KIT') ? 0        : ($_POST['precio_venta']   ?? 0);
+        $precioVenta   = floatval($_POST['precio_venta'] ?? 0);
+        $ropaKg        = ($tipo === 'KIT') ? floatval($_POST['ropa_kg'] ?? 0)     : 0;
 
         $productoModel->descripcion         = trim($_POST['descripcion'] ?? '');
         $productoModel->codigo_barras       = trim($_POST['codigo_barras'] ?? '');
         $productoModel->tipo                = $tipo;
         $productoModel->unidad_medida       = $unidadMedida;
         $productoModel->stock_cantidad      = $stockCantidad;
+        $productoModel->ropa_kg             = $ropaKg;
         $productoModel->costo               = $costo;
         $productoModel->precio_venta        = $precioVenta;
         $productoModel->estado              = 'ACTIVO';
@@ -58,6 +60,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                 $insumosIds      = $_POST['kit_insumo_id']       ?? [];
                 $insumosCant     = $_POST['kit_insumo_cantidad']  ?? [];
                 $insumosUnidades = $_POST['kit_insumo_unidad']    ?? [];
+                $insumosRopaKg   = $_POST['kit_insumo_ropa_kg']  ?? [];
 
                 foreach ($insumosIds as $i => $insumoId) {
                     if (!empty($insumoId) && isset($insumosCant[$i])) {
@@ -65,6 +68,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                             'id'       => $insumoId,
                             'cantidad' => floatval($insumosCant[$i]),
                             'unidad'   => $insumosUnidades[$i] ?? 'PIEZA',
+                            'ropa_kg'  => floatval($insumosRopaKg[$i] ?? $ropaKg),
                         ];
                     }
                 }
@@ -202,6 +206,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                 <div id="submenu-productos" class="submenu open">
                     <a href="productos_registro.php" style="color:var(--primary);font-weight:600;">Registro</a>
                     <a href="productos.php">Catálogo</a>
+                </div>
+            </div>
+            <div class="menu-dropdown">
+                <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-stock')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
+                    <span>Stock</span><span style="font-size:0.75rem;">▾</span>
+                </a>
+                <div id="submenu-stock" class="submenu">
+                    <a href="stock_entradas.php">Entradas</a>
                 </div>
             </div>
             <div class="menu-dropdown">
@@ -361,12 +373,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                             <div class="kit-unidad-label" id="kit-unidad-label">—</div>
                         </div>
 
-                        <!-- Unidad de medida (solo lectura, se llena automáticamente) -->
+                        <!-- Ropa en Kg. -->
                         <div>
-                            <label class="form-label" style="font-size:0.78rem;">Unidad de Medida</label>
-                            <input type="text" id="kit-unidad-display" class="form-control"
-                                   readonly placeholder="—"
-                                   style="background:rgba(255,255,255,0.04);color:#94a3b8;cursor:default;">
+                            <label class="form-label" style="font-size:0.78rem;">Ropa en Kg.</label>
+                            <input type="number" id="kit-inp-ropa-kg" name="ropa_kg" class="form-control"
+                                   step="0.01" min="0" value="1" placeholder="0.00">
                         </div>
                     </div>
 
@@ -401,7 +412,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
 const productosNormales = <?= $productosNormalesJson ?>;
 
 // ── Estado interno del Kit ────────────────────────────────────────
-let kitInsumos = []; // [{ id, nombre, cantidad, unidad }]
+let kitInsumos = []; // [{ id, nombre, cantidad, unidad, ropa_kg }]
 
 // ── Toggle Tipo ───────────────────────────────────────────────────
 function onTipoChange(tipo) {
@@ -413,11 +424,11 @@ function onTipoChange(tipo) {
 
     if (tipo === 'KIT') {
         kitSection.style.display = 'block';
-        // Deshabilitar campos que no aplican al Kit
+        // Deshabilitar campos que no aplican al Kit (Unidad, Cantidad y Costo directo)
         selUnidad.disabled   = true;
         inpCantidad.disabled = true;
         inpCosto.disabled    = true;
-        inpPrecio.disabled   = true;
+        inpPrecio.disabled   = false;
     } else {
         kitSection.style.display = 'none';
         selUnidad.disabled   = false;
@@ -431,16 +442,13 @@ function onTipoChange(tipo) {
 
 // ── Al seleccionar un producto en el kit, actualizar unidad ───────
 function kitOnSelectProducto(id) {
-    const displayEl = document.getElementById('kit-unidad-display');
-    const labelEl   = document.getElementById('kit-unidad-label');
+    const labelEl = document.getElementById('kit-unidad-label');
     if (!id) {
-        displayEl.value = '—';
-        labelEl.textContent = '—';
+        if (labelEl) labelEl.textContent = '—';
         return;
     }
     const prod = productosNormales.find(p => p.id === id);
-    if (prod) {
-        displayEl.value     = prod.unidad_medida;
+    if (prod && labelEl) {
         labelEl.textContent = prod.unidad_medida;
     }
 }
@@ -449,8 +457,10 @@ function kitOnSelectProducto(id) {
 function kitAgregar() {
     const sel      = document.getElementById('kit-sel-producto');
     const inpCant  = document.getElementById('kit-inp-cantidad');
+    const inpRopa  = document.getElementById('kit-inp-ropa-kg');
     const id       = sel.value;
     const cantidad = parseFloat(inpCant.value);
+    const ropaKg   = parseFloat(inpRopa ? inpRopa.value : 0) || 0;
 
     if (!id) {
         alert('Selecciona un producto antes de agregar.');
@@ -472,7 +482,8 @@ function kitAgregar() {
         id:       id,
         nombre:   prod ? prod.descripcion : id,
         cantidad: cantidad,
-        unidad:   prod ? prod.unidad_medida : '—'
+        unidad:   prod ? prod.unidad_medida : '—',
+        ropa_kg:  ropaKg
     });
 
     renderChips();
@@ -480,8 +491,8 @@ function kitAgregar() {
     // Limpiar selector
     sel.value = '';
     inpCant.value = 1;
-    document.getElementById('kit-unidad-display').value = '—';
-    document.getElementById('kit-unidad-label').textContent = '—';
+    const labelEl = document.getElementById('kit-unidad-label');
+    if (labelEl) labelEl.textContent = '—';
 }
 
 // ── Eliminar insumo del Kit ───────────────────────────────────────
@@ -524,11 +535,13 @@ document.getElementById('form-producto').addEventListener('submit', function(e) 
             alert('Un Kit debe tener al menos un insumo agregado.');
             return;
         }
+        const ropaKgGlobal = document.getElementById('kit-inp-ropa-kg') ? document.getElementById('kit-inp-ropa-kg').value : 0;
         kitInsumos.forEach((ins, i) => {
             hiddenContainer.innerHTML += `
                 <input type="hidden" name="kit_insumo_id[]"       value="${escHtml(ins.id)}">
                 <input type="hidden" name="kit_insumo_cantidad[]"  value="${ins.cantidad}">
                 <input type="hidden" name="kit_insumo_unidad[]"    value="${escHtml(ins.unidad)}">
+                <input type="hidden" name="kit_insumo_ropa_kg[]"   value="${ins.ropa_kg || ropaKgGlobal || 0}">
             `;
         });
     }

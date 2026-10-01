@@ -100,8 +100,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
                         </div>
                         
                         <div class="form-group">
-                            <label class="form-label">Correo</label>
-                            <input type="email" name="correo" class="form-control" placeholder="admin@lavanderia.com" required>
+                            <label class="form-label">Usuario</label>
+                            <input type="text" name="correo" class="form-control" placeholder="Nombre de usuario o correo" required>
                         </div>
                         
                         <div class="form-group">

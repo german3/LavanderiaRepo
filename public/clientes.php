@@ -80,11 +80,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
             <div class="menu-dropdown">
                 <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-productos')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
                     <span>Productos</span>
-                    <span style="font-size:0.75rem;">&#9662;</span>
+                    <span style="font-size:0.75rem;">▾</span>
                 </a>
                 <div id="submenu-productos" class="submenu">
                     <a href="productos_registro.php">Registro</a>
-                    <a href="productos.php">Cat&aacute;logo</a>
+                    <a href="productos.php">Catálogo</a>
+                </div>
+            </div>
+            <!-- Stock -->
+            <div class="menu-dropdown">
+                <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-stock')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
+                    <span>Stock</span>
+                    <span style="font-size:0.75rem;">▾</span>
+                </a>
+                <div id="submenu-stock" class="submenu">
+                    <a href="stock_entradas.php">Entradas</a>
                 </div>
             </div>
             <!-- Clientes -->
@@ -180,9 +190,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
                             <td style="font-size:0.85rem;color:var(--text-muted);"><?= htmlspecialchars($c['correo'] ?? '—') ?></td>
                             <td style="font-size:0.8rem;color:var(--text-muted);"><?= date('d/m/Y', strtotime($c['fecha_registro'])) ?></td>
                             <td style="text-align: right; white-space: nowrap;">
-                                    <a href="clientes_registro.php?modo=editar&id=<?= $c['id'] ?>" class="btn-sm btn-edit">Editar</a>
-                                    <button type="button" class="btn-sm btn-baja" onclick="abrirModalBaja('<?= htmlspecialchars($c['id'], ENT_QUOTES) ?>', '<?= htmlspecialchars($c['nombre'], ENT_QUOTES) ?>')">Baja</button>
-                                </td>
+                                <a href="clientes_registro.php?modo=editar&id=<?= $c['id'] ?>" class="btn-sm btn-edit" style="margin-right:0;">Editar</a>
+                            </td>
                         </tr>
                         <?php endforeach; endif; ?>
                     </tbody>
@@ -192,49 +201,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     </main>
 </div>
 
-<!-- Modal de confirmación de Baja -->
-<div id="modal-baja" class="modal-overlay" onclick="cerrarModalBaja(event)">
-    <div class="modal-box" onclick="event.stopPropagation()">
-        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem;">
-            <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(239,68,68,0.15); display: flex; align-items: center; justify-content: center; color: #f87171; font-size: 1.3rem;">⚠️</div>
-            <div>
-                <h3 style="font-size: 1.2rem; color: #fff;">Confirmar Baja</h3>
-                <p style="color: var(--text-muted); font-size: 0.85rem;">Acción de desactivación de cliente</p>
-            </div>
-        </div>
-        <p style="color: var(--text-main); font-size: 0.95rem; line-height: 1.5; margin-bottom: 1.5rem;">
-            ¿Estás seguro de que deseas dar de baja al cliente <strong id="modal-cliente-nombre" style="color: #60a5fa;"></strong>?
-            <span style="display: block; color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
-                El cliente no será eliminado de la base de datos, pero quedará marcado como inactivo y no aparecerá en el listado.
-            </span>
-        </p>
-        <form method="POST" id="form-baja">
-            <input type="hidden" name="action" value="baja">
-            <input type="hidden" name="id" id="baja-cliente-id" value="">
-            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-                <button type="button" style="background: rgba(255,255,255,0.06); color: var(--text-main); padding: 0.6rem 1.25rem; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; font-size: 0.85rem; font-weight: 600;" onclick="cerrarModalBaja()">Cancelar</button>
-                <button type="submit" class="btn-sm btn-baja" style="padding: 0.6rem 1.25rem; font-weight: 600;">Sí, dar de baja</button>
-            </div>
-        </form>
-    </div>
-</div>
-    <script>
-        function toggleSubmenu(id) {
-            const el = document.getElementById(id);
-            if (el) el.classList.toggle('open');
-        }
-
-        function abrirModalBaja(id, nombre) {
-            document.getElementById('baja-cliente-id').value = id;
-            document.getElementById('modal-cliente-nombre').textContent = nombre;
-            document.getElementById('modal-baja').classList.add('active');
-        }
-
-        function cerrarModalBaja(event) {
-            if (!event || event.target.id === 'modal-baja' || event.type === 'click') {
-                document.getElementById('modal-baja').classList.remove('active');
-            }
-        }
-    </script>
+<script>
+    function toggleSubmenu(id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('open');
+    }
+</script>
 </body>
 </html>
