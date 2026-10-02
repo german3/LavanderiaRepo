@@ -38,9 +38,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
     } else {
         $tipo = $_POST['tipo'];
 
-        // Para Kit, unidad_medida / stock_cantidad / costo fijos
+        // Para Kit/Normal/Servicio, stock_cantidad inicia en 0 (se incrementa via Entradas de Stock)
         $unidadMedida  = ($tipo === 'KIT') ? 'PIEZA'  : ($_POST['unidad_medida']  ?? 'PIEZA');
-        $stockCantidad = ($tipo === 'KIT') ? 0        : floatval($_POST['stock_cantidad'] ?? 0);
+        $stockCantidad = 0;
         $stockMinimo   = ($tipo === 'NORMAL') ? floatval($_POST['stock_minimo'] ?? 0) : 0;
         $costo         = ($tipo === 'KIT') ? 0        : floatval($_POST['costo']          ?? 0);
         $precioVenta   = floatval($_POST['precio_venta'] ?? 0);
@@ -337,25 +337,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                             <option value="SERVICIO">Servicio</option>
                         </select>
                     </div>
-                    <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label">Stock *</label>
-                        <input type="number" step="0.01" min="0" name="stock_cantidad" id="inp-cantidad"
-                               class="form-control" value="0" required>
-                    </div>
                     <div class="form-group" style="margin-bottom:0;" id="group-stock-minimo">
                         <label class="form-label">Stock Mínimo *</label>
-                        <input type="number" step="0.01" min="0" name="stock_minimo" id="inp-stock-minimo"
-                               class="form-control" value="0" required>
+                        <div class="number-input-wrapper">
+                            <input type="number" step="0.01" min="0" name="stock_minimo" id="inp-stock-minimo"
+                                   class="form-control" value="0" required>
+                            <div class="spin-buttons">
+                                <button type="button" class="spin-btn" onclick="stepNumberInput('inp-stock-minimo', 1)">▲</button>
+                                <button type="button" class="spin-btn" onclick="stepNumberInput('inp-stock-minimo', -1)">▼</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label">Costo ($) *</label>
-                        <input type="number" step="0.01" min="0" name="costo" id="inp-costo"
-                               class="form-control" value="0.00" required>
+                        <div class="number-input-wrapper">
+                            <input type="number" step="0.01" min="0" name="costo" id="inp-costo"
+                                   class="form-control" value="0.00" required>
+                            <div class="spin-buttons">
+                                <button type="button" class="spin-btn" onclick="stepNumberInput('inp-costo', 1)">▲</button>
+                                <button type="button" class="spin-btn" onclick="stepNumberInput('inp-costo', -1)">▼</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label">Precio Venta ($) *</label>
-                        <input type="number" step="0.01" min="0" name="precio_venta" id="inp-precio"
-                               class="form-control" value="0.00" required>
+                        <div class="number-input-wrapper">
+                            <input type="number" step="0.01" min="0" name="precio_venta" id="inp-precio"
+                                   class="form-control" value="0.00" required>
+                            <div class="spin-buttons">
+                                <button type="button" class="spin-btn" onclick="stepNumberInput('inp-precio', 1)">▲</button>
+                                <button type="button" class="spin-btn" onclick="stepNumberInput('inp-precio', -1)">▼</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -436,6 +449,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
 </div>
 
 <script>
+// ── Helper para incrementar/decrementar campos numéricos con diseño personalizado ──
+function stepNumberInput(id, dir) {
+    const input = document.getElementById(id);
+    if (!input || input.disabled) return;
+    const step = parseFloat(input.getAttribute('step')) || 1;
+    const min = input.hasAttribute('min') ? parseFloat(input.getAttribute('min')) : -Infinity;
+    const max = input.hasAttribute('max') ? parseFloat(input.getAttribute('max')) : Infinity;
+    let val = parseFloat(input.value) || 0;
+    val = val + (step * dir);
+    if (val < min) val = min;
+    if (val > max) val = max;
+    if (step < 1) {
+        input.value = val.toFixed(2);
+    } else {
+        input.value = val;
+    }
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 // ── Catálogo de productos normales disponibles ────────────────────
 const productosNormales = <?= $productosNormalesJson ?>;
 
@@ -446,7 +479,6 @@ let kitInsumos = []; // [{ id, nombre, cantidad, unidad, ropa_kg }]
 function onTipoChange(tipo) {
     const kitSection       = document.getElementById('kit-section');
     const selUnidad        = document.getElementById('sel-unidad');
-    const inpCantidad      = document.getElementById('inp-cantidad');
     const inpStockMinimo   = document.getElementById('inp-stock-minimo');
     const groupStockMinimo = document.getElementById('group-stock-minimo');
     const inpCosto         = document.getElementById('inp-costo');
@@ -454,10 +486,8 @@ function onTipoChange(tipo) {
 
     if (tipo === 'KIT') {
         kitSection.style.display = 'block';
-        // Deshabilitar campos que no aplican al Kit (Unidad, Cantidad, Stock Mínimo y Costo directo)
+        // Deshabilitar campos que no aplican al Kit (Unidad, Stock Mínimo y Costo directo)
         selUnidad.disabled       = true;
-        inpCantidad.disabled     = true;
-        inpCantidad.value        = '0';
         inpStockMinimo.disabled  = true;
         inpStockMinimo.required  = false;
         inpStockMinimo.value     = '0';
@@ -468,7 +498,6 @@ function onTipoChange(tipo) {
     } else if (tipo === 'SERVICIO') {
         kitSection.style.display = 'none';
         selUnidad.disabled       = false;
-        inpCantidad.disabled     = false;
         inpStockMinimo.disabled  = true;
         inpStockMinimo.required  = false;
         inpStockMinimo.value     = '0';
@@ -480,7 +509,6 @@ function onTipoChange(tipo) {
     } else { // NORMAL
         kitSection.style.display = 'none';
         selUnidad.disabled       = false;
-        inpCantidad.disabled     = false;
         inpStockMinimo.disabled  = false;
         inpStockMinimo.required  = true;
         inpCosto.disabled        = false;
