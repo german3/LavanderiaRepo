@@ -33,12 +33,13 @@ $productosNormales = $productoModel->obtenerProductosNormales();
 
 // Procesar registro de Movimiento de Stock (Entrada / Salida)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registrar_entrada') {
-    $productoId     = trim($_POST['producto_id'] ?? '');
-    $tipoMovimiento = trim($_POST['tipo_movimiento'] ?? 'ENTRADA');
-    $cantidad       = floatval($_POST['cantidad'] ?? 0);
-    $costoTotal     = floatval($_POST['costo_total'] ?? 0);
-    $costoUnit      = ($cantidad > 0 && $costoTotal > 0) ? ($costoTotal / $cantidad) : 0;
-    $motivo         = trim($_POST['motivo'] ?? '');
+    $productoId          = trim($_POST['producto_id'] ?? '');
+    $tipoMovimiento      = trim($_POST['tipo_movimiento'] ?? 'ENTRADA');
+    $cantidad            = floatval($_POST['cantidad'] ?? 0);
+    $costoTotal          = floatval($_POST['costo_total'] ?? 0);
+    $permitirEditarCosto = isset($_POST['permitir_editar_costo']) && $_POST['permitir_editar_costo'] == '1';
+    $editarCosto         = floatval($_POST['editar_costo'] ?? 0);
+    $motivo              = trim($_POST['motivo'] ?? '');
 
     if (empty($productoId) || $cantidad <= 0) {
         $error = "Selecciona un producto e ingresa una cantidad válida mayor a 0.";
@@ -53,6 +54,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
                 $error = "Producto no encontrado.";
             } else {
                 $stockAntes = floatval($prodData['stock_cantidad']);
+                $costoActual = floatval($prodData['costo'] ?? 0);
 
                 if ($tipoMovimiento === 'SALIDA') {
                     if ($stockAntes < $cantidad) {
@@ -71,7 +73,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
                                 'producto_descripcion' => $prodData['descripcion'],
                                 'tipo_producto'        => $prodData['tipo'],
                                 'cantidad'             => $cantidad,
-                                'costo_unitario'      => $costoUnit > 0 ? $costoUnit : floatval($prodData['costo']),
+                                'costo_unitario'       => $costoActual,
                                 'stock_antes'          => $stockAntes,
                                 'stock_despues'        => $stockDespues,
                                 'motivo'               => $motivo ?: 'Salida de inventario',
@@ -87,10 +89,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
                     }
                 } else {
                     // ENTRADA
-                    $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad + :cant, costo = IF(:costo > 0, :costo, costo) WHERE id = :id");
-                    $stmt->bindParam(':cant', $cantidad);
-                    $stmt->bindParam(':costo', $costoUnit);
-                    $stmt->bindParam(':id', $productoId);
+                    $nuevoCostoUnitario = ($permitirEditarCosto && $editarCosto >= 0) ? $editarCosto : $costoActual;
+
+                    if ($permitirEditarCosto && $editarCosto >= 0) {
+                        $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad + :cant, costo = :costo WHERE id = :id");
+                        $stmt->bindParam(':cant', $cantidad);
+                        $stmt->bindParam(':costo', $nuevoCostoUnitario);
+                        $stmt->bindParam(':id', $productoId);
+                    } else {
+                        $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad + :cant WHERE id = :id");
+                        $stmt->bindParam(':cant', $cantidad);
+                        $stmt->bindParam(':id', $productoId);
+                    }
 
                     if ($stmt->execute()) {
                         $stockDespues = $stockAntes + $cantidad;
@@ -101,7 +111,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
                             'producto_descripcion' => $prodData['descripcion'],
                             'tipo_producto'        => $prodData['tipo'],
                             'cantidad'             => $cantidad,
-                            'costo_unitario'      => $costoUnit > 0 ? $costoUnit : floatval($prodData['costo']),
+                            'costo_unitario'       => $nuevoCostoUnitario,
                             'stock_antes'          => $stockAntes,
                             'stock_despues'        => $stockDespues,
                             'motivo'               => $motivo ?: 'Entrada de inventario',
@@ -110,6 +120,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
                         ]);
 
                         $mensaje = "Entrada de stock registrada exitosamente (+" . number_format($cantidad, 2) . ").";
+                        if ($permitirEditarCosto && $editarCosto >= 0) {
+                            $mensaje .= " El costo por unidad fue actualizado a $" . number_format($nuevoCostoUnitario, 2) . ".";
+                        }
                         $productosNormales = $productoModel->obtenerProductosNormales();
                     } else {
                         $error = "No se pudo registrar la entrada de stock.";
@@ -164,64 +177,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 </head>
 <body>
 <div class="app-container">
-    <aside class="sidebar">
-        <h2 style="font-size: 1.25rem; color: #fff; margin-bottom: 2rem;">Lavandería App</h2>
-        <nav>
-            <a href="dashboard.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Dashboard</a>
-            
-            <!-- Productos -->
-            <div class="menu-dropdown">
-                <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-productos')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                    <span>Productos</span>
-                    <span style="font-size:0.75rem;">▾</span>
-                </a>
-                <div id="submenu-productos" class="submenu">
-                    <a href="productos_registro.php">Registro</a>
-                    <a href="productos.php">Catálogo</a>
-                </div>
-            </div>
-
-            <!-- Inventario -->
-            <div class="menu-dropdown">
-                <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-stock')" style="display:flex;justify-content:space-between;align-items:center;color:var(--primary);font-weight:600;text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                    <span>Inventario</span>
-                    <span style="font-size:0.75rem;">▾</span>
-                </a>
-                <div id="submenu-stock" class="submenu open">
-                    <a href="stock_entradas.php" style="color:var(--primary);font-weight:600;">Entradas / Salidas</a>
-                    <a href="historial.php">Historial</a>
-                </div>
-            </div>
-
-            <!-- Clientes -->
-            <div class="menu-dropdown">
-                <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-clientes')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                    <span>Clientes</span>
-                    <span style="font-size:0.75rem;">▾</span>
-                </a>
-                <div id="submenu-clientes" class="submenu">
-                    <a href="clientes_registro.php">Registro</a>
-                    <a href="clientes.php">Listado</a>
-                </div>
-            </div>
-
-            <?php if($auth->isAdmin()): ?>
-            <!-- Usuarios y Roles -->
-            <div class="menu-dropdown">
-                <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-usuarios')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                    <span>Usuarios y Roles</span>
-                    <span style="font-size:0.75rem;">▾</span>
-                </a>
-                <div id="submenu-usuarios" class="submenu">
-                    <a href="usuarios_alta.php">Altas</a>
-                    <a href="usuarios.php">Listado</a>
-                </div>
-            </div>
-            <?php endif; ?>
-
-            <a href="dashboard.php?logout=1" style="display:block;color:#f87171;text-decoration:none;padding:0.75rem 0;margin-top:2rem;">Cerrar Sesión</a>
-        </nav>
-    </aside>
+        <?php $activePage = 'stock_entradas'; require_once __DIR__ . '/partials/sidebar.php'; ?>
 
     <main class="main-content">
         <header style="margin-bottom: 2.5rem; display: flex; justify-content: space-between; align-items: center;">
@@ -411,6 +367,18 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                 </select>
             </div>
 
+            <!-- Campo Editar Costo (Disponible solo cuando Tipo Movimiento == ENTRADA) -->
+            <div id="container-editar-costo" style="margin-bottom: 1.15rem; background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border); border-radius: 12px; padding: 0.85rem 1rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <label for="chk-editar-costo" style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none;">
+                        <input type="checkbox" name="permitir_editar_costo" id="chk-editar-costo" value="1" onchange="toggleEditarCosto()" style="width: 1.1rem; height: 1.1rem; accent-color: var(--primary); cursor: pointer;">
+                        <span>Editar Costo ($)</span>
+                    </label>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Actualizar costo por unidad del insumo</span>
+                </div>
+                <input type="number" step="0.01" min="0" name="editar_costo" id="entrada-editar-costo" class="form-control" placeholder="0.00" disabled oninput="calcularCostoTotal()">
+            </div>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.15rem;">
                 <div class="form-group" style="margin-bottom: 0;">
                     <label class="form-label" id="label-cantidad">Cantidad a Recibir *</label>
@@ -418,7 +386,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                 </div>
                 <div class="form-group" style="margin-bottom: 0;" id="group-costo-total">
                     <label class="form-label" id="label-costo">Costo Total ($)</label>
-                    <input type="number" step="0.01" min="0" name="costo_total" id="entrada-costo-total" class="form-control" placeholder="0.00">
+                    <input type="number" step="0.01" min="0" name="costo_total" id="entrada-costo-total" class="form-control" placeholder="0.00" readonly>
                 </div>
             </div>
 
@@ -441,21 +409,59 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         if (el) el.classList.toggle('open');
     }
 
+    function toggleEditarCosto() {
+        const chk = document.getElementById('chk-editar-costo');
+        const inpEditar = document.getElementById('entrada-editar-costo');
+        const selProd = document.getElementById('entrada-producto-id');
+        const selectedOption = selProd ? selProd.options[selProd.selectedIndex] : null;
+        const costoBase = selectedOption ? (parseFloat(selectedOption.getAttribute('data-costo')) || 0) : 0;
+
+        if (chk && chk.checked) {
+            if (inpEditar) {
+                inpEditar.disabled = false;
+                if (!inpEditar.value || parseFloat(inpEditar.value) <= 0) {
+                    inpEditar.value = costoBase > 0 ? costoBase.toFixed(2) : '';
+                }
+                inpEditar.focus();
+            }
+        } else {
+            if (inpEditar) {
+                inpEditar.disabled = true;
+                inpEditar.value = costoBase > 0 ? costoBase.toFixed(2) : '0.00';
+            }
+        }
+        calcularCostoTotal();
+    }
+
     function calcularCostoTotal() {
         const tipo = document.getElementById('entrada-tipo-movimiento').value;
         const selProd = document.getElementById('entrada-producto-id');
         const inpCant = document.getElementById('entrada-cantidad');
         const inpCostoTotal = document.getElementById('entrada-costo-total');
         const tagCostoUnit = document.getElementById('tag-costo-unitario');
+        const chkEditar = document.getElementById('chk-editar-costo');
+        const inpEditar = document.getElementById('entrada-editar-costo');
 
-        const selectedOption = selProd.options[selProd.selectedIndex];
-        const costoUnit = selectedOption ? (parseFloat(selectedOption.getAttribute('data-costo')) || 0) : 0;
+        const selectedOption = selProd ? selProd.options[selProd.selectedIndex] : null;
+        const costoBase = selectedOption ? (parseFloat(selectedOption.getAttribute('data-costo')) || 0) : 0;
         const unidad = selectedOption ? (selectedOption.getAttribute('data-unidad') || '') : '';
         const cant = parseFloat(inpCant.value) || 0;
 
+        let costoAplicar = costoBase;
+
+        if (chkEditar && chkEditar.checked && inpEditar && !inpEditar.disabled) {
+            const valCustom = parseFloat(inpEditar.value);
+            if (!isNaN(valCustom) && valCustom >= 0) {
+                costoAplicar = valCustom;
+            }
+        } else if (inpEditar && inpEditar.disabled) {
+            inpEditar.value = selectedOption && selectedOption.value ? (costoBase > 0 ? costoBase.toFixed(2) : '0.00') : '';
+        }
+
         if (selectedOption && selectedOption.value) {
             if (tagCostoUnit) {
-                tagCostoUnit.innerHTML = `💵 Costo por Unidad: <strong>$${costoUnit.toFixed(2)}</strong>${unidad ? ' <span style="opacity:0.8;font-weight:normal;">/ ' + unidad + '</span>' : ''}`;
+                const esEditado = (chkEditar && chkEditar.checked && costoAplicar !== costoBase);
+                tagCostoUnit.innerHTML = `💵 Costo por Unidad: <strong>$${costoAplicar.toFixed(2)}</strong>${esEditado ? ' <span style="color:#f59e0b;font-size:0.75rem;font-weight:bold;">(Editado)</span>' : ''}${unidad ? ' <span style="opacity:0.8;font-weight:normal;">/ ' + unidad + '</span>' : ''}`;
                 tagCostoUnit.style.display = 'inline-flex';
             }
         } else {
@@ -469,9 +475,9 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             return;
         }
 
-        if (cant > 0 && costoUnit > 0) {
-            inpCostoTotal.value = (cant * costoUnit).toFixed(2);
-        } else if (cant === 0) {
+        if (cant > 0 && costoAplicar > 0) {
+            inpCostoTotal.value = (cant * costoAplicar).toFixed(2);
+        } else {
             inpCostoTotal.value = '0.00';
         }
     }
@@ -484,6 +490,9 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         const inpMotivo = document.getElementById('entrada-motivo');
         const groupCosto = document.getElementById('group-costo-total');
         const btnGuardar = document.getElementById('btn-guardar-movimiento');
+        const containerEditar = document.getElementById('container-editar-costo');
+        const chkEditar = document.getElementById('chk-editar-costo');
+        const inpEditar = document.getElementById('entrada-editar-costo');
 
         if (tipo === 'SALIDA') {
             if (titulo) titulo.textContent = 'Registrar Salida';
@@ -498,6 +507,12 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             if (groupCosto) groupCosto.style.opacity = '0.4';
             if (btnGuardar) {
                 btnGuardar.textContent = 'Guardar Salida';
+            }
+            if (containerEditar) containerEditar.style.display = 'none';
+            if (chkEditar) chkEditar.checked = false;
+            if (inpEditar) {
+                inpEditar.disabled = true;
+                inpEditar.value = '';
             }
             calcularCostoTotal();
         } else {
@@ -514,6 +529,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             if (btnGuardar) {
                 btnGuardar.textContent = 'Guardar Entrada';
             }
+            if (containerEditar) containerEditar.style.display = 'block';
             calcularCostoTotal();
         }
     }
@@ -523,6 +539,13 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         document.getElementById('entrada-cantidad').value = '';
         document.getElementById('entrada-costo-total').value = '0.00';
         document.getElementById('entrada-motivo').value = '';
+        const chkEditar = document.getElementById('chk-editar-costo');
+        const inpEditar = document.getElementById('entrada-editar-costo');
+        if (chkEditar) chkEditar.checked = false;
+        if (inpEditar) {
+            inpEditar.disabled = true;
+            inpEditar.value = '';
+        }
         if (productoId) {
             document.getElementById('entrada-producto-id').value = productoId;
         } else {
@@ -686,5 +709,6 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         renderInvPagina(1);
     });
 </script>
+<script src="js/sidebar.js"></script>
 </body>
 </html>

@@ -80,62 +80,7 @@ $movimientosJson = json_encode($movimientos);
 </head>
 <body>
     <div class="app-container">
-        <aside class="sidebar">
-            <h2 style="font-size: 1.25rem; color: #fff; margin-bottom: 2rem;">Lavandería App</h2>
-            <nav>
-                <a href="dashboard.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Dashboard</a>
-                
-                <!-- Productos -->
-                <div class="menu-dropdown">
-                    <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-productos')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                        <span>Productos</span>
-                        <span style="font-size:0.75rem;">▾</span>
-                    </a>
-                    <div id="submenu-productos" class="submenu">
-                        <a href="productos_registro.php">Registro</a>
-                        <a href="productos.php">Catálogo</a>
-                    </div>
-                </div>
-
-                <!-- Inventario -->
-                <div class="menu-dropdown">
-                    <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-stock')" style="display:flex;justify-content:space-between;align-items:center;color:var(--primary);font-weight:600;text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                        <span>Inventario</span>
-                        <span style="font-size:0.75rem;">▾</span>
-                    </a>
-                    <div id="submenu-stock" class="submenu open">
-                        <a href="stock_entradas.php">Entradas / Salidas</a>
-                        <a href="historial.php" style="color:var(--primary);font-weight:600;">Historial</a>
-                    </div>
-                </div>
-
-                <!-- Clientes -->
-                <div class="menu-dropdown">
-                    <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-clientes')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                        <span>Clientes</span>
-                        <span style="font-size:0.75rem;">▾</span>
-                    </a>
-                    <div id="submenu-clientes" class="submenu">
-                        <a href="clientes_registro.php">Registro</a>
-                        <a href="clientes.php">Listado</a>
-                    </div>
-                </div>
-
-                <?php if($auth->isAdmin()): ?>
-                <!-- Usuarios y Roles -->
-                <div class="menu-dropdown">
-                    <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-usuarios')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                        <span>Usuarios y Roles</span>
-                        <span style="font-size:0.75rem;">▾</span>
-                    </a>
-                    <div id="submenu-usuarios" class="submenu">
-                        <a href="usuarios_alta.php">Altas</a>
-                        <a href="usuarios.php">Listado de Usuarios</a>
-                    </div>
-                </div>
-                <?php endif; ?>
-            </nav>
-        </aside>
+        <?php $activePage = 'historial'; require_once __DIR__ . '/partials/sidebar.php'; ?>
 
         <main class="main-content">
             <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem;">
@@ -452,5 +397,6 @@ $movimientosJson = json_encode($movimientos);
         // Initial render
         applySort();
     </script>
+    <script src="js/sidebar.js"></script>
 </body>
 </html>

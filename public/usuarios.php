@@ -169,56 +169,7 @@ $usuarios = $usuarioModel->obtenerTodos();
 </head>
 <body>
     <div class="app-container">
-        <aside class="sidebar">
-            <h2 style="font-size: 1.25rem; color: #fff; margin-bottom: 2rem;">Lavandería App</h2>
-            <nav>
-                <a href="dashboard.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Dashboard</a>
-                <!-- Productos -->
-                <div class="menu-dropdown">
-                    <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-productos')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                        <span>Productos</span>
-                        <span style="font-size:0.75rem;">▾</span>
-                    </a>
-                    <div id="submenu-productos" class="submenu">
-                        <a href="productos_registro.php">Registro</a>
-                        <a href="productos.php">Catálogo</a>
-                    </div>
-                </div>
-                <!-- Inventario -->
-                <div class="menu-dropdown">
-                    <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-stock')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                        <span>Inventario</span>
-                        <span style="font-size:0.75rem;">▾</span>
-                    </a>
-                    <div id="submenu-stock" class="submenu">
-                        <a href="stock_entradas.php">Entradas / Salidas</a>
-                        <a href="historial.php">Historial</a>
-                    </div>
-                </div>
-                <!-- Clientes -->
-                <div class="menu-dropdown">
-                    <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-clientes')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                        <span>Clientes</span>
-                        <span style="font-size:0.75rem;">▾</span>
-                    </a>
-                    <div id="submenu-clientes" class="submenu">
-                        <a href="clientes_registro.php">Registro</a>
-                        <a href="clientes.php">Listado</a>
-                    </div>
-                </div>
-                <div class="menu-dropdown">
-                    <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-usuarios')" style="display:flex;justify-content:space-between;align-items:center;color:var(--primary);font-weight:600;text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                        <span>Usuarios y Roles</span>
-                        <span style="font-size:0.75rem;">▾</span>
-                    </a>
-                    <div id="submenu-usuarios" class="submenu open">
-                        <a href="usuarios_alta.php">Altas</a>
-                        <a href="usuarios.php" style="color:var(--primary);font-weight:600;">Listado</a>
-                    </div>
-                </div>
-                <a href="dashboard.php?logout=1" style="display:block;color:#f87171;text-decoration:none;padding:0.75rem 0;margin-top:2rem;">Cerrar Sesión</a>
-            </nav>
-        </aside>
+        <?php $activePage = 'usuarios'; require_once __DIR__ . '/partials/sidebar.php'; ?>
         
         <main class="main-content">
             <header style="margin-bottom: 2.5rem; display: flex; justify-content: space-between; align-items: center;">
@@ -722,5 +673,6 @@ $usuarios = $usuarioModel->obtenerTodos();
             renderUsrPagina(1);
         });
     </script>
+    <script src="js/sidebar.js"></script>
 </body>
 </html>

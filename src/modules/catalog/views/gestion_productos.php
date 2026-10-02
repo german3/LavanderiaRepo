@@ -67,7 +67,7 @@ $productos = $productoModel->obtenerTodos();
 <body>
     <div class="app-container">
         <aside class="sidebar">
-            <h2 style="font-size: 1.25rem; color: #fff; margin-bottom: 2rem;">Lavandería App</h2>
+            <a href="../../../../public/dashboard.php" style="display:block;margin-bottom:2rem;text-align:center;"><img src="../../../../public/img/Logo.jpeg" alt="Lavandería Vera" style="max-width:100%;height:auto;max-height:70px;"></a>
             <nav>
                 <a href="../../../../public/dashboard.php" style="display:block;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Dashboard</a>
                 <a href="#" style="display:block;color:var(--primary);font-weight:600;text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);">Catálogo de Productos</a>
