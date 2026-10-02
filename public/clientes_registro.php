@@ -117,14 +117,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <a href="productos.php">Catálogo</a>
                 </div>
             </div>
-            <!-- Stock -->
+            <!-- Inventario -->
             <div class="menu-dropdown">
                 <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-stock')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                    <span>Stock</span>
+                    <span>Inventario</span>
                     <span style="font-size:0.75rem;">▾</span>
                 </a>
                 <div id="submenu-stock" class="submenu">
-                    <a href="stock_entradas.php">Entradas</a>
+                    <a href="stock_entradas.php">Entradas / Salidas</a>
+                    <a href="historial.php">Historial</a>
                 </div>
             </div>
             <!-- Clientes -->

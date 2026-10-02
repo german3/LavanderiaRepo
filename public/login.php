@@ -22,7 +22,7 @@ if ($auth->checkAuth()) {
 $error = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $correo = $_POST['correo'] ?? '';
+    $correo = trim($_POST['correo'] ?? '');
     $password = $_POST['password'] ?? '';
 
     if ($auth->login($correo, $password)) {
@@ -58,8 +58,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             <form method="POST" action="">
                 <div class="form-group">
-                    <label class="form-label" for="correo">Correo Electrónico</label>
-                    <input type="email" id="correo" name="correo" class="form-control" required autofocus placeholder="ejemplo@lavanderia.com">
+                    <label class="form-label" for="correo">Usuario o Correo Electrónico</label>
+                    <input type="text" id="correo" name="correo" class="form-control" required autofocus placeholder="Usuario o correo electrónico">
                 </div>
                 
                 <div class="form-group">

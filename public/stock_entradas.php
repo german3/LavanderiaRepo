@@ -3,14 +3,17 @@ require_once __DIR__ . '/../src/config/Database.php';
 require_once __DIR__ . '/../src/modules/auth/Usuario.php';
 require_once __DIR__ . '/../src/modules/auth/AuthService.php';
 require_once __DIR__ . '/../src/modules/catalog/Producto.php';
+require_once __DIR__ . '/../src/modules/catalog/Historial.php';
 
 use App\Config\Database;
 use App\Modules\Auth\AuthService;
 use App\Modules\Catalog\Producto;
+use App\Modules\Catalog\Historial;
 
 $db = (new Database())->getConnection();
 $auth = new AuthService($db);
 $productoModel = new Producto($db);
+$historialModel = new Historial($db);
 
 // Middleware de autenticación
 if (!$auth->checkAuth()) {
@@ -28,28 +31,90 @@ $error = "";
 // Obtener productos disponibles para entradas (NORMAL)
 $productosNormales = $productoModel->obtenerProductosNormales();
 
-// Procesar registro de Entrada de Stock
+// Procesar registro de Movimiento de Stock (Entrada / Salida)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registrar_entrada') {
-    $productoId = trim($_POST['producto_id'] ?? '');
-    $cantidad   = floatval($_POST['cantidad'] ?? 0);
-    $costoUnit  = floatval($_POST['costo_unitario'] ?? 0);
-    $motivo     = trim($_POST['motivo'] ?? 'Compra / Entrada de Stock');
+    $productoId     = trim($_POST['producto_id'] ?? '');
+    $tipoMovimiento = trim($_POST['tipo_movimiento'] ?? 'ENTRADA');
+    $cantidad       = floatval($_POST['cantidad'] ?? 0);
+    $costoTotal     = floatval($_POST['costo_total'] ?? 0);
+    $costoUnit      = ($cantidad > 0 && $costoTotal > 0) ? ($costoTotal / $cantidad) : 0;
+    $motivo         = trim($_POST['motivo'] ?? '');
 
     if (empty($productoId) || $cantidad <= 0) {
         $error = "Selecciona un producto e ingresa una cantidad válida mayor a 0.";
     } else {
         try {
-            // Actualizar stock y costo del producto
-            $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad + :cant, costo = IF(:costo > 0, :costo, costo) WHERE id = :id");
-            $stmt->bindParam(':cant', $cantidad);
-            $stmt->bindParam(':costo', $costoUnit);
-            $stmt->bindParam(':id', $productoId);
-            
-            if ($stmt->execute()) {
-                $mensaje = "Entrada de stock registrada exitosamente (+{$cantidad}).";
-                $productosNormales = $productoModel->obtenerProductosNormales();
+            // Obtener datos del producto antes de modificarlo
+            $stmtCheck = $db->prepare("SELECT id, codigo_interno_sku, descripcion, tipo, stock_cantidad, costo FROM productos WHERE id = :id");
+            $stmtCheck->execute([':id' => $productoId]);
+            $prodData = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+            if (!$prodData) {
+                $error = "Producto no encontrado.";
             } else {
-                $error = "No se pudo registrar la entrada de stock.";
+                $stockAntes = floatval($prodData['stock_cantidad']);
+
+                if ($tipoMovimiento === 'SALIDA') {
+                    if ($stockAntes < $cantidad) {
+                        $error = "Stock insuficiente para realizar la salida. Existencias actuales: " . number_format($stockAntes, 2);
+                    } else {
+                        $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad - :cant WHERE id = :id");
+                        $stmt->bindParam(':cant', $cantidad);
+                        $stmt->bindParam(':id', $productoId);
+
+                        if ($stmt->execute()) {
+                            $stockDespues = $stockAntes - $cantidad;
+                            $historialModel->registrar([
+                                'tipo_movimiento'      => 'SALIDA STOCK',
+                                'producto_id'          => $prodData['id'],
+                                'producto_sku'         => $prodData['codigo_interno_sku'],
+                                'producto_descripcion' => $prodData['descripcion'],
+                                'tipo_producto'        => $prodData['tipo'],
+                                'cantidad'             => $cantidad,
+                                'costo_unitario'      => $costoUnit > 0 ? $costoUnit : floatval($prodData['costo']),
+                                'stock_antes'          => $stockAntes,
+                                'stock_despues'        => $stockDespues,
+                                'motivo'               => $motivo ?: 'Salida de inventario',
+                                'usuario_id'           => $_SESSION['usuario_id'] ?? null,
+                                'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
+                            ]);
+
+                            $mensaje = "Salida de stock registrada exitosamente (-" . number_format($cantidad, 2) . ").";
+                            $productosNormales = $productoModel->obtenerProductosNormales();
+                        } else {
+                            $error = "No se pudo registrar la salida de stock.";
+                        }
+                    }
+                } else {
+                    // ENTRADA
+                    $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad + :cant, costo = IF(:costo > 0, :costo, costo) WHERE id = :id");
+                    $stmt->bindParam(':cant', $cantidad);
+                    $stmt->bindParam(':costo', $costoUnit);
+                    $stmt->bindParam(':id', $productoId);
+
+                    if ($stmt->execute()) {
+                        $stockDespues = $stockAntes + $cantidad;
+                        $historialModel->registrar([
+                            'tipo_movimiento'      => 'ENTRADA STOCK',
+                            'producto_id'          => $prodData['id'],
+                            'producto_sku'         => $prodData['codigo_interno_sku'],
+                            'producto_descripcion' => $prodData['descripcion'],
+                            'tipo_producto'        => $prodData['tipo'],
+                            'cantidad'             => $cantidad,
+                            'costo_unitario'      => $costoUnit > 0 ? $costoUnit : floatval($prodData['costo']),
+                            'stock_antes'          => $stockAntes,
+                            'stock_despues'        => $stockDespues,
+                            'motivo'               => $motivo ?: 'Entrada de inventario',
+                            'usuario_id'           => $_SESSION['usuario_id'] ?? null,
+                            'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
+                        ]);
+
+                        $mensaje = "Entrada de stock registrada exitosamente (+" . number_format($cantidad, 2) . ").";
+                        $productosNormales = $productoModel->obtenerProductosNormales();
+                    } else {
+                        $error = "No se pudo registrar la entrada de stock.";
+                    }
+                }
             }
         } catch (Exception $e) {
             $error = "Error en base de datos: " . $e->getMessage();
@@ -70,7 +135,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Entradas de Stock | Lavandería</title>
+    <title>Entradas / Salidas | Lavandería</title>
     <link rel="stylesheet" href="css/index.css">
     <style>
         .table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; color: var(--text-main); }
@@ -116,14 +181,15 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </div>
 
-            <!-- Stock -->
+            <!-- Inventario -->
             <div class="menu-dropdown">
                 <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-stock')" style="display:flex;justify-content:space-between;align-items:center;color:var(--primary);font-weight:600;text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                    <span>Stock</span>
+                    <span>Inventario</span>
                     <span style="font-size:0.75rem;">▾</span>
                 </a>
                 <div id="submenu-stock" class="submenu open">
-                    <a href="stock_entradas.php" style="color:var(--primary);font-weight:600;">Entradas</a>
+                    <a href="stock_entradas.php" style="color:var(--primary);font-weight:600;">Entradas / Salidas</a>
+                    <a href="historial.php">Historial</a>
                 </div>
             </div>
 
@@ -160,11 +226,11 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
     <main class="main-content">
         <header style="margin-bottom: 2.5rem; display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <h1 style="font-size: 2rem;">Entradas de Stock</h1>
-                <p style="color: var(--text-muted);">Recepción de insumos y control de existencias en almacén.</p>
+                <h1 style="font-size: 2rem;">Entradas / Salidas de Stock</h1>
+                <p style="color: var(--text-muted);">Recepción y salida de insumos y control de existencias en almacén.</p>
             </div>
             <button type="button" class="btn-primary" style="width:auto; padding:0.6rem 1.25rem; font-size:0.9rem;" onclick="abrirModalEntrada()">
-                ➕ Nueva Entrada
+                ➕ Nuevo Movimiento
             </button>
         </header>
 
@@ -181,16 +247,51 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         <?php endif; ?>
 
         <div class="auth-card" style="width: 100%; max-width: 100%; padding: 2rem; overflow-x: auto;">
-            <h3 style="margin-bottom: 0;">Existencias Actuales</h3>
-            <table class="table">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+                <h3 style="margin: 0;">Existencias Actuales</h3>
+                <!-- Buscador -->
+                <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 0.45rem 0.85rem; min-width: 260px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted); flex-shrink:0;">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                    </svg>
+                    <input id="input-busqueda-inv" type="text" placeholder="Buscar por SKU o descripción…"
+                        oninput="filtrarInventario(this.value)"
+                        style="background:transparent; border:none; outline:none; color:var(--text-main); font-size:0.85rem; width:100%; min-width:0;"
+                        autocomplete="off">
+                    <button id="btn-limpiar-inv" onclick="limpiarBusquedaInv()" title="Limpiar búsqueda"
+                        style="display:none; background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:1rem; padding:0; line-height:1;">✕</button>
+                </div>
+            </div>
+            <table class="table" id="tabla-inventario">
                 <thead>
                     <tr>
                         <th>Cód / SKU</th>
                         <th>Descripción</th>
                         <th>Unidad</th>
-                        <th>Stock Actual</th>
-                        <th>Costo Unit. ($)</th>
-                        <th>Precio Venta ($)</th>
+                        <th id="th-inv-stock" onclick="sortInv('stock')" style="cursor:pointer; user-select:none; transition:all 0.2s;" title="Ordenar por Stock Actual">
+                            <div style="display:inline-flex; align-items:center; gap:0.45rem;">
+                                <span>Stock Actual</span>
+                                <span id="ico-inv-stock" style="display:inline-flex; align-items:center;">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+                                </span>
+                            </div>
+                        </th>
+                        <th id="th-inv-costo" onclick="sortInv('costo')" style="cursor:pointer; user-select:none; transition:all 0.2s;" title="Ordenar por Costo Unitario">
+                            <div style="display:inline-flex; align-items:center; gap:0.45rem;">
+                                <span>Costo Unit. ($)</span>
+                                <span id="ico-inv-costo" style="display:inline-flex; align-items:center;">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+                                </span>
+                            </div>
+                        </th>
+                        <th id="th-inv-precio" onclick="sortInv('precio')" style="cursor:pointer; user-select:none; transition:all 0.2s;" title="Ordenar por Precio Venta">
+                            <div style="display:inline-flex; align-items:center; gap:0.45rem;">
+                                <span>Precio Venta ($)</span>
+                                <span id="ico-inv-precio" style="display:inline-flex; align-items:center;">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+                                </span>
+                            </div>
+                        </th>
                         <th style="text-align: right;">Acción</th>
                     </tr>
                 </thead>
@@ -203,7 +304,13 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                     </tr>
                     <?php else: ?>
                     <?php foreach($inventario as $inv): ?>
-                    <tr>
+                    <tr class="fila-inv"
+                        data-sku="<?= strtolower(htmlspecialchars($inv['codigo_interno_sku'] ?? '')) ?>"
+                        data-descripcion="<?= strtolower(htmlspecialchars($inv['descripcion'] ?? '')) ?>"
+                        data-stock="<?= floatval($inv['stock_cantidad'] ?? 0) ?>"
+                        data-costo="<?= floatval($inv['costo'] ?? 0) ?>"
+                        data-precio="<?= floatval($inv['precio_venta'] ?? 0) ?>"
+                        data-filtrado="1">
                         <td style="font-size: 0.85rem; color: var(--text-muted);">
                             <?= htmlspecialchars($inv['codigo_barras'] ?? '') ?><br>
                             <small><?= htmlspecialchars($inv['codigo_interno_sku'] ?? '') ?></small>
@@ -220,7 +327,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                         <td style="text-align: right;">
                             <button type="button" class="btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; width: auto;"
                                     onclick="abrirModalEntrada('<?= htmlspecialchars($inv['id'], ENT_QUOTES) ?>')">
-                                + Entrada
+                                Movimientos
                             </button>
                         </td>
                     </tr>
@@ -228,20 +335,51 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                     <?php endif; ?>
                 </tbody>
             </table>
+
+            <!-- Fila sin resultados -->
+            <div id="inv-sin-resultados" style="display:none; text-align:center; color:var(--text-muted); padding:2.5rem 1rem;">
+                🔍 No se encontraron registros que coincidan con la búsqueda.
+            </div>
+
+            <!-- ══ PAGINADOR INVENTARIO ══════════════════════════════════ -->
+            <div id="paginador-inv" style="
+                display: flex; align-items: center; justify-content: space-between;
+                flex-wrap: wrap; gap: 0.75rem; margin-top: 1.25rem;
+                padding: 0.85rem 1.1rem;
+                background: rgba(255,255,255,0.04);
+                border: 1px solid var(--border); border-radius: 12px;
+            ">
+                <div id="pag-inv-info" style="font-size:0.82rem; color:var(--text-muted);"></div>
+                <div id="pag-inv-botones" style="display:flex; gap:0.35rem; flex-wrap:wrap; align-items:center;"></div>
+                <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.82rem; color:var(--text-muted);">
+                    <span>Mostrar</span>
+                    <select id="sel-inv-pagina" onchange="cambiarInvPorPagina(this.value)" style="
+                        background:var(--sidebar-bg); color:var(--text-main);
+                        border:1px solid var(--border); border-radius:7px;
+                        padding:0.3rem 0.5rem; font-size:0.82rem; cursor:pointer; outline:none;">
+                        <option value="10" selected style="background:#1e293b;color:#f1f5f9;">10</option>
+                        <option value="15" style="background:#1e293b;color:#f1f5f9;">15</option>
+                        <option value="20" style="background:#1e293b;color:#f1f5f9;">20</option>
+                        <option value="25" style="background:#1e293b;color:#f1f5f9;">25</option>
+                        <option value="30" style="background:#1e293b;color:#f1f5f9;">30</option>
+                    </select>
+                    <span>por página</span>
+                </div>
+            </div>
         </div>
     </main>
 </div>
 
-<!-- Modal de Nueva Entrada de Stock -->
+<!-- Modal de Movimiento de Stock -->
 <div id="modal-entrada" class="modal-overlay" onclick="cerrarModalEntrada(event)">
     <div class="modal-box" onclick="event.stopPropagation()">
         <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
-            <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(34, 197, 94, 0.15); display: flex; align-items: center; justify-content: center; color: #22c55e; font-size: 1.3rem;">
-                📦
+            <div id="modal-icon-container" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(34, 197, 94, 0.15); display: flex; align-items: center; justify-content: center; color: #22c55e; font-size: 1.3rem;">
+                📥
             </div>
             <div>
-                <h3 style="font-size: 1.25rem; color: #fff; margin-bottom: 0.2rem;">Registrar Entrada</h3>
-                <p style="color: var(--text-muted); font-size: 0.85rem;">Incremento de existencias de insumo</p>
+                <h3 id="modal-titulo" style="font-size: 1.25rem; color: #fff; margin-bottom: 0.2rem;">Registrar Movimiento</h3>
+                <p id="modal-subtitulo" style="color: var(--text-muted); font-size: 0.85rem;">Incremento de existencias de insumo</p>
             </div>
         </div>
 
@@ -249,11 +387,24 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             <input type="hidden" name="action" value="registrar_entrada">
 
             <div class="form-group" style="margin-bottom: 1.15rem;">
-                <label class="form-label">Producto / Insumo *</label>
-                <select name="producto_id" id="entrada-producto-id" class="form-control" required style="appearance: none;">
+                <label class="form-label">Tipo de Movimiento *</label>
+                <select name="tipo_movimiento" id="entrada-tipo-movimiento" class="form-control" required style="appearance: none;" onchange="onTipoMovimientoChange(this.value)">
+                    <option value="ENTRADA">Entrada</option>
+                    <option value="SALIDA">Salida</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.15rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+                    <label class="form-label" style="margin-bottom: 0;">Producto / Insumo *</label>
+                    <span id="tag-costo-unitario" style="font-size: 0.8rem; font-weight: 600; color: #60a5fa; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); padding: 0.25rem 0.65rem; border-radius: 8px; display: none; align-items: center; gap: 0.35rem;">
+                        💵 Costo por Unidad: <strong>$0.00</strong>
+                    </span>
+                </div>
+                <select name="producto_id" id="entrada-producto-id" class="form-control" required style="appearance: none;" onchange="calcularCostoTotal()">
                     <option value="">— Selecciona un producto —</option>
                     <?php foreach ($productosNormales as $p): ?>
-                        <option value="<?= htmlspecialchars($p['id']) ?>">
+                        <option value="<?= htmlspecialchars($p['id']) ?>" data-costo="<?= htmlspecialchars($p['costo'] ?? 0) ?>" data-unidad="<?= htmlspecialchars($p['unidad_medida'] ?? '') ?>">
                             <?= htmlspecialchars($p['descripcion']) ?> (<?= htmlspecialchars($p['unidad_medida']) ?>)
                         </option>
                     <?php endforeach; ?>
@@ -262,23 +413,23 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.15rem;">
                 <div class="form-group" style="margin-bottom: 0;">
-                    <label class="form-label">Cantidad a Recibir *</label>
-                    <input type="number" step="0.01" min="0.01" name="cantidad" id="entrada-cantidad" class="form-control" required placeholder="0.00">
+                    <label class="form-label" id="label-cantidad">Cantidad a Recibir *</label>
+                    <input type="number" step="0.01" min="0.01" name="cantidad" id="entrada-cantidad" class="form-control" required placeholder="0.00" oninput="calcularCostoTotal()">
                 </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label class="form-label">Costo Unitario ($)</label>
-                    <input type="number" step="0.01" min="0" name="costo_unitario" id="entrada-costo" class="form-control" placeholder="0.00">
+                <div class="form-group" style="margin-bottom: 0;" id="group-costo-total">
+                    <label class="form-label" id="label-costo">Costo Total ($)</label>
+                    <input type="number" step="0.01" min="0" name="costo_total" id="entrada-costo-total" class="form-control" placeholder="0.00">
                 </div>
             </div>
 
             <div class="form-group" style="margin-bottom: 1.5rem;">
-                <label class="form-label">Motivo / Proveedor</label>
-                <input type="text" name="motivo" class="form-control" placeholder="Ej: Compra a proveedor / Reposición">
+                <label class="form-label" id="label-motivo">Motivo / Proveedor</label>
+                <input type="text" name="motivo" id="entrada-motivo" class="form-control" placeholder="Ej: Compra a proveedor / Reposición">
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
                 <button type="button" class="btn-action" style="background: rgba(255,255,255,0.06); color: var(--text-main); padding: 0.65rem 1.25rem; border-radius: 8px;" onclick="cerrarModalEntrada()">Cancelar</button>
-                <button type="submit" class="btn-primary" style="padding: 0.65rem 1.5rem; width: auto; font-size: 0.88rem; border-radius: 8px;">Guardar Entrada</button>
+                <button type="submit" id="btn-guardar-movimiento" class="btn-primary" style="padding: 0.65rem 1.5rem; width: auto; font-size: 0.88rem; border-radius: 8px;">Guardar Entrada</button>
             </div>
         </form>
     </div>
@@ -290,10 +441,95 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         if (el) el.classList.toggle('open');
     }
 
+    function calcularCostoTotal() {
+        const tipo = document.getElementById('entrada-tipo-movimiento').value;
+        const selProd = document.getElementById('entrada-producto-id');
+        const inpCant = document.getElementById('entrada-cantidad');
+        const inpCostoTotal = document.getElementById('entrada-costo-total');
+        const tagCostoUnit = document.getElementById('tag-costo-unitario');
+
+        const selectedOption = selProd.options[selProd.selectedIndex];
+        const costoUnit = selectedOption ? (parseFloat(selectedOption.getAttribute('data-costo')) || 0) : 0;
+        const unidad = selectedOption ? (selectedOption.getAttribute('data-unidad') || '') : '';
+        const cant = parseFloat(inpCant.value) || 0;
+
+        if (selectedOption && selectedOption.value) {
+            if (tagCostoUnit) {
+                tagCostoUnit.innerHTML = `💵 Costo por Unidad: <strong>$${costoUnit.toFixed(2)}</strong>${unidad ? ' <span style="opacity:0.8;font-weight:normal;">/ ' + unidad + '</span>' : ''}`;
+                tagCostoUnit.style.display = 'inline-flex';
+            }
+        } else {
+            if (tagCostoUnit) {
+                tagCostoUnit.style.display = 'none';
+            }
+        }
+
+        if (tipo !== 'ENTRADA') {
+            if (inpCostoTotal) inpCostoTotal.value = '0.00';
+            return;
+        }
+
+        if (cant > 0 && costoUnit > 0) {
+            inpCostoTotal.value = (cant * costoUnit).toFixed(2);
+        } else if (cant === 0) {
+            inpCostoTotal.value = '0.00';
+        }
+    }
+
+    function onTipoMovimientoChange(tipo) {
+        const titulo = document.getElementById('modal-titulo');
+        const subtitulo = document.getElementById('modal-subtitulo');
+        const iconContainer = document.getElementById('modal-icon-container');
+        const labelCant = document.getElementById('label-cantidad');
+        const inpMotivo = document.getElementById('entrada-motivo');
+        const groupCosto = document.getElementById('group-costo-total');
+        const btnGuardar = document.getElementById('btn-guardar-movimiento');
+
+        if (tipo === 'SALIDA') {
+            if (titulo) titulo.textContent = 'Registrar Salida';
+            if (subtitulo) subtitulo.textContent = 'Disminución o merma de existencias';
+            if (iconContainer) {
+                iconContainer.innerHTML = '📤';
+                iconContainer.style.background = 'rgba(239, 68, 68, 0.15)';
+                iconContainer.style.color = '#f87171';
+            }
+            if (labelCant) labelCant.textContent = 'Cantidad a Retirar *';
+            if (inpMotivo) inpMotivo.placeholder = 'Ej: Merma / Uso interno / Ajuste';
+            if (groupCosto) groupCosto.style.opacity = '0.4';
+            if (btnGuardar) {
+                btnGuardar.textContent = 'Guardar Salida';
+            }
+            calcularCostoTotal();
+        } else {
+            if (titulo) titulo.textContent = 'Registrar Entrada';
+            if (subtitulo) subtitulo.textContent = 'Incremento de existencias de insumo';
+            if (iconContainer) {
+                iconContainer.innerHTML = '📥';
+                iconContainer.style.background = 'rgba(34, 197, 94, 0.15)';
+                iconContainer.style.color = '#22c55e';
+            }
+            if (labelCant) labelCant.textContent = 'Cantidad a Recibir *';
+            if (inpMotivo) inpMotivo.placeholder = 'Ej: Compra a proveedor / Reposición';
+            if (groupCosto) groupCosto.style.opacity = '1';
+            if (btnGuardar) {
+                btnGuardar.textContent = 'Guardar Entrada';
+            }
+            calcularCostoTotal();
+        }
+    }
+
     function abrirModalEntrada(productoId = '') {
+        document.getElementById('entrada-tipo-movimiento').value = 'ENTRADA';
+        document.getElementById('entrada-cantidad').value = '';
+        document.getElementById('entrada-costo-total').value = '0.00';
+        document.getElementById('entrada-motivo').value = '';
         if (productoId) {
             document.getElementById('entrada-producto-id').value = productoId;
+        } else {
+            document.getElementById('entrada-producto-id').value = '';
         }
+        onTipoMovimientoChange('ENTRADA');
+        calcularCostoTotal();
         document.getElementById('modal-entrada').classList.add('active');
     }
 
@@ -302,6 +538,153 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             document.getElementById('modal-entrada').classList.remove('active');
         }
     }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  BÚSQUEDA, ORDENAMIENTO Y PAGINACIÓN — INVENTARIO
+    // ══════════════════════════════════════════════════════════════════════
+
+    // ─ Búsqueda ─────────────────────────────────────────────────────
+    function filtrarInventario(termino) {
+        const q = (termino || '').trim().toLowerCase();
+        const btnLimpiar = document.getElementById('btn-limpiar-inv');
+        if (btnLimpiar) btnLimpiar.style.display = q.length > 0 ? 'block' : 'none';
+
+        document.querySelectorAll('.fila-inv').forEach(f => {
+            const sku  = f.dataset.sku || '';
+            const desc = f.dataset.descripcion || '';
+            f.dataset.filtrado = (!q || sku.includes(q) || desc.includes(q)) ? '1' : '0';
+        });
+        renderInvPagina(1);
+    }
+
+    function limpiarBusquedaInv() {
+        const input = document.getElementById('input-busqueda-inv');
+        if (input) { input.value = ''; input.focus(); filtrarInventario(''); }
+    }
+
+    // ─ Ordenamiento (2 estados por columna) ──────────────────────────
+    const invSortState = { stock: 0, costo: 0, precio: 0 };
+    const invSortColors = { stock: '#38bdf8', costo: '#4ade80', precio: '#a78bfa' };
+
+    function sortInv(col) {
+        // Reiniciar las otras columnas
+        Object.keys(invSortState).forEach(k => {
+            if (k !== col) {
+                invSortState[k] = 0;
+                const th  = document.getElementById('th-inv-' + k);
+                const ico = document.getElementById('ico-inv-' + k);
+                if (th)  th.style.color = '';
+                if (ico) ico.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>`;
+            }
+        });
+
+        invSortState[col] = (invSortState[col] % 2) + 1; // toggle 1↔2
+
+        const tbody = document.querySelector('#tabla-inventario tbody');
+        const filas = Array.from(document.querySelectorAll('.fila-inv'));
+
+        filas.sort((a, b) => {
+            const av = parseFloat(a.dataset[col]) || 0;
+            const bv = parseFloat(b.dataset[col]) || 0;
+            return invSortState[col] === 1 ? av - bv : bv - av;
+        });
+
+        filas.forEach(f => tbody.appendChild(f));
+
+        const color = invSortColors[col];
+        const th    = document.getElementById('th-inv-' + col);
+        const ico   = document.getElementById('ico-inv-' + col);
+        if (th)  th.style.color = color;
+        if (ico) {
+            const arrow = invSortState[col] === 1 ? '▲' : '▼';
+            const label = col === 'stock' ? (invSortState[col] === 1 ? '0→9' : '9→0')
+                        : col === 'costo'  ? (invSortState[col] === 1 ? 'menor' : 'mayor')
+                        :                   (invSortState[col] === 1 ? 'menor' : 'mayor');
+            ico.innerHTML = `<span style="display:inline-flex;align-items:center;gap:3px;color:${color};font-size:0.75rem;font-weight:bold;background:${color}22;border:1px solid ${color}55;padding:0.1rem 0.4rem;border-radius:6px;">${arrow} ${label}</span>`;
+        }
+
+        renderInvPagina(1);
+    }
+
+    // ─ Motor de paginación ──────────────────────────────────────────
+    let invPagActual = 1;
+    let invPorPagina = 10;
+
+    function getInvFiltradas() {
+        return Array.from(document.querySelectorAll('.fila-inv'))
+                    .filter(f => f.dataset.filtrado !== '0');
+    }
+
+    function renderInvPagina(pagina) {
+        const filas       = getInvFiltradas();
+        const total       = filas.length;
+        const totalPags   = Math.max(1, Math.ceil(total / invPorPagina));
+        invPagActual      = Math.min(Math.max(1, pagina), totalPags);
+
+        const inicio = (invPagActual - 1) * invPorPagina;
+        const fin    = inicio + invPorPagina;
+
+        document.querySelectorAll('.fila-inv').forEach(f => f.style.display = 'none');
+        filas.forEach((f, i) => { f.style.display = (i >= inicio && i < fin) ? '' : 'none'; });
+
+        const sinRes = document.getElementById('inv-sin-resultados');
+        if (sinRes) sinRes.style.display = total === 0 ? '' : 'none';
+
+        const infoEl = document.getElementById('pag-inv-info');
+        if (infoEl) {
+            infoEl.textContent = total === 0 ? 'Sin resultados'
+                : `Mostrando ${inicio + 1}–${Math.min(fin, total)} de ${total} registro${total !== 1 ? 's' : ''}`;
+        }
+
+        const botsEl = document.getElementById('pag-inv-botones');
+        if (!botsEl) return;
+        botsEl.innerHTML = '';
+
+        const btnS = (activo) => `cursor:pointer;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.65rem;font-size:0.8rem;font-weight:600;transition:all 0.18s;background:${activo ? 'var(--primary)' : 'rgba(255,255,255,0.05)'};color:${activo ? '#fff' : 'var(--text-muted)'};min-width:2.1rem;text-align:center;`;
+
+        const bPrev = document.createElement('button');
+        bPrev.innerHTML = '&#8249;'; bPrev.title = 'Anterior';
+        bPrev.style.cssText = btnS(false) + (invPagActual === 1 ? 'opacity:0.35;cursor:default;' : '');
+        bPrev.disabled = invPagActual === 1;
+        bPrev.onclick = () => renderInvPagina(invPagActual - 1);
+        botsEl.appendChild(bPrev);
+
+        const ven = 2;
+        let pS = Math.max(1, invPagActual - ven);
+        let pE = Math.min(totalPags, invPagActual + ven);
+
+        if (pS > 1) {
+            const b = document.createElement('button'); b.textContent = '1'; b.style.cssText = btnS(false);
+            b.onclick = () => renderInvPagina(1); botsEl.appendChild(b);
+            if (pS > 2) { const d = document.createElement('span'); d.textContent = '…'; d.style.cssText = 'padding:0 0.3rem;color:var(--text-muted);font-size:0.8rem;'; botsEl.appendChild(d); }
+        }
+        for (let p = pS; p <= pE; p++) {
+            const b = document.createElement('button'); b.textContent = p; b.style.cssText = btnS(p === invPagActual);
+            b.onclick = () => renderInvPagina(p); botsEl.appendChild(b);
+        }
+        if (pE < totalPags) {
+            if (pE < totalPags - 1) { const d = document.createElement('span'); d.textContent = '…'; d.style.cssText = 'padding:0 0.3rem;color:var(--text-muted);font-size:0.8rem;'; botsEl.appendChild(d); }
+            const b = document.createElement('button'); b.textContent = totalPags; b.style.cssText = btnS(false);
+            b.onclick = () => renderInvPagina(totalPags); botsEl.appendChild(b);
+        }
+
+        const bNext = document.createElement('button');
+        bNext.innerHTML = '&#8250;'; bNext.title = 'Siguiente';
+        bNext.style.cssText = btnS(false) + (invPagActual === totalPags ? 'opacity:0.35;cursor:default;' : '');
+        bNext.disabled = invPagActual === totalPags;
+        bNext.onclick = () => renderInvPagina(invPagActual + 1);
+        botsEl.appendChild(bNext);
+    }
+
+    function cambiarInvPorPagina(val) {
+        invPorPagina = parseInt(val, 10) || 10;
+        renderInvPagina(1);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.fila-inv').forEach(f => { if (!f.dataset.filtrado) f.dataset.filtrado = '1'; });
+        renderInvPagina(1);
+    });
 </script>
 </body>
 </html>

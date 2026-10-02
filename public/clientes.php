@@ -87,14 +87,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
                     <a href="productos.php">Catálogo</a>
                 </div>
             </div>
-            <!-- Stock -->
+            <!-- Inventario -->
             <div class="menu-dropdown">
                 <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-stock')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                    <span>Stock</span>
+                    <span>Inventario</span>
                     <span style="font-size:0.75rem;">▾</span>
                 </a>
                 <div id="submenu-stock" class="submenu">
-                    <a href="stock_entradas.php">Entradas</a>
+                    <a href="stock_entradas.php">Entradas / Salidas</a>
+                    <a href="historial.php">Historial</a>
                 </div>
             </div>
             <!-- Clientes -->
@@ -158,7 +159,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
                     <?php endif; ?>
                 </form>
 
-                <table class="table">
+                <table class="table" id="tabla-clientes">
                     <thead>
                         <tr>
                             <th>Nombre</th>
@@ -177,7 +178,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
                             </td>
                         </tr>
                         <?php else: foreach($clientes as $c): ?>
-                        <tr>
+                        <tr class="fila-cliente" data-filtrado="1">
                             <td style="font-weight:500;"><?= htmlspecialchars($c['nombre']) ?></td>
                             <td style="color:var(--text-muted);"><?= htmlspecialchars($c['telefono']) ?></td>
                             <td>
@@ -196,6 +197,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
                         <?php endforeach; endif; ?>
                     </tbody>
                 </table>
+
+                <!-- Fila sin resultados (client-side) -->
+                <div id="cli-sin-resultados" style="display:none; text-align:center; color:var(--text-muted); padding:2.5rem 1rem;">
+                    🔍 No hay registros para mostrar en esta página.
+                </div>
+
+                <!-- ══ PAGINADOR CLIENTES ═════════════════════════════════ -->
+                <div id="paginador-clientes" style="
+                    display: flex; align-items: center; justify-content: space-between;
+                    flex-wrap: wrap; gap: 0.75rem; margin-top: 1.25rem;
+                    padding: 0.85rem 1.1rem;
+                    background: rgba(255,255,255,0.04);
+                    border: 1px solid var(--border); border-radius: 12px;
+                ">
+                    <div id="pag-cli-info" style="font-size:0.82rem; color:var(--text-muted);"></div>
+                    <div id="pag-cli-botones" style="display:flex; gap:0.35rem; flex-wrap:wrap; align-items:center;"></div>
+                    <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.82rem; color:var(--text-muted);">
+                        <span>Mostrar</span>
+                        <select id="sel-cli-pagina" onchange="cambiarCliPorPagina(this.value)" style="
+                            background:var(--sidebar-bg); color:var(--text-main);
+                            border:1px solid var(--border); border-radius:7px;
+                            padding:0.3rem 0.5rem; font-size:0.82rem; cursor:pointer; outline:none;">
+                            <option value="10" selected style="background:#1e293b;color:#f1f5f9;">10</option>
+                            <option value="15" style="background:#1e293b;color:#f1f5f9;">15</option>
+                            <option value="20" style="background:#1e293b;color:#f1f5f9;">20</option>
+                            <option value="25" style="background:#1e293b;color:#f1f5f9;">25</option>
+                            <option value="30" style="background:#1e293b;color:#f1f5f9;">30</option>
+                        </select>
+                        <span>por página</span>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -206,6 +238,88 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
         const el = document.getElementById(id);
         if (el) el.classList.toggle('open');
     }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  PAGINACIÓN CLIENTES
+    // ══════════════════════════════════════════════════════════════════
+    let cliPagActual = 1;
+    let cliPorPagina = 10;
+
+    function getCliFilas() {
+        return Array.from(document.querySelectorAll('.fila-cliente'))
+                    .filter(f => f.dataset.filtrado !== '0');
+    }
+
+    function renderCliPagina(pagina) {
+        const filas     = getCliFilas();
+        const total     = filas.length;
+        const totalPags = Math.max(1, Math.ceil(total / cliPorPagina));
+        cliPagActual    = Math.min(Math.max(1, pagina), totalPags);
+
+        const inicio = (cliPagActual - 1) * cliPorPagina;
+        const fin    = inicio + cliPorPagina;
+
+        document.querySelectorAll('.fila-cliente').forEach(f => f.style.display = 'none');
+        filas.forEach((f, i) => { f.style.display = (i >= inicio && i < fin) ? '' : 'none'; });
+
+        const sinRes = document.getElementById('cli-sin-resultados');
+        if (sinRes) sinRes.style.display = total === 0 ? '' : 'none';
+
+        const infoEl = document.getElementById('pag-cli-info');
+        if (infoEl) {
+            infoEl.textContent = total === 0 ? 'Sin resultados'
+                : `Mostrando ${inicio + 1}–${Math.min(fin, total)} de ${total} cliente${total !== 1 ? 's' : ''}`;
+        }
+
+        const botsEl = document.getElementById('pag-cli-botones');
+        if (!botsEl) return;
+        botsEl.innerHTML = '';
+
+        const btnS = (activo) => `cursor:pointer;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.65rem;font-size:0.8rem;font-weight:600;transition:all 0.18s;background:${activo ? 'var(--primary)' : 'rgba(255,255,255,0.05)'};color:${activo ? '#fff' : 'var(--text-muted)'};min-width:2.1rem;text-align:center;`;
+
+        const bPrev = document.createElement('button');
+        bPrev.innerHTML = '&#8249;'; bPrev.title = 'Anterior';
+        bPrev.style.cssText = btnS(false) + (cliPagActual === 1 ? 'opacity:0.35;cursor:default;' : '');
+        bPrev.disabled = cliPagActual === 1;
+        bPrev.onclick = () => renderCliPagina(cliPagActual - 1);
+        botsEl.appendChild(bPrev);
+
+        const ven = 2;
+        let pS = Math.max(1, cliPagActual - ven);
+        let pE = Math.min(totalPags, cliPagActual + ven);
+
+        if (pS > 1) {
+            const b = document.createElement('button'); b.textContent = '1'; b.style.cssText = btnS(false);
+            b.onclick = () => renderCliPagina(1); botsEl.appendChild(b);
+            if (pS > 2) { const d = document.createElement('span'); d.textContent = '…'; d.style.cssText = 'padding:0 0.3rem;color:var(--text-muted);font-size:0.8rem;'; botsEl.appendChild(d); }
+        }
+        for (let p = pS; p <= pE; p++) {
+            const b = document.createElement('button'); b.textContent = p; b.style.cssText = btnS(p === cliPagActual);
+            b.onclick = () => renderCliPagina(p); botsEl.appendChild(b);
+        }
+        if (pE < totalPags) {
+            if (pE < totalPags - 1) { const d = document.createElement('span'); d.textContent = '…'; d.style.cssText = 'padding:0 0.3rem;color:var(--text-muted);font-size:0.8rem;'; botsEl.appendChild(d); }
+            const b = document.createElement('button'); b.textContent = totalPags; b.style.cssText = btnS(false);
+            b.onclick = () => renderCliPagina(totalPags); botsEl.appendChild(b);
+        }
+
+        const bNext = document.createElement('button');
+        bNext.innerHTML = '&#8250;'; bNext.title = 'Siguiente';
+        bNext.style.cssText = btnS(false) + (cliPagActual === totalPags ? 'opacity:0.35;cursor:default;' : '');
+        bNext.disabled = cliPagActual === totalPags;
+        bNext.onclick = () => renderCliPagina(cliPagActual + 1);
+        botsEl.appendChild(bNext);
+    }
+
+    function cambiarCliPorPagina(val) {
+        cliPorPagina = parseInt(val, 10) || 10;
+        renderCliPagina(1);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.fila-cliente').forEach(f => { if (!f.dataset.filtrado) f.dataset.filtrado = '1'; });
+        renderCliPagina(1);
+    });
 </script>
 </body>
 </html>

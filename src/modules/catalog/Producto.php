@@ -17,6 +17,7 @@ class Producto {
     public $tipo;
     public $unidad_medida;
     public $stock_cantidad;
+    public $stock_minimo;
     public $ropa_kg;
     public $costo;
     public $precio_venta;
@@ -46,9 +47,9 @@ class Producto {
         return '100000';
     }
 
-    // Obtener todos los productos de tipo NORMAL (para selector de insumos en Kit)
+    // Obtener todos los productos de tipo NORMAL (para selector de insumos en Kit y movimientos)
     public function obtenerProductosNormales() {
-        $query = "SELECT id, descripcion, unidad_medida, precio_venta
+        $query = "SELECT id, descripcion, unidad_medida, costo, precio_venta
                   FROM " . $this->table_name . "
                   WHERE tipo = 'NORMAL' AND estado = 'ACTIVO'
                   ORDER BY descripcion ASC";
@@ -61,9 +62,16 @@ class Producto {
     public function crear() {
         $this->codigo_interno_sku = $this->obtenerSiguienteSku();
 
+        // Asegurar que la columna stock_minimo exista en la base de datos
+        try {
+            $this->conn->exec("ALTER TABLE " . $this->table_name . " ADD COLUMN stock_minimo DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER stock_cantidad");
+        } catch (\Exception $e) {
+            // Ya existe o no se requiere alteración
+        }
+
         $query = "INSERT INTO " . $this->table_name . " 
-                  (id, codigo_barras, codigo_interno_sku, descripcion, tipo, unidad_medida, stock_cantidad, ropa_kg, costo, precio_venta, estado, usuario_registro_id) 
-                  VALUES (:id, :codigo_barras, :codigo_interno_sku, :descripcion, :tipo, :unidad_medida, :stock_cantidad, :ropa_kg, :costo, :precio_venta, :estado, :usuario_registro_id)";
+                  (id, codigo_barras, codigo_interno_sku, descripcion, tipo, unidad_medida, stock_cantidad, stock_minimo, ropa_kg, costo, precio_venta, estado, usuario_registro_id) 
+                  VALUES (:id, :codigo_barras, :codigo_interno_sku, :descripcion, :tipo, :unidad_medida, :stock_cantidad, :stock_minimo, :ropa_kg, :costo, :precio_venta, :estado, :usuario_registro_id)";
 
         $stmt = $this->conn->prepare($query);
 
@@ -78,6 +86,7 @@ class Producto {
         }
 
         $ropaKgVal = isset($this->ropa_kg) ? floatval($this->ropa_kg) : 0.00;
+        $stockMinimoVal = ($this->tipo === 'NORMAL') ? floatval($this->stock_minimo ?? 0) : 0.00;
 
         $stmt->bindParam(":id", $this->id);
         $stmt->bindParam(":codigo_barras", $this->codigo_barras);
@@ -86,6 +95,7 @@ class Producto {
         $stmt->bindParam(":tipo", $this->tipo);
         $stmt->bindParam(":unidad_medida", $this->unidad_medida);
         $stmt->bindParam(":stock_cantidad", $this->stock_cantidad);
+        $stmt->bindParam(":stock_minimo", $stockMinimoVal);
         $stmt->bindParam(":ropa_kg", $ropaKgVal);
         $stmt->bindParam(":costo", $this->costo);
         $stmt->bindParam(":precio_venta", $this->precio_venta);
@@ -121,6 +131,74 @@ class Producto {
         return true;
     }
 
+    public function obtenerInsumosKit($kitId) {
+        $query = "SELECT pk.*, p.descripcion as insumo_descripcion, p.unidad_medida as insumo_unidad_base, p.costo as insumo_costo
+                  FROM " . $this->table_kits . " pk
+                  JOIN " . $this->table_name . " p ON pk.insumo_id = p.id
+                  WHERE pk.kit_id = :kit_id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":kit_id", $kitId);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function obtenerPorId($id) {
+        $query = "SELECT p.*, u.nombre as usuario_nombre 
+                  FROM " . $this->table_name . " p 
+                  LEFT JOIN usuarios u ON p.usuario_registro_id = u.id 
+                  WHERE p.id = :id LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":id", $id);
+        $stmt->execute();
+        $prod = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($prod && $prod['tipo'] === 'KIT') {
+            $prod['insumos'] = $this->obtenerInsumosKit($id);
+        }
+        return $prod;
+    }
+
+    public function actualizar($id, array $datos) {
+        $query = "UPDATE " . $this->table_name . " 
+                  SET descripcion = :descripcion,
+                      codigo_barras = :codigo_barras,
+                      unidad_medida = :unidad_medida,
+                      stock_minimo = :stock_minimo,
+                      costo = :costo,
+                      precio_venta = :precio_venta,
+                      ropa_kg = :ropa_kg
+                  WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stockMinimo = floatval($datos['stock_minimo'] ?? 0);
+        $ropaKg      = floatval($datos['ropa_kg'] ?? 0);
+        $costo       = floatval($datos['costo'] ?? 0);
+        $precioVenta = floatval($datos['precio_venta'] ?? 0);
+        $descripcion = trim($datos['descripcion'] ?? '');
+        $codigoBarras = trim($datos['codigo_barras'] ?? '');
+        $unidadMedida = trim($datos['unidad_medida'] ?? 'PIEZA');
+
+        $stmt->bindParam(":descripcion", $descripcion);
+        $stmt->bindParam(":codigo_barras", $codigoBarras);
+        $stmt->bindParam(":unidad_medida", $unidadMedida);
+        $stmt->bindParam(":stock_minimo", $stockMinimo);
+        $stmt->bindParam(":costo", $costo);
+        $stmt->bindParam(":precio_venta", $precioVenta);
+        $stmt->bindParam(":ropa_kg", $ropaKg);
+        $stmt->bindParam(":id", $id);
+        return $stmt->execute();
+    }
+
+    public function eliminar($id) {
+        // Eliminar relaciones de kit asociadas
+        $delKits = $this->conn->prepare("DELETE FROM " . $this->table_kits . " WHERE kit_id = :id OR insumo_id = :id");
+        $delKits->bindParam(":id", $id);
+        $delKits->execute();
+
+        $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":id", $id);
+        return $stmt->execute();
+    }
+
     public function obtenerTodos() {
         $query = "SELECT p.*, u.nombre as usuario_nombre 
                   FROM " . $this->table_name . " p 
@@ -133,6 +211,15 @@ class Producto {
                     END DESC, p.fecha_registro DESC";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($productos as &$p) {
+            if ($p['tipo'] === 'KIT') {
+                $p['insumos'] = $this->obtenerInsumosKit($p['id']);
+            } else {
+                $p['insumos'] = [];
+            }
+        }
+        return $productos;
     }
 }

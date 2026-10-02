@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS productos (
     tipo ENUM('NORMAL', 'SERVICIO', 'KIT') NOT NULL,
     unidad_medida ENUM('PIEZA', 'KG', 'GRAMO', 'LITRO', 'MILILITRO', 'METRO', 'SERVICIO', 'CARGA') NOT NULL,
     stock_cantidad DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    stock_minimo DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     ropa_kg DECIMAL(10,2) DEFAULT 0.00,
     costo DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     precio_venta DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -51,6 +52,7 @@ CREATE TABLE IF NOT EXISTS productos (
 
 -- Migraciones manuales para BD existente:
 -- ALTER TABLE productos ADD COLUMN stock_cantidad DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER unidad_medida;
+-- ALTER TABLE productos ADD COLUMN stock_minimo DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER stock_cantidad;
 -- ALTER TABLE productos ADD COLUMN ropa_kg DECIMAL(10,2) DEFAULT 0.00 AFTER stock_cantidad;
 -- ALTER TABLE productos_kits ADD COLUMN ropa_kg DECIMAL(10,2) DEFAULT 0.00 AFTER unidad;
 

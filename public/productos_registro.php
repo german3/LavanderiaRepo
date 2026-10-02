@@ -3,14 +3,17 @@ require_once __DIR__ . '/../src/config/Database.php';
 require_once __DIR__ . '/../src/modules/auth/Usuario.php';
 require_once __DIR__ . '/../src/modules/auth/AuthService.php';
 require_once __DIR__ . '/../src/modules/catalog/Producto.php';
+require_once __DIR__ . '/../src/modules/catalog/Historial.php';
 
 use App\Config\Database;
 use App\Modules\Auth\AuthService;
 use App\Modules\Catalog\Producto;
+use App\Modules\Catalog\Historial;
 
 $db = (new Database())->getConnection();
 $auth = new AuthService($db);
 $productoModel = new Producto($db);
+$historialModel = new Historial($db);
 
 if (!$auth->checkAuth()) { header("Location: login.php"); exit; }
 
@@ -37,8 +40,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
 
         // Para Kit, unidad_medida / stock_cantidad / costo fijos
         $unidadMedida  = ($tipo === 'KIT') ? 'PIEZA'  : ($_POST['unidad_medida']  ?? 'PIEZA');
-        $stockCantidad = ($tipo === 'KIT') ? 0        : ($_POST['stock_cantidad'] ?? 0);
-        $costo         = ($tipo === 'KIT') ? 0        : ($_POST['costo']          ?? 0);
+        $stockCantidad = ($tipo === 'KIT') ? 0        : floatval($_POST['stock_cantidad'] ?? 0);
+        $stockMinimo   = ($tipo === 'NORMAL') ? floatval($_POST['stock_minimo'] ?? 0) : 0;
+        $costo         = ($tipo === 'KIT') ? 0        : floatval($_POST['costo']          ?? 0);
         $precioVenta   = floatval($_POST['precio_venta'] ?? 0);
         $ropaKg        = ($tipo === 'KIT') ? floatval($_POST['ropa_kg'] ?? 0)     : 0;
 
@@ -47,6 +51,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
         $productoModel->tipo                = $tipo;
         $productoModel->unidad_medida       = $unidadMedida;
         $productoModel->stock_cantidad      = $stockCantidad;
+        $productoModel->stock_minimo        = $stockMinimo;
         $productoModel->ropa_kg             = $ropaKg;
         $productoModel->costo               = $costo;
         $productoModel->precio_venta        = $precioVenta;
@@ -76,6 +81,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                     $productoModel->guardarInsumosKit($productoModel->id, $insumos);
                 }
             }
+
+            // Registrar movimiento en el historial
+            $historialModel->registrar([
+                'tipo_movimiento'      => 'ALTA PRODUCTO',
+                'producto_id'          => $productoModel->id,
+                'producto_sku'         => $productoModel->codigo_interno_sku,
+                'producto_descripcion' => $productoModel->descripcion,
+                'tipo_producto'        => $productoModel->tipo,
+                'cantidad'             => $productoModel->stock_cantidad,
+                'costo_unitario'      => $productoModel->costo,
+                'stock_antes'          => 0,
+                'stock_despues'        => $productoModel->stock_cantidad,
+                'motivo'               => 'Registro de producto nuevo en catálogo',
+                'usuario_id'           => $_SESSION['usuario_id'] ?? null,
+                'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
+            ]);
+
             $skuAsignado  = htmlspecialchars($productoModel->codigo_interno_sku);
             $mensaje = "Producto registrado exitosamente con SKU: <strong>{$skuAsignado}</strong>";
             $siguienteSku = $productoModel->obtenerSiguienteSku();
@@ -210,10 +232,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
             </div>
             <div class="menu-dropdown">
                 <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-stock')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                    <span>Stock</span><span style="font-size:0.75rem;">▾</span>
+                    <span>Inventario</span><span style="font-size:0.75rem;">▾</span>
                 </a>
                 <div id="submenu-stock" class="submenu">
-                    <a href="stock_entradas.php">Entradas</a>
+                    <a href="stock_entradas.php">Entradas / Salidas</a>
+                    <a href="historial.php">Historial</a>
                 </div>
             </div>
             <div class="menu-dropdown">
@@ -290,8 +313,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                     </div>
                 </div>
 
-                <!-- ── Fila 2: Tipo + Unidad + Cantidad + Costo + Precio ── -->
-                <div style="display:grid;grid-template-columns:1fr 1fr 160px 160px 160px;gap:1.25rem;margin-bottom:0;">
+                <!-- ── Fila 2: Tipo + Unidad + Cantidad + Stock Mínimo + Costo + Precio ── -->
+                <div style="display:grid;grid-template-columns:1fr 1fr 140px 140px 140px 140px;gap:1.25rem;margin-bottom:0;">
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label">Tipo *</label>
                         <select name="tipo" id="sel-tipo" class="form-control" required style="appearance:none;"
@@ -315,8 +338,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                         </select>
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label">Cantidad *</label>
+                        <label class="form-label">Stock *</label>
                         <input type="number" step="0.01" min="0" name="stock_cantidad" id="inp-cantidad"
+                               class="form-control" value="0" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;" id="group-stock-minimo">
+                        <label class="form-label">Stock Mínimo *</label>
+                        <input type="number" step="0.01" min="0" name="stock_minimo" id="inp-stock-minimo"
                                class="form-control" value="0" required>
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
@@ -416,25 +444,48 @@ let kitInsumos = []; // [{ id, nombre, cantidad, unidad, ropa_kg }]
 
 // ── Toggle Tipo ───────────────────────────────────────────────────
 function onTipoChange(tipo) {
-    const kitSection   = document.getElementById('kit-section');
-    const selUnidad    = document.getElementById('sel-unidad');
-    const inpCantidad  = document.getElementById('inp-cantidad');
-    const inpCosto     = document.getElementById('inp-costo');
-    const inpPrecio    = document.getElementById('inp-precio');
+    const kitSection       = document.getElementById('kit-section');
+    const selUnidad        = document.getElementById('sel-unidad');
+    const inpCantidad      = document.getElementById('inp-cantidad');
+    const inpStockMinimo   = document.getElementById('inp-stock-minimo');
+    const groupStockMinimo = document.getElementById('group-stock-minimo');
+    const inpCosto         = document.getElementById('inp-costo');
+    const inpPrecio        = document.getElementById('inp-precio');
 
     if (tipo === 'KIT') {
         kitSection.style.display = 'block';
-        // Deshabilitar campos que no aplican al Kit (Unidad, Cantidad y Costo directo)
-        selUnidad.disabled   = true;
-        inpCantidad.disabled = true;
-        inpCosto.disabled    = true;
-        inpPrecio.disabled   = false;
-    } else {
+        // Deshabilitar campos que no aplican al Kit (Unidad, Cantidad, Stock Mínimo y Costo directo)
+        selUnidad.disabled       = true;
+        inpCantidad.disabled     = true;
+        inpCantidad.value        = '0';
+        inpStockMinimo.disabled  = true;
+        inpStockMinimo.required  = false;
+        inpStockMinimo.value     = '0';
+        inpCosto.disabled        = true;
+        inpCosto.value           = '0.00';
+        inpPrecio.disabled       = false;
+        if (groupStockMinimo) groupStockMinimo.style.opacity = '0.4';
+    } else if (tipo === 'SERVICIO') {
         kitSection.style.display = 'none';
-        selUnidad.disabled   = false;
-        inpCantidad.disabled = false;
-        inpCosto.disabled    = false;
-        inpPrecio.disabled   = false;
+        selUnidad.disabled       = false;
+        inpCantidad.disabled     = false;
+        inpStockMinimo.disabled  = true;
+        inpStockMinimo.required  = false;
+        inpStockMinimo.value     = '0';
+        inpCosto.disabled        = false;
+        inpPrecio.disabled       = false;
+        if (groupStockMinimo) groupStockMinimo.style.opacity = '0.4';
+        kitInsumos = [];
+        renderChips();
+    } else { // NORMAL
+        kitSection.style.display = 'none';
+        selUnidad.disabled       = false;
+        inpCantidad.disabled     = false;
+        inpStockMinimo.disabled  = false;
+        inpStockMinimo.required  = true;
+        inpCosto.disabled        = false;
+        inpPrecio.disabled       = false;
+        if (groupStockMinimo) groupStockMinimo.style.opacity = '1';
         kitInsumos = [];
         renderChips();
     }
@@ -526,6 +577,7 @@ function renderChips() {
 // ── Serializar insumos en campos hidden antes de enviar ───────────
 document.getElementById('form-producto').addEventListener('submit', function(e) {
     const tipo = document.getElementById('sel-tipo').value;
+
     const hiddenContainer = document.getElementById('kit-hidden-inputs');
     hiddenContainer.innerHTML = '';
 
@@ -559,7 +611,8 @@ function toggleSubmenu(id) {
     if (el) el.classList.toggle('open');
 }
 
-// Inicializar chips vacíos
+// Inicializar estado y chips
+onTipoChange(document.getElementById('sel-tipo').value);
 renderChips();
 </script>
 </body>

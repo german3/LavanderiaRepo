@@ -33,14 +33,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     if (!$auth->isAdmin()) {
         $error = "Solo los administradores pueden modificar usuarios.";
     } else {
-        $idUsuario = trim($_POST['id'] ?? '');
-        $nombre    = trim($_POST['nombre'] ?? '');
-        $correo    = trim($_POST['correo'] ?? '');
-        $rol       = trim($_POST['rol'] ?? 'EMPLEADO_CAJERO');
-        $password  = trim($_POST['password'] ?? '');
+        $idUsuario       = trim($_POST['id'] ?? '');
+        $nombre          = trim($_POST['nombre'] ?? '');
+        $correo          = trim($_POST['correo'] ?? '');
+        $rol             = trim($_POST['rol'] ?? 'EMPLEADO_CAJERO');
+        $password        = trim($_POST['password'] ?? '');
+        $confirmPassword = trim($_POST['confirm_password'] ?? '');
 
         if (empty($idUsuario) || empty($nombre) || empty($correo)) {
             $error = "El nombre y el correo electrónico son obligatorios.";
+        } elseif (!empty($password) && $password !== $confirmPassword) {
+            $error = "La nueva contraseña y la confirmación no coinciden.";
         } else {
             if (!in_array($rol, ['ADMINISTRADOR', 'EMPLEADO_CAJERO'])) {
                 $rol = 'EMPLEADO_CAJERO';
@@ -144,6 +147,24 @@ $usuarios = $usuarioModel->obtenerTodos();
             from { opacity: 0; }
             to { opacity: 1; }
         }
+        .toggle-password-btn {
+            position: absolute;
+            right: 0.75rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.35rem;
+            border-radius: 8px;
+            transition: color 0.2s, background 0.2s;
+        }
+        .toggle-password-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+        }
     </style>
 </head>
 <body>
@@ -163,14 +184,15 @@ $usuarios = $usuarioModel->obtenerTodos();
                         <a href="productos.php">Catálogo</a>
                     </div>
                 </div>
-                <!-- Stock -->
+                <!-- Inventario -->
                 <div class="menu-dropdown">
                     <a href="javascript:void(0)" onclick="toggleSubmenu('submenu-stock')" style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);text-decoration:none;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                        <span>Stock</span>
+                        <span>Inventario</span>
                         <span style="font-size:0.75rem;">▾</span>
                     </a>
                     <div id="submenu-stock" class="submenu">
-                        <a href="stock_entradas.php">Entradas</a>
+                        <a href="stock_entradas.php">Entradas / Salidas</a>
+                        <a href="historial.php">Historial</a>
                     </div>
                 </div>
                 <!-- Clientes -->
@@ -222,8 +244,22 @@ $usuarios = $usuarioModel->obtenerTodos();
             <div>
                 <!-- Lista (Listado) -->
                 <div id="listado" class="auth-card" style="width: 100%; max-width: 100%; padding: 2rem;">
-                    <h3 style="margin-bottom: 0;">Usuarios Registrados</h3>
-                    <table class="table">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:0;">
+                        <h3 style="margin:0;">Usuarios Registrados</h3>
+                        <!-- Buscador -->
+                        <div style="display:flex; align-items:center; gap:0.5rem; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:10px; padding:0.45rem 0.85rem; min-width:260px;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted);flex-shrink:0;">
+                                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                            </svg>
+                            <input id="input-busqueda-usr" type="text" placeholder="Buscar por nombre o usuario…"
+                                oninput="filtrarUsuarios(this.value)"
+                                style="background:transparent;border:none;outline:none;color:var(--text-main);font-size:0.85rem;width:100%;min-width:0;"
+                                autocomplete="off">
+                            <button id="btn-limpiar-usr" onclick="limpiarBusquedaUsr()" title="Limpiar búsqueda"
+                                style="display:none;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0;line-height:1;">✕</button>
+                        </div>
+                    </div>
+                    <table class="table" id="tabla-usuarios">
                         <thead>
                             <tr>
                                 <th>Nombre</th>
@@ -243,7 +279,11 @@ $usuarios = $usuarioModel->obtenerTodos();
                             </tr>
                             <?php else: ?>
                             <?php foreach($usuarios as $u): ?>
-                            <tr style="<?= ($u['estado'] === 'INACTIVO') ? 'opacity: 0.65;' : '' ?>">
+                            <tr class="fila-usuario"
+                                data-nombre="<?= strtolower(htmlspecialchars($u['nombre'] ?? '')) ?>"
+                                data-correo="<?= strtolower(htmlspecialchars($u['correo'] ?? '')) ?>"
+                                data-filtrado="1"
+                                style="<?= ($u['estado'] === 'INACTIVO') ? 'opacity: 0.65;' : '' ?>">
                                 <td style="font-weight: 500;"><?= htmlspecialchars($u['nombre']) ?></td>
                                 <td style="color: var(--text-muted);"><?= htmlspecialchars($u['correo']) ?></td>
                                 <td>
@@ -277,6 +317,36 @@ $usuarios = $usuarioModel->obtenerTodos();
                             <?php endif; ?>
                         </tbody>
                     </table>
+
+                    <!-- Sin resultados (client-side) -->
+                    <div id="usr-sin-resultados" style="display:none; text-align:center; color:var(--text-muted); padding:2.5rem 1rem;">
+                        🔍 No se encontraron usuarios que coincidan con la búsqueda.
+                    </div>
+
+                    <!-- ══ PAGINADOR USUARIOS ═════════════════════════════════ -->
+                    <div id="paginador-usr" style="
+                        display:flex; align-items:center; justify-content:space-between;
+                        flex-wrap:wrap; gap:0.75rem; margin-top:1.25rem;
+                        padding:0.85rem 1.1rem;
+                        background:rgba(255,255,255,0.04);
+                        border:1px solid var(--border); border-radius:12px;">
+                        <div id="pag-usr-info" style="font-size:0.82rem; color:var(--text-muted);"></div>
+                        <div id="pag-usr-botones" style="display:flex; gap:0.35rem; flex-wrap:wrap; align-items:center;"></div>
+                        <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.82rem; color:var(--text-muted);">
+                            <span>Mostrar</span>
+                            <select id="sel-usr-pagina" onchange="cambiarUsrPorPagina(this.value)" style="
+                                background:var(--sidebar-bg); color:var(--text-main);
+                                border:1px solid var(--border); border-radius:7px;
+                                padding:0.3rem 0.5rem; font-size:0.82rem; cursor:pointer; outline:none;">
+                                <option value="10" selected style="background:#1e293b;color:#f1f5f9;">10</option>
+                                <option value="15" style="background:#1e293b;color:#f1f5f9;">15</option>
+                                <option value="20" style="background:#1e293b;color:#f1f5f9;">20</option>
+                                <option value="25" style="background:#1e293b;color:#f1f5f9;">25</option>
+                                <option value="30" style="background:#1e293b;color:#f1f5f9;">30</option>
+                            </select>
+                            <span>por página</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -317,12 +387,38 @@ $usuarios = $usuarioModel->obtenerTodos();
                     </select>
                 </div>
 
-                <div class="form-group" style="margin-bottom: 1.5rem;">
+                <div class="form-group" style="margin-bottom: 1.15rem;">
                     <label class="form-label" style="font-size: 0.85rem; color: #e2e8f0; margin-bottom: 0.4rem; display: block;">Nueva Contraseña</label>
-                    <input type="password" name="password" id="edit-usuario-password" class="form-control" placeholder="••••••••" style="width: 100%;">
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <input type="password" name="password" id="edit-usuario-password" class="form-control" placeholder="••••••••" style="width: 100%; padding-right: 2.85rem;" oninput="validarContrasenasEditar()">
+                        <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('edit-usuario-password', 'eye-icon-edit-pass')" title="Mostrar / ocultar contraseña">
+                            <span id="eye-icon-edit-pass">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </span>
+                        </button>
+                    </div>
                     <small style="color: var(--text-muted); font-size: 0.78rem; display: block; margin-top: 0.35rem;">
                         ℹ️ Dejar en blanco si deseas conservar la contraseña actual.
                     </small>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label class="form-label" style="font-size: 0.85rem; color: #e2e8f0; margin-bottom: 0.4rem; display: block;">Confirmar Nueva Contraseña</label>
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <input type="password" name="confirm_password" id="edit-usuario-confirm" class="form-control" placeholder="••••••••" style="width: 100%; padding-right: 2.85rem;" oninput="validarContrasenasEditar()">
+                        <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('edit-usuario-confirm', 'eye-icon-edit-confirm')" title="Mostrar / ocultar contraseña">
+                            <span id="eye-icon-edit-confirm">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </span>
+                        </button>
+                    </div>
+                    <small id="edit-pass-match-hint" style="display:none;font-size:0.8rem;margin-top:0.35rem;"></small>
                 </div>
 
                 <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
@@ -392,6 +488,74 @@ $usuarios = $usuarioModel->obtenerTodos();
     </div>
 
     <script>
+        const eyeOpenSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+        const eyeClosedSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+
+        function togglePasswordVisibility(inputId, iconContainerId) {
+            const input = document.getElementById(inputId);
+            const iconContainer = document.getElementById(iconContainerId);
+            if (!input || !iconContainer) return;
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                iconContainer.innerHTML = eyeClosedSvg;
+                iconContainer.parentElement.style.color = '#60a5fa';
+            } else {
+                input.type = 'password';
+                iconContainer.innerHTML = eyeOpenSvg;
+                iconContainer.parentElement.style.color = 'var(--text-muted)';
+            }
+        }
+
+        function validarContrasenasEditar() {
+            const pass = document.getElementById('edit-usuario-password').value;
+            const confirm = document.getElementById('edit-usuario-confirm').value;
+            const confirmInput = document.getElementById('edit-usuario-confirm');
+            const hint = document.getElementById('edit-pass-match-hint');
+
+            if (!pass && !confirm) {
+                confirmInput.setCustomValidity('');
+                if (hint) hint.style.display = 'none';
+                return true;
+            }
+
+            if (pass && !confirm) {
+                confirmInput.setCustomValidity('Por favor confirma la nueva contraseña.');
+                if (hint) {
+                    hint.textContent = '⚠️ Ingresa la confirmación de la contraseña';
+                    hint.style.color = '#f87171';
+                    hint.style.display = 'block';
+                }
+                return false;
+            }
+
+            if (pass !== confirm) {
+                confirmInput.setCustomValidity('Las contraseñas no coinciden.');
+                if (hint) {
+                    hint.textContent = '⚠️ Las contraseñas no coinciden';
+                    hint.style.color = '#f87171';
+                    hint.style.display = 'block';
+                }
+                return false;
+            } else {
+                confirmInput.setCustomValidity('');
+                if (hint) {
+                    hint.textContent = '✓ Las contraseñas coinciden';
+                    hint.style.color = '#34d399';
+                    hint.style.display = 'block';
+                }
+                return true;
+            }
+        }
+
+        document.getElementById('form-editar').addEventListener('submit', function(e) {
+            if (!validarContrasenasEditar()) {
+                e.preventDefault();
+                alert('La nueva contraseña y la confirmación no coinciden.');
+                document.getElementById('edit-usuario-confirm').focus();
+            }
+        });
+
         function toggleSubmenu(id) {
             const el = document.getElementById(id);
             if (el) el.classList.toggle('open');
@@ -402,7 +566,29 @@ $usuarios = $usuarioModel->obtenerTodos();
             document.getElementById('edit-usuario-nombre').value = nombre;
             document.getElementById('edit-usuario-correo').value = correo;
             document.getElementById('edit-usuario-rol').value = rol;
-            document.getElementById('edit-usuario-password').value = '';
+
+            const passInput = document.getElementById('edit-usuario-password');
+            passInput.value = '';
+            passInput.type = 'password';
+            const passIcon = document.getElementById('eye-icon-edit-pass');
+            if (passIcon) {
+                passIcon.innerHTML = eyeOpenSvg;
+                passIcon.parentElement.style.color = 'var(--text-muted)';
+            }
+
+            const confirmInput = document.getElementById('edit-usuario-confirm');
+            confirmInput.value = '';
+            confirmInput.type = 'password';
+            confirmInput.setCustomValidity('');
+            const confirmIcon = document.getElementById('eye-icon-edit-confirm');
+            if (confirmIcon) {
+                confirmIcon.innerHTML = eyeOpenSvg;
+                confirmIcon.parentElement.style.color = 'var(--text-muted)';
+            }
+
+            const hint = document.getElementById('edit-pass-match-hint');
+            if (hint) hint.style.display = 'none';
+
             document.getElementById('modal-editar').classList.add('active');
         }
 
@@ -435,6 +621,106 @@ $usuarios = $usuarioModel->obtenerTodos();
                 document.getElementById('modal-activar').classList.remove('active');
             }
         }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  BÚSQUEDA + PAGINACIÓN USUARIOS
+        // ══════════════════════════════════════════════════════════════════
+        function filtrarUsuarios(termino) {
+            const q = (termino || '').trim().toLowerCase();
+            const btnLimpiar = document.getElementById('btn-limpiar-usr');
+            if (btnLimpiar) btnLimpiar.style.display = q.length > 0 ? 'block' : 'none';
+
+            document.querySelectorAll('.fila-usuario').forEach(f => {
+                const nombre  = f.dataset.nombre  || '';
+                const correo  = f.dataset.correo  || '';
+                f.dataset.filtrado = (!q || nombre.includes(q) || correo.includes(q)) ? '1' : '0';
+            });
+            renderUsrPagina(1);
+        }
+
+        function limpiarBusquedaUsr() {
+            const input = document.getElementById('input-busqueda-usr');
+            if (input) { input.value = ''; input.focus(); filtrarUsuarios(''); }
+        }
+
+        let usrPagActual = 1;
+        let usrPorPagina = 10;
+
+        function getUsrFilas() {
+            return Array.from(document.querySelectorAll('.fila-usuario'))
+                        .filter(f => f.dataset.filtrado !== '0');
+        }
+
+        function renderUsrPagina(pagina) {
+            const filas     = getUsrFilas();
+            const total     = filas.length;
+            const totalPags = Math.max(1, Math.ceil(total / usrPorPagina));
+            usrPagActual    = Math.min(Math.max(1, pagina), totalPags);
+
+            const inicio = (usrPagActual - 1) * usrPorPagina;
+            const fin    = inicio + usrPorPagina;
+
+            document.querySelectorAll('.fila-usuario').forEach(f => f.style.display = 'none');
+            filas.forEach((f, i) => { f.style.display = (i >= inicio && i < fin) ? '' : 'none'; });
+
+            const sinRes = document.getElementById('usr-sin-resultados');
+            if (sinRes) sinRes.style.display = total === 0 ? '' : 'none';
+
+            const infoEl = document.getElementById('pag-usr-info');
+            if (infoEl) {
+                infoEl.textContent = total === 0 ? 'Sin resultados'
+                    : `Mostrando ${inicio + 1}–${Math.min(fin, total)} de ${total} usuario${total !== 1 ? 's' : ''}`;
+            }
+
+            const botsEl = document.getElementById('pag-usr-botones');
+            if (!botsEl) return;
+            botsEl.innerHTML = '';
+
+            const btnS = (activo) => `cursor:pointer;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.65rem;font-size:0.8rem;font-weight:600;transition:all 0.18s;background:${activo ? 'var(--primary)' : 'rgba(255,255,255,0.05)'};color:${activo ? '#fff' : 'var(--text-muted)'};min-width:2.1rem;text-align:center;`;
+
+            const bPrev = document.createElement('button');
+            bPrev.innerHTML = '&#8249;'; bPrev.title = 'Anterior';
+            bPrev.style.cssText = btnS(false) + (usrPagActual === 1 ? 'opacity:0.35;cursor:default;' : '');
+            bPrev.disabled = usrPagActual === 1;
+            bPrev.onclick = () => renderUsrPagina(usrPagActual - 1);
+            botsEl.appendChild(bPrev);
+
+            const ven = 2;
+            let pS = Math.max(1, usrPagActual - ven);
+            let pE = Math.min(totalPags, usrPagActual + ven);
+
+            if (pS > 1) {
+                const b = document.createElement('button'); b.textContent = '1'; b.style.cssText = btnS(false);
+                b.onclick = () => renderUsrPagina(1); botsEl.appendChild(b);
+                if (pS > 2) { const d = document.createElement('span'); d.textContent = '…'; d.style.cssText = 'padding:0 0.3rem;color:var(--text-muted);font-size:0.8rem;'; botsEl.appendChild(d); }
+            }
+            for (let p = pS; p <= pE; p++) {
+                const b = document.createElement('button'); b.textContent = p; b.style.cssText = btnS(p === usrPagActual);
+                b.onclick = () => renderUsrPagina(p); botsEl.appendChild(b);
+            }
+            if (pE < totalPags) {
+                if (pE < totalPags - 1) { const d = document.createElement('span'); d.textContent = '…'; d.style.cssText = 'padding:0 0.3rem;color:var(--text-muted);font-size:0.8rem;'; botsEl.appendChild(d); }
+                const b = document.createElement('button'); b.textContent = totalPags; b.style.cssText = btnS(false);
+                b.onclick = () => renderUsrPagina(totalPags); botsEl.appendChild(b);
+            }
+
+            const bNext = document.createElement('button');
+            bNext.innerHTML = '&#8250;'; bNext.title = 'Siguiente';
+            bNext.style.cssText = btnS(false) + (usrPagActual === totalPags ? 'opacity:0.35;cursor:default;' : '');
+            bNext.disabled = usrPagActual === totalPags;
+            bNext.onclick = () => renderUsrPagina(usrPagActual + 1);
+            botsEl.appendChild(bNext);
+        }
+
+        function cambiarUsrPorPagina(val) {
+            usrPorPagina = parseInt(val, 10) || 10;
+            renderUsrPagina(1);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.fila-usuario').forEach(f => { if (!f.dataset.filtrado) f.dataset.filtrado = '1'; });
+            renderUsrPagina(1);
+        });
     </script>
 </body>
 </html>
