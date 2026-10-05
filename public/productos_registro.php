@@ -225,7 +225,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                 <h1 style="font-size:2rem;">Registro de Producto</h1>
                 <p style="color:var(--text-muted);">Alta de nuevos elementos en el catálogo del sistema.</p>
             </div>
-            <a href="productos.php" class="btn-primary" style="text-decoration:none;display:inline-block;width:auto;padding:0.6rem 1.25rem;font-size:0.9rem;">Ver Catálogo</a>
         </header>
 
         <?php if ($mensaje): ?>
@@ -273,25 +272,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                 <div style="display:grid;grid-template-columns:1fr 1fr 140px 140px 140px 140px;gap:1.25rem;margin-bottom:0;">
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label">Tipo *</label>
-                        <select name="tipo" id="sel-tipo" class="form-control" required style="appearance:none;"
-                                onchange="onTipoChange(this.value)">
-                            <option value="NORMAL">Normal</option>
-                            <option value="SERVICIO">Servicio</option>
-                            <option value="KIT">Kit / Paquete</option>
-                        </select>
+                        <div class="select-wrapper">
+                            <select name="tipo" id="sel-tipo" class="form-control" required
+                                    onchange="onTipoChange(this.value)">
+                                <option value="NORMAL">Normal</option>
+                                <option value="SERVICIO">Servicio</option>
+                                <option value="KIT">Kit / Paquete</option>
+                            </select>
+                            <div class="select-arrow-btn">▼</div>
+                        </div>
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label">Unidad de Medida *</label>
-                        <select name="unidad_medida" id="sel-unidad" class="form-control" required style="appearance:none;">
-                            <option value="PIEZA">Pieza</option>
-                            <option value="LITRO">Litro</option>
-                            <option value="MILILITRO">Mililitro</option>
-                            <option value="KG">Kilogramo</option>
-                            <option value="GRAMO">Gramo</option>
-                            <option value="METRO">Metro</option>
-                            <option value="CARGA">Carga</option>
-                            <option value="SERVICIO">Servicio</option>
-                        </select>
+                        <div class="select-wrapper">
+                            <select name="unidad_medida" id="sel-unidad" class="form-control" required>
+                                <option value="PIEZA">Pieza</option>
+                                <option value="LITRO">Litro</option>
+                                <option value="MILILITRO">Mililitro</option>
+                                <option value="KG">Kilogramo</option>
+                                <option value="GRAMO">Gramo</option>
+                                <option value="METRO">Metro</option>
+                                <option value="CARGA">Carga</option>
+                                <option value="SERVICIO">Servicio</option>
+                            </select>
+                            <div class="select-arrow-btn">▼</div>
+                        </div>
                     </div>
                     <div class="form-group" style="margin-bottom:0;" id="group-stock-minimo">
                         <label class="form-label">Stock Mínimo *</label>
@@ -349,17 +354,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                         <!-- Select de productos NORMAL -->
                         <div>
                             <label class="form-label" style="font-size:0.78rem;">Elemento disponible</label>
-                            <select id="kit-sel-producto" class="form-control" style="appearance:none;"
-                                    onchange="kitOnSelectProducto(this.value)">
-                                <option value="">— Seleccionar producto —</option>
-                                <?php foreach ($productosNormales as $pn): ?>
-                                    <option value="<?= htmlspecialchars($pn['id']) ?>"
-                                            data-nombre="<?= htmlspecialchars($pn['descripcion']) ?>"
-                                            data-unidad="<?= htmlspecialchars($pn['unidad_medida']) ?>">
-                                        <?= htmlspecialchars($pn['descripcion']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
+                            <div class="select-wrapper">
+                                <select id="kit-sel-producto" class="form-control"
+                                        onchange="kitOnSelectProducto(this.value)">
+                                    <option value="">— Seleccionar producto —</option>
+                                    <?php foreach ($productosNormales as $pn): ?>
+                                        <option value="<?= htmlspecialchars($pn['id']) ?>"
+                                                data-nombre="<?= htmlspecialchars($pn['descripcion']) ?>"
+                                                data-unidad="<?= htmlspecialchars($pn['unidad_medida']) ?>">
+                                            <?= htmlspecialchars($pn['descripcion']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <div class="select-arrow-btn">▼</div>
+                            </div>
                         </div>
 
                         <!-- Cantidad del insumo -->
@@ -389,12 +397,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
 
                 <!-- Botones -->
                 <div style="display:flex;gap:1rem;align-items:center;margin-top:1.75rem;">
-                    <button type="submit" class="btn-primary" style="padding:0.95rem 2rem;">
+                    <button type="submit" class="btn-primary" style="width:auto;padding:0.95rem 2rem;">
                         Registrar en Catálogo
                     </button>
-                    <a href="productos.php" style="padding:0.95rem 1.5rem;border-radius:12px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;">
-                        Ver Catálogo
-                    </a>
                     <span style="margin-left:auto;color:var(--text-muted);font-size:0.82rem;">
                         🏷️ Próximo SKU: <strong style="color:#a5b4fc;"><?= htmlspecialchars($siguienteSku) ?></strong>
                     </span>

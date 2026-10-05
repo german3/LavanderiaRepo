@@ -322,15 +322,18 @@ $movimientos       = $movModel->listarTodos(200, '');   // todos los tipos
             <!-- Producto -->
             <div class="form-group" style="margin-bottom:1.15rem;">
                 <label class="form-label">Producto *</label>
-                <select name="producto_id" id="ajuste-producto" class="form-control" required style="appearance:none;">
-                    <option value="">— Seleccionar producto —</option>
-                    <?php foreach ($productosNormales as $p): ?>
-                    <option value="<?= htmlspecialchars($p['id']) ?>"
-                            data-stock="<?= htmlspecialchars($p['costo'] ?? 0) ?>">
-                        <?= htmlspecialchars($p['descripcion']) ?> (<?= htmlspecialchars($p['unidad_medida']) ?>)
-                    </option>
-                    <?php endforeach; ?>
-                </select>
+                <div class="select-wrapper">
+                    <select name="producto_id" id="ajuste-producto" class="form-control" required>
+                        <option value="">— Seleccionar producto —</option>
+                        <?php foreach ($productosNormales as $p): ?>
+                        <option value="<?= htmlspecialchars($p['id']) ?>"
+                                data-stock="<?= htmlspecialchars($p['costo'] ?? 0) ?>">
+                            <?= htmlspecialchars($p['descripcion']) ?> (<?= htmlspecialchars($p['unidad_medida']) ?>)
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div class="select-arrow-btn">▼</div>
+                </div>
             </div>
 
             <!-- Cantidad -->

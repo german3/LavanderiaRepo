@@ -87,19 +87,10 @@ $filtroSkuJs = json_encode($filtroSku);
         <?php $activePage = 'historial'; require_once __DIR__ . '/partials/sidebar.php'; ?>
 
         <main class="main-content">
-            <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem;">
+            <header style="margin-bottom: 2rem;">
                 <div>
                     <h1 style="font-size: 1.8rem; color: #fff;">Historial de Movimientos</h1>
                     <p style="color: var(--text-muted); font-size: 0.9rem;">Registro global de altas, entradas, salidas y bajas de productos.</p>
-                </div>
-                <div style="display:flex; align-items:center; gap: 1rem;">
-                    <span style="color: var(--text-muted); font-size: 0.9rem;">
-                        Usuario: <strong style="color: #fff;"><?php echo htmlspecialchars($_SESSION['nombre'] ?? 'Usuario'); ?></strong>
-                        <span class="badge badge-normal" style="margin-left: 0.5rem; text-transform: uppercase;">
-                            <?php echo htmlspecialchars($_SESSION['rol'] ?? 'ROL'); ?>
-                        </span>
-                    </span>
-                    <a href="logout.php" style="color: #ef4444; text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 0.4rem 0.8rem; border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; background: rgba(239,68,68,0.1);">Cerrar Sesión</a>
                 </div>
             </header>
 
@@ -142,25 +133,31 @@ $filtroSkuJs = json_encode($filtroSku);
                             <input type="text" id="searchInput" class="form-control" placeholder="Buscar por SKU, producto, tipo o usuario..." style="width: 100%; padding: 0.4rem 0.75rem 0.4rem 2.2rem; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; height: 38px; font-size: 0.85rem; line-height: 1.2; box-sizing: border-box;">
                             <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); opacity: 0.5;">🔍</span>
                         </div>
-                        <select id="tipoFilter" class="form-control" style="width: 210px; padding: 0.4rem 0.75rem; height: 38px; background: #1e293b; color: #f1f5f9; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; line-height: 1.2; cursor: pointer; box-sizing: border-box;">
-                            <option value="" style="background:#1e293b; color:#f1f5f9;">Todos los movimientos</option>
-                            <option value="ALTA PRODUCTO" style="background:#1e293b; color:#f1f5f9;">Alta de Producto</option>
-                            <option value="ENTRADA STOCK" style="background:#1e293b; color:#f1f5f9;">Entrada de Stock</option>
-                            <option value="SALIDA STOCK" style="background:#1e293b; color:#f1f5f9;">Salida de Stock</option>
-                            <option value="ELIMINACION PRODUCTO" style="background:#1e293b; color:#f1f5f9;">Eliminación</option>
-                            <option value="EDICION PRODUCTO" style="background:#1e293b; color:#f1f5f9;">Edición</option>
-                        </select>
+                        <div class="select-wrapper" style="width: 210px;">
+                            <select id="tipoFilter" class="form-control" style="width: 100%; padding: 0.4rem 2.2rem 0.4rem 0.75rem; height: 38px; background: #1e293b; color: #f1f5f9; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; line-height: 1.2; cursor: pointer; box-sizing: border-box;">
+                                <option value="" style="background:#1e293b; color:#f1f5f9;">Todos los movimientos</option>
+                                <option value="ALTA PRODUCTO" style="background:#1e293b; color:#f1f5f9;">Alta de Producto</option>
+                                <option value="ENTRADA STOCK" style="background:#1e293b; color:#f1f5f9;">Entrada de Stock</option>
+                                <option value="SALIDA STOCK" style="background:#1e293b; color:#f1f5f9;">Salida de Stock</option>
+                                <option value="ELIMINACION PRODUCTO" style="background:#1e293b; color:#f1f5f9;">Eliminación</option>
+                                <option value="EDICION PRODUCTO" style="background:#1e293b; color:#f1f5f9;">Edición</option>
+                            </select>
+                            <div class="select-arrow-btn">▼</div>
+                        </div>
                     </div>
 
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <span style="font-size: 0.85rem; color: var(--text-muted);">Mostrar:</span>
-                        <select id="pageSizeSelect" class="form-control" style="width: 80px; padding: 0.4rem 0.5rem; height: 38px; background: #1e293b; color: #f1f5f9; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; text-align: center; cursor: pointer; box-sizing: border-box; line-height: 1.2;">
-                            <option value="10" selected style="background:#1e293b; color:#f1f5f9;">10</option>
-                            <option value="15" style="background:#1e293b; color:#f1f5f9;">15</option>
-                            <option value="20" style="background:#1e293b; color:#f1f5f9;">20</option>
-                            <option value="25" style="background:#1e293b; color:#f1f5f9;">25</option>
-                            <option value="30" style="background:#1e293b; color:#f1f5f9;">30</option>
-                        </select>
+                        <div class="select-wrapper" style="width: 80px;">
+                            <select id="pageSizeSelect" class="form-control" style="width: 100%; padding: 0.4rem 1.8rem 0.4rem 0.5rem; height: 38px; background: #1e293b; color: #f1f5f9; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; text-align: center; cursor: pointer; box-sizing: border-box; line-height: 1.2;">
+                                <option value="10" selected style="background:#1e293b; color:#f1f5f9;">10</option>
+                                <option value="15" style="background:#1e293b; color:#f1f5f9;">15</option>
+                                <option value="20" style="background:#1e293b; color:#f1f5f9;">20</option>
+                                <option value="25" style="background:#1e293b; color:#f1f5f9;">25</option>
+                                <option value="30" style="background:#1e293b; color:#f1f5f9;">30</option>
+                            </select>
+                            <div class="select-arrow-btn">▼</div>
+                        </div>
                     </div>
                 </div>
 

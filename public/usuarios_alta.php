@@ -157,10 +157,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
                         
                         <div class="form-group">
                             <label class="form-label">Rol</label>
-                            <select name="rol" class="form-control" required style="appearance: none;">
-                                <option value="EMPLEADO_CAJERO">Empleado / Cajero</option>
-                                <option value="ADMINISTRADOR">Administrador</option>
-                            </select>
+                            <div class="select-wrapper">
+                                <select name="rol" class="form-control" required>
+                                    <option value="EMPLEADO_CAJERO">Empleado / Cajero</option>
+                                    <option value="ADMINISTRADOR">Administrador</option>
+                                </select>
+                                <div class="select-arrow-btn">▼</div>
+                            </div>
                         </div>
                         
                         <button type="submit" class="btn-primary" style="margin-top: 1rem; padding: 0.95rem;">Crear Usuario</button>

@@ -332,10 +332,13 @@ $usuarios = $usuarioModel->obtenerTodos();
 
                 <div class="form-group" style="margin-bottom: 1.15rem;">
                     <label class="form-label" style="font-size: 0.85rem; color: #e2e8f0; margin-bottom: 0.4rem; display: block;">Rol *</label>
-                    <select name="rol" id="edit-usuario-rol" class="form-control" required style="width: 100%; appearance: none;">
-                        <option value="EMPLEADO_CAJERO">Empleado / Cajero</option>
-                        <option value="ADMINISTRADOR">Administrador</option>
-                    </select>
+                    <div class="select-wrapper">
+                        <select name="rol" id="edit-usuario-rol" class="form-control" required style="width: 100%;">
+                            <option value="EMPLEADO_CAJERO">Empleado / Cajero</option>
+                            <option value="ADMINISTRADOR">Administrador</option>
+                        </select>
+                        <div class="select-arrow-btn">▼</div>
+                    </div>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 1.15rem;">

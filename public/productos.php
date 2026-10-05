@@ -587,7 +587,7 @@ $productosJson = json_encode($productos);
                 </div>
             </div>
 
-            <form method="POST" id="form-editar">
+            <form method="POST" id="form-editar" onsubmit="return solicitarGuardarEditar(event)">
                 <input type="hidden" name="action" value="editar">
                 <input type="hidden" name="id" id="edit-id">
 
@@ -603,16 +603,19 @@ $productosJson = json_encode($productos);
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
                         <label class="form-label">Unidad de Medida</label>
-                        <select name="unidad_medida" id="edit-unidad" class="form-control" style="appearance: none;">
-                            <option value="PIEZA">Pieza</option>
-                            <option value="LITRO">Litro</option>
-                            <option value="MILILITRO">Mililitro</option>
-                            <option value="KG">Kilogramo</option>
-                            <option value="GRAMO">Gramo</option>
-                            <option value="METRO">Metro</option>
-                            <option value="CARGA">Carga</option>
-                            <option value="SERVICIO">Servicio</option>
-                        </select>
+                        <div class="select-wrapper">
+                            <select name="unidad_medida" id="edit-unidad" class="form-control">
+                                <option value="PIEZA">Pieza</option>
+                                <option value="LITRO">Litro</option>
+                                <option value="MILILITRO">Mililitro</option>
+                                <option value="KG">Kilogramo</option>
+                                <option value="GRAMO">Gramo</option>
+                                <option value="METRO">Metro</option>
+                                <option value="CARGA">Carga</option>
+                                <option value="SERVICIO">Servicio</option>
+                            </select>
+                            <div class="select-arrow-btn">▼</div>
+                        </div>
                     </div>
                 </div>
 
@@ -643,6 +646,57 @@ $productosJson = json_encode($productos);
                     <button type="submit" class="btn-primary" style="width: auto; padding: 0.65rem 1.5rem;">💾 Guardar Cambios</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         MODAL CONFIRMAR GUARDAR EDICIÓN
+    ═══════════════════════════════════════════════════ -->
+    <div id="modal-confirmar-guardar" class="modal-overlay" style="z-index: 10050;" onclick="cerrarModalConfirmarGuardar(event)">
+        <div class="modal-box" style="max-width: 440px;" onclick="event.stopPropagation()">
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: #60a5fa;">
+                    💾
+                </div>
+                <div>
+                    <h3 style="font-size: 1.2rem; color: #fff; margin: 0;">Confirmar Cambios</h3>
+                    <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 0.15rem;">Guardar edición del producto</p>
+                </div>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 1rem 0;">
+                ¿Estás seguro de que deseas guardar los cambios realizados en este producto?
+            </p>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+                <button type="button" class="btn-action" style="background: rgba(255,255,255,0.06); color: var(--text-main); padding: 0.65rem 1.25rem;" onclick="cerrarModalConfirmarGuardar()">Cancelar</button>
+                <button type="button" class="btn-primary" style="width: auto; padding: 0.65rem 1.5rem;" onclick="ejecutarGuardarEditar()">Sí, Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         MODAL SIN CAMBIOS DETECTADOS
+    ═══════════════════════════════════════════════════ -->
+    <div id="modal-sin-cambios" class="modal-overlay" style="z-index: 10050;" onclick="cerrarModalSinCambios(event)">
+        <div class="modal-box" style="max-width: 440px;" onclick="event.stopPropagation()">
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(245, 158, 11, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: #fbbf24;">
+                    ⚠️
+                </div>
+                <div>
+                    <h3 style="font-size: 1.2rem; color: #fff; margin: 0;">Sin Cambios</h3>
+                    <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 0.15rem;">Aviso del sistema</p>
+                </div>
+            </div>
+
+            <p style="color: var(--text-main); font-size: 0.92rem; line-height: 1.5; margin: 1rem 0;">
+                No se ha modificado ningún dato a guardar.
+            </p>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+                <button type="button" class="btn-primary" style="width: auto; padding: 0.65rem 1.5rem;" onclick="cerrarModalSinCambios()">Aceptar</button>
+            </div>
         </div>
     </div>
 
@@ -792,19 +846,42 @@ $productosJson = json_encode($productos);
         }
 
         // ── Modal Editar ──────────────────────────────────────────────────
+        let prodOriginalValores = null;
+        let editFormConfirmado = false;
+
         function abrirModalEditar(id) {
             const prod = productosData.find(p => p.id === id);
             if (!prod) return;
 
+            const desc = prod.descripcion || '';
+            const cod = prod.codigo_barras || '';
+            const unidad = prod.unidad_medida || 'PIEZA';
+            const costo = parseFloat(prod.costo || 0).toFixed(2);
+            const precio = parseFloat(prod.precio_venta || 0).toFixed(2);
+            const stockMin = parseFloat(prod.stock_minimo || 0).toFixed(2);
+            const ropaKg = parseFloat(prod.ropa_kg || 0).toFixed(2);
+
             document.getElementById('edit-id').value = prod.id;
             document.getElementById('edit-subtitulo').textContent = `SKU: ${prod.codigo_interno_sku} • Tipo: ${prod.tipo}`;
-            document.getElementById('edit-descripcion').value = prod.descripcion || '';
-            document.getElementById('edit-codigo-barras').value = prod.codigo_barras || '';
-            document.getElementById('edit-unidad').value = prod.unidad_medida || 'PIEZA';
-            document.getElementById('edit-costo').value = parseFloat(prod.costo || 0).toFixed(2);
-            document.getElementById('edit-precio').value = parseFloat(prod.precio_venta || 0).toFixed(2);
-            document.getElementById('edit-stock-minimo').value = parseFloat(prod.stock_minimo || 0).toFixed(2);
-            document.getElementById('edit-ropa-kg').value = parseFloat(prod.ropa_kg || 0).toFixed(2);
+            document.getElementById('edit-descripcion').value = desc;
+            document.getElementById('edit-codigo-barras').value = cod;
+            document.getElementById('edit-unidad').value = unidad;
+            document.getElementById('edit-costo').value = costo;
+            document.getElementById('edit-precio').value = precio;
+            document.getElementById('edit-stock-minimo').value = stockMin;
+            document.getElementById('edit-ropa-kg').value = ropaKg;
+
+            prodOriginalValores = {
+                tipo: prod.tipo,
+                descripcion: desc,
+                codigo_barras: cod,
+                unidad_medida: unidad,
+                costo: costo,
+                precio_venta: precio,
+                stock_minimo: stockMin,
+                ropa_kg: ropaKg
+            };
+            editFormConfirmado = false;
 
             const groupStockMinimo = document.getElementById('group-edit-stock-minimo');
             const groupRopaKg = document.getElementById('group-edit-ropa-kg');
@@ -829,6 +906,68 @@ $productosJson = json_encode($productos);
             }
 
             document.getElementById('modal-editar').classList.add('active');
+        }
+
+        function solicitarGuardarEditar(e) {
+            if (editFormConfirmado) {
+                editFormConfirmado = false;
+                return true;
+            }
+            if (e) e.preventDefault();
+
+            if (!prodOriginalValores) {
+                document.getElementById('modal-confirmar-guardar').classList.add('active');
+                return false;
+            }
+
+            const curDesc = (document.getElementById('edit-descripcion').value || '').trim();
+            const curCod = (document.getElementById('edit-codigo-barras').value || '').trim();
+            const curUnidad = document.getElementById('edit-unidad').value;
+            const curCosto = parseFloat(document.getElementById('edit-costo').value || 0).toFixed(2);
+            const curPrecio = parseFloat(document.getElementById('edit-precio').value || 0).toFixed(2);
+            const curStockMin = parseFloat(document.getElementById('edit-stock-minimo').value || 0).toFixed(2);
+            const curRopaKg = parseFloat(document.getElementById('edit-ropa-kg').value || 0).toFixed(2);
+
+            let hayCambios = false;
+
+            if (curDesc !== prodOriginalValores.descripcion) hayCambios = true;
+            if (curCod !== prodOriginalValores.codigo_barras) hayCambios = true;
+            if (curPrecio !== prodOriginalValores.precio_venta) hayCambios = true;
+
+            if (prodOriginalValores.tipo !== 'KIT') {
+                if (curUnidad !== prodOriginalValores.unidad_medida) hayCambios = true;
+                if (curCosto !== prodOriginalValores.costo) hayCambios = true;
+            }
+            if (prodOriginalValores.tipo === 'NORMAL') {
+                if (curStockMin !== prodOriginalValores.stock_minimo) hayCambios = true;
+            }
+            if (prodOriginalValores.tipo === 'KIT' || prodOriginalValores.tipo === 'SERVICIO') {
+                if (curRopaKg !== prodOriginalValores.ropa_kg) hayCambios = true;
+            }
+
+            if (!hayCambios) {
+                document.getElementById('modal-sin-cambios').classList.add('active');
+                return false;
+            }
+
+            document.getElementById('modal-confirmar-guardar').classList.add('active');
+            return false;
+        }
+
+        function cerrarModalConfirmarGuardar(e) {
+            if (e && e.target !== e.currentTarget) return;
+            document.getElementById('modal-confirmar-guardar').classList.remove('active');
+        }
+
+        function cerrarModalSinCambios(e) {
+            if (e && e.target !== e.currentTarget) return;
+            document.getElementById('modal-sin-cambios').classList.remove('active');
+        }
+
+        function ejecutarGuardarEditar() {
+            editFormConfirmado = true;
+            document.getElementById('modal-confirmar-guardar').classList.remove('active');
+            document.getElementById('form-editar').submit();
         }
 
         // ── Modal Eliminar ────────────────────────────────────────────────

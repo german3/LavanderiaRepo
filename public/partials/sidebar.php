@@ -19,9 +19,31 @@ function isMenuOpen($pages, $current) {
 function isMenuActive($pages, $current) {
     return in_array($current, $pages) ? ' active' : '';
 }
+
+$userName = $_SESSION['nombre'] ?? $_SESSION['usuario_nombre'] ?? 'Usuario';
+$userRole = $_SESSION['rol'] ?? $_SESSION['usuario_rol'] ?? '';
+$userInitial = mb_substr(mb_strtoupper($userName), 0, 1);
 ?>
 <aside class="sidebar" id="app-sidebar">
     <a href="dashboard.php" class="sidebar-logo"><img src="img/Logo.jpeg" alt="Lavandería Vera"></a>
+    
+    <!-- Información del Usuario debajo del Logo -->
+    <div class="sidebar-user-card" title="<?= htmlspecialchars($userName) ?><?= $userRole ? ' (' . htmlspecialchars($userRole) . ')' : '' ?>">
+        <div class="sidebar-user-avatar" style="width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--accent)); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; color: #fff; flex-shrink: 0; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);">
+            <?= htmlspecialchars($userInitial) ?>
+        </div>
+        <div class="sidebar-user-info" style="overflow: hidden; flex: 1;">
+            <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                <?= htmlspecialchars($userName) ?>
+            </div>
+            <?php if ($userRole): ?>
+                <div style="font-size: 0.68rem; font-weight: 600; color: #60a5fa; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <?= htmlspecialchars($userRole === 'EMPLEADO_CAJERO' ? 'Empleado / Cajero' : $userRole) ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
     <button class="sidebar-toggle" onclick="toggleSidebar()" title="Colapsar menú">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>

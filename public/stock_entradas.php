@@ -339,15 +339,18 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             </div>
         </div>
 
-        <form method="POST" id="form-entrada">
+        <form method="POST" id="form-entrada" onsubmit="return solicitarGuardarEntrada(event)">
             <input type="hidden" name="action" value="registrar_entrada">
 
             <div class="form-group" style="margin-bottom: 1.15rem;">
                 <label class="form-label">Tipo de Movimiento *</label>
-                <select name="tipo_movimiento" id="entrada-tipo-movimiento" class="form-control" required style="appearance: none;" onchange="onTipoMovimientoChange(this.value)">
-                    <option value="ENTRADA">Entrada</option>
-                    <option value="SALIDA">Salida</option>
-                </select>
+                <div class="select-wrapper">
+                    <select name="tipo_movimiento" id="entrada-tipo-movimiento" class="form-control" required onchange="onTipoMovimientoChange(this.value)">
+                        <option value="ENTRADA">Entrada</option>
+                        <option value="SALIDA">Salida</option>
+                    </select>
+                    <div class="select-arrow-btn">▼</div>
+                </div>
             </div>
 
             <div class="form-group" style="margin-bottom: 1.15rem;">
@@ -357,14 +360,17 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                         💵 Costo por Unidad: <strong>$0.00</strong>
                     </span>
                 </div>
-                <select name="producto_id" id="entrada-producto-id" class="form-control" required style="appearance: none;" onchange="calcularCostoTotal()">
-                    <option value="">— Selecciona un producto —</option>
-                    <?php foreach ($productosNormales as $p): ?>
-                        <option value="<?= htmlspecialchars($p['id']) ?>" data-costo="<?= htmlspecialchars($p['costo'] ?? 0) ?>" data-unidad="<?= htmlspecialchars($p['unidad_medida'] ?? '') ?>">
-                            <?= htmlspecialchars($p['descripcion']) ?> (<?= htmlspecialchars($p['unidad_medida']) ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+                <div class="select-wrapper">
+                    <select name="producto_id" id="entrada-producto-id" class="form-control" required onchange="calcularCostoTotal()">
+                        <option value="">— Selecciona un producto —</option>
+                        <?php foreach ($productosNormales as $p): ?>
+                            <option value="<?= htmlspecialchars($p['id']) ?>" data-costo="<?= htmlspecialchars($p['costo'] ?? 0) ?>" data-unidad="<?= htmlspecialchars($p['unidad_medida'] ?? '') ?>">
+                                <?= htmlspecialchars($p['descripcion']) ?> (<?= htmlspecialchars($p['unidad_medida']) ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div class="select-arrow-btn">▼</div>
+                </div>
             </div>
 
             <!-- Campo Editar Costo (Disponible solo cuando Tipo Movimiento == ENTRADA) -->
@@ -403,7 +409,77 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
     </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════
+     MODAL CONFIRMAR MOVIMIENTO ENTRADA/SALIDA
+═══════════════════════════════════════════════════ -->
+<div id="modal-confirmar-entrada" class="modal-overlay" style="z-index: 10050;" onclick="cerrarModalConfirmarEntrada(event)">
+    <div class="modal-box" style="max-width: 440px;" onclick="event.stopPropagation()">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+            <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: #60a5fa;">
+                📦
+            </div>
+            <div>
+                <h3 id="conf-entrada-titulo" style="font-size: 1.2rem; color: #fff; margin: 0;">Confirmar Movimiento</h3>
+                <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 0.15rem;">Registro de inventario</p>
+            </div>
+        </div>
+
+        <p id="conf-entrada-mensaje" style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 1rem 0;">
+            ¿Estás seguro de que deseas registrar este movimiento de stock?
+        </p>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+            <button type="button" class="btn-action" style="background: rgba(255,255,255,0.06); color: var(--text-main); padding: 0.65rem 1.25rem; border-radius: 8px;" onclick="cerrarModalConfirmarEntrada()">Cancelar</button>
+            <button type="button" class="btn-primary" style="width: auto; padding: 0.65rem 1.5rem; border-radius: 8px;" onclick="ejecutarGuardarEntrada()">Sí, Guardar</button>
+        </div>
+    </div>
+</div>
+
 <script>
+    let entradaFormConfirmado = false;
+
+    function solicitarGuardarEntrada(e) {
+        if (entradaFormConfirmado) {
+            entradaFormConfirmado = false;
+            return true;
+        }
+        if (e) e.preventDefault();
+
+        const form = document.getElementById('form-entrada');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return false;
+        }
+
+        const tipoMov = document.getElementById('entrada-tipo-movimiento').value;
+        const selProd = document.getElementById('entrada-producto-id');
+        const optSelected = selProd && selProd.options[selProd.selectedIndex];
+        const prodNombre = optSelected ? optSelected.text : '';
+        const cantidad = parseFloat(document.getElementById('entrada-cantidad').value || 0).toFixed(2);
+
+        const txtTipo = tipoMov === 'SALIDA' ? 'Salida' : 'Entrada';
+        document.getElementById('conf-entrada-titulo').textContent = `Confirmar ${txtTipo}`;
+        document.getElementById('conf-entrada-mensaje').innerHTML = `¿Estás seguro de que deseas registrar esta <strong>${txtTipo}</strong> de <strong>${cantidad}</strong> unidades para <strong>${escapeHtml(prodNombre)}</strong>?`;
+
+        document.getElementById('modal-confirmar-entrada').classList.add('active');
+        return false;
+    }
+
+    function cerrarModalConfirmarEntrada(e) {
+        if (e && e.target !== e.currentTarget) return;
+        document.getElementById('modal-confirmar-entrada').classList.remove('active');
+    }
+
+    function ejecutarGuardarEntrada() {
+        entradaFormConfirmado = true;
+        document.getElementById('modal-confirmar-entrada').classList.remove('active');
+        document.getElementById('form-entrada').submit();
+    }
+
+    function escapeHtml(str) {
+        return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
     function toggleSubmenu(id) {
         const el = document.getElementById(id);
         if (el) el.classList.toggle('open');
