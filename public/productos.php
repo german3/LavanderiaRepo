@@ -130,6 +130,7 @@ $productosJson = json_encode($productos);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catálogo de Productos | Lavandería</title>
     <link rel="stylesheet" href="css/index.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         .table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; color: var(--text-main); }
         .table th { padding: 0.75rem 1rem; text-align: left; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); border-bottom: 2px solid var(--border); }
@@ -281,15 +282,46 @@ $productosJson = json_encode($productos);
                         </span>
                     </div>
 
-                    <!-- Cuadro de Búsqueda -->
-                    <div style="position: relative; min-width: 280px; max-width: 380px; width: 100%;">
-                        <span style="position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.95rem; pointer-events: none;">🔍</span>
-                        <input type="text" id="input-busqueda" class="form-control" placeholder="Buscar por SKU, descripción o código..." 
-                               style="padding-left: 2.5rem; padding-right: 2.2rem; border-radius: 10px; font-size: 0.85rem; height: 38px;" 
-                               oninput="filtrarProductos(this.value)">
-                        <button type="button" id="btn-limpiar-busqueda" onclick="limpiarBusqueda()" 
-                                style="display: none; position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;" 
-                                title="Limpiar búsqueda">✕</button>
+                    <!-- Controles derechos: Búsqueda + Exportar -->
+                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
+                        <!-- Cuadro de Búsqueda -->
+                        <div style="position: relative; width: 300px;">
+                            <span style="position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.95rem; pointer-events: none;">🔍</span>
+                            <input type="text" id="input-busqueda" class="form-control" placeholder="Buscar por SKU, descripción o código..."
+                                   style="padding-left: 2.5rem; padding-right: 2.2rem; border-radius: 10px; font-size: 0.85rem; height: 38px;"
+                                   oninput="filtrarProductos(this.value)">
+                            <button type="button" id="btn-limpiar-busqueda" onclick="limpiarBusqueda()"
+                                    style="display: none; position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;"
+                                    title="Limpiar búsqueda">✕</button>
+                        </div>
+
+                        <!-- Botón Exportar Excel (página actual) -->
+                        <button type="button" id="btn-exportar-excel" onclick="exportarExcel()"
+                                title="Descargar los registros de la página actual en Excel"
+                                style="
+                                    display: inline-flex; align-items: center; gap: 0.45rem;
+                                    padding: 0 1.1rem; height: 38px;
+                                    background: linear-gradient(135deg, rgba(34,197,94,0.18), rgba(16,185,129,0.12));
+                                    border: 1px solid rgba(34,197,94,0.45);
+                                    color: #4ade80;
+                                    border-radius: 10px;
+                                    font-size: 0.83rem; font-weight: 700;
+                                    cursor: pointer;
+                                    white-space: nowrap;
+                                    flex-shrink: 0;
+                                    transition: all 0.2s ease;
+                                    letter-spacing: 0.02em;
+                                "
+                                onmouseover="this.style.background='linear-gradient(135deg,rgba(34,197,94,0.32),rgba(16,185,129,0.24))'; this.style.color='#fff'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(34,197,94,0.25)';"
+                                onmouseout="this.style.background='linear-gradient(135deg,rgba(34,197,94,0.18),rgba(16,185,129,0.12))'; this.style.color='#4ade80'; this.style.transform=''; this.style.boxShadow='';"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Exportar Excel
+                        </button>
                     </div>
                 </div>
 
@@ -512,7 +544,29 @@ $productosJson = json_encode($productos);
                 <div id="det-kit-lista"></div>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                <a id="btn-ver-historial" href="historial.php"
+                   style="
+                       display: inline-flex; align-items: center; gap: 0.45rem;
+                       padding: 0.6rem 1.2rem;
+                       background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12));
+                       border: 1px solid rgba(99,102,241,0.45);
+                       color: #a5b4fc;
+                       border-radius: 10px;
+                       font-size: 0.83rem; font-weight: 700;
+                       text-decoration: none;
+                       white-space: nowrap;
+                       transition: all 0.2s ease;
+                       letter-spacing: 0.02em;
+                   "
+                   onmouseover="this.style.background='linear-gradient(135deg,rgba(99,102,241,0.32),rgba(139,92,246,0.24))'; this.style.color='#fff'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(99,102,241,0.3)';"
+                   onmouseout="this.style.background='linear-gradient(135deg,rgba(99,102,241,0.18),rgba(139,92,246,0.12))'; this.style.color='#a5b4fc'; this.style.transform=''; this.style.boxShadow='';">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    Historial de Movimientos
+                </a>
                 <button type="button" class="btn-action" style="background: rgba(255,255,255,0.06); color: var(--text-main); padding: 0.6rem 1.25rem;" onclick="cerrarModales()">Cerrar</button>
             </div>
         </div>
@@ -729,6 +783,12 @@ $productosJson = json_encode($productos);
             }
 
             document.getElementById('modal-detalles').classList.add('active');
+
+            // Actualizar enlace al historial de este producto
+            const btnHistorial = document.getElementById('btn-ver-historial');
+            if (btnHistorial) {
+                btnHistorial.href = `historial.php?sku=${encodeURIComponent(prod.codigo_interno_sku || '')}`;
+            }
         }
 
         // ── Modal Editar ──────────────────────────────────────────────────
@@ -1118,6 +1178,86 @@ $productosJson = json_encode($productos);
         function cambiarRegistrosPorPagina(val) {
             porPagina = parseInt(val, 10) || 10;
             renderPagina(1);
+        }
+
+        // ── Exportar a Excel (página actual) ─────────────────────────────
+        function exportarExcel() {
+            // Obtener filas visibles (sólo las de la página actual)
+            const filasVisibles = Array.from(document.querySelectorAll('.fila-producto'))
+                .filter(f => f.style.display !== 'none' && f.dataset.filtrado !== '0');
+
+            if (filasVisibles.length === 0) {
+                alert('No hay registros visibles para exportar en la página actual.');
+                return;
+            }
+
+            // Construir datos desde productosData usando los IDs de las filas visibles
+            const idsVisibles = new Set(filasVisibles.map(f => {
+                // El ID está en el onclick del botón Detalles; lo obtenemos del dataset o buscamos en productosData por SKU
+                const skuFila = f.dataset.sku;
+                return skuFila;
+            }));
+
+            // Mapear filas visibles a sus registros en productosData
+            const registros = filasVisibles.map(f => {
+                const sku = f.dataset.sku;
+                const prod = productosData.find(p => (p.codigo_interno_sku || '').toLowerCase() === sku);
+                if (!prod) {
+                    // Fallback: extraer desde el DOM
+                    const celdas = f.querySelectorAll('td');
+                    return {
+                        'SKU / Código Interno': celdas[0]?.innerText?.replace(/\n/g, ' | ').trim() || '',
+                        'Descripción':          celdas[1]?.innerText?.trim() || '',
+                        'Tipo':                 celdas[2]?.innerText?.trim() || '',
+                        'Stock Actual':         celdas[3]?.innerText?.trim() || '',
+                        'Costo ($)':            celdas[4]?.innerText?.trim() || '',
+                        'Precio Venta ($)':     celdas[5]?.innerText?.trim() || '',
+                        'Unidad de Medida':     celdas[6]?.innerText?.trim() || '',
+                    };
+                }
+                return {
+                    'SKU Interno':          prod.codigo_interno_sku || '',
+                    'Código de Barras':     prod.codigo_barras || '',
+                    'Descripción':          prod.descripcion || '',
+                    'Tipo':                 prod.tipo || '',
+                    'Unidad de Medida':     prod.unidad_medida || '',
+                    'Stock Actual':         prod.tipo === 'KIT' ? 'N/A' : parseFloat(prod.stock_cantidad || 0).toFixed(2),
+                    'Stock Mínimo':         prod.tipo === 'KIT' ? 'N/A' : parseFloat(prod.stock_minimo || 0).toFixed(2),
+                    'Costo ($)':            parseFloat(prod.costo || 0).toFixed(2),
+                    'Precio Venta ($)':     parseFloat(prod.precio_venta || 0).toFixed(2),
+                    'Margen ($)':           (parseFloat(prod.precio_venta || 0) - parseFloat(prod.costo || 0)).toFixed(2),
+                    'Ropa Kg':              parseFloat(prod.ropa_kg || 0).toFixed(2),
+                    'Registrado Por':       prod.usuario_nombre || '',
+                    'Fecha de Registro':    prod.fecha_registro || '',
+                };
+            });
+
+            // Crear hoja de trabajo
+            const ws = XLSX.utils.json_to_sheet(registros);
+
+            // Ajustar ancho de columnas automáticamente
+            const colWidths = [];
+            if (registros.length > 0) {
+                const headers = Object.keys(registros[0]);
+                headers.forEach((h, i) => {
+                    let max = h.length;
+                    registros.forEach(r => {
+                        const val = String(r[h] || '');
+                        if (val.length > max) max = val.length;
+                    });
+                    colWidths.push({ wch: Math.min(max + 2, 45) });
+                });
+                ws['!cols'] = colWidths;
+            }
+
+            // Crear libro y descargar
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Catálogo');
+
+            const ahora = new Date();
+            const fecha = `${ahora.getFullYear()}${String(ahora.getMonth()+1).padStart(2,'0')}${String(ahora.getDate()).padStart(2,'0')}`;
+            const hora  = `${String(ahora.getHours()).padStart(2,'0')}${String(ahora.getMinutes()).padStart(2,'0')}`;
+            XLSX.writeFile(wb, `catalogo_productos_${fecha}_${hora}.xlsx`);
         }
 
         // Inicializar paginado al cargar la página

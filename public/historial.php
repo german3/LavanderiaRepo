@@ -24,6 +24,10 @@ header("Pragma: no-cache");
 
 $movimientos = $historialModel->obtenerTodos();
 $movimientosJson = json_encode($movimientos);
+
+// Filtro por producto vía GET
+$filtroSku = trim($_GET['sku'] ?? '');
+$filtroSkuJs = json_encode($filtroSku);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -99,10 +103,40 @@ $movimientosJson = json_encode($movimientos);
                 </div>
             </header>
 
+            <?php if ($filtroSku): ?>
+            <!-- Banner: filtro activo por producto -->
+            <div id="banner-filtro-sku" style="
+                display: flex; align-items: center; justify-content: space-between;
+                gap: 1rem; flex-wrap: wrap;
+                padding: 0.85rem 1.25rem;
+                margin-bottom: 1.25rem;
+                background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1));
+                border: 1px solid rgba(99,102,241,0.4);
+                border-radius: 12px;
+            ">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <div>
+                        <span style="font-size: 0.78rem; color: #818cf8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Filtro activo</span><br>
+                        <span style="color: #e2e8f0; font-weight: 600; font-size: 0.95rem;">
+                            Historial del producto: <span style="color: #a5b4fc; font-family: monospace;"><?= htmlspecialchars($filtroSku) ?></span>
+                        </span>
+                    </div>
+                </div>
+                <a href="historial.php"
+                   style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 1rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; font-size: 0.82rem; font-weight: 600; text-decoration: none; transition: all 0.2s;"
+                   onmouseover="this.style.color='#fff'; this.style.borderColor='rgba(255,255,255,0.3)';"
+                   onmouseout="this.style.color=''; this.style.borderColor='';"
+                >✕ Ver todos los movimientos</a>
+            </div>
+            <?php endif; ?>
+
             <div class="card" style="padding: 1.5rem; border-radius: 12px; background: rgba(30, 41, 59, 0.7); border: 1px solid var(--border);">
                 
                 <!-- Barra de Búsqueda y Filtros -->
-                <div style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 1rem;">
+                <div style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 0.75rem;">
                     <div style="display: flex; gap: 0.75rem; flex: 1; min-width: 300px;">
                         <div style="position: relative; flex: 1;">
                             <input type="text" id="searchInput" class="form-control" placeholder="Buscar por SKU, producto, tipo o usuario..." style="width: 100%; padding: 0.4rem 0.75rem 0.4rem 2.2rem; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; height: 38px; font-size: 0.85rem; line-height: 1.2; box-sizing: border-box;">
@@ -128,6 +162,87 @@ $movimientosJson = json_encode($movimientos);
                             <option value="30" style="background:#1e293b; color:#f1f5f9;">30</option>
                         </select>
                     </div>
+                </div>
+
+                <!-- Filtro por Rango de Fechas -->
+                <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 0.75rem 1rem; background: rgba(15,23,42,0.4); border: 1px solid var(--border); border-radius: 10px;">
+                    <!-- Icono calendario -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600; white-space: nowrap;">Rango de fechas:</span>
+
+                    <!-- Fecha Inicial -->
+                    <div style="display: flex; align-items: center; gap: 0.45rem;">
+                        <label for="fechaInicio" style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">Del:</label>
+                        <input type="date" id="fechaInicio"
+                               style="
+                                   height: 36px; padding: 0.3rem 0.65rem;
+                                   background: rgba(15,23,42,0.7);
+                                   color: var(--text-main);
+                                   border: 1px solid var(--border);
+                                   border-radius: 8px;
+                                   font-size: 0.83rem;
+                                   cursor: pointer;
+                                   outline: none;
+                                   transition: border-color 0.2s;
+                                   color-scheme: dark;
+                               "
+                               oninput="filterData()"
+                               onfocus="this.style.borderColor='rgba(99,102,241,0.6)';"
+                               onblur="this.style.borderColor='var(--border)';"
+                        >
+                    </div>
+
+                    <!-- Separador -->
+                    <span style="color: var(--text-muted); font-size: 0.85rem;">—</span>
+
+                    <!-- Fecha Final -->
+                    <div style="display: flex; align-items: center; gap: 0.45rem;">
+                        <label for="fechaFin" style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">Al:</label>
+                        <input type="date" id="fechaFin"
+                               style="
+                                   height: 36px; padding: 0.3rem 0.65rem;
+                                   background: rgba(15,23,42,0.7);
+                                   color: var(--text-main);
+                                   border: 1px solid var(--border);
+                                   border-radius: 8px;
+                                   font-size: 0.83rem;
+                                   cursor: pointer;
+                                   outline: none;
+                                   transition: border-color 0.2s;
+                                   color-scheme: dark;
+                               "
+                               oninput="filterData()"
+                               onfocus="this.style.borderColor='rgba(99,102,241,0.6)';"
+                               onblur="this.style.borderColor='var(--border)';"
+                        >
+                    </div>
+
+                    <!-- Botón limpiar fechas -->
+                    <button type="button" id="btn-limpiar-fechas" onclick="limpiarFechas()"
+                            style="
+                                display: none;
+                                align-items: center; gap: 0.35rem;
+                                padding: 0.3rem 0.75rem; height: 36px;
+                                background: rgba(239,68,68,0.1);
+                                border: 1px solid rgba(239,68,68,0.3);
+                                color: #fca5a5;
+                                border-radius: 8px;
+                                font-size: 0.78rem; font-weight: 600;
+                                cursor: pointer;
+                                white-space: nowrap;
+                                transition: all 0.2s;
+                            "
+                            onmouseover="this.style.background='rgba(239,68,68,0.2)'; this.style.color='#fff';"
+                            onmouseout="this.style.background='rgba(239,68,68,0.1)'; this.style.color='#fca5a5';"
+                    >✕ Limpiar fechas</button>
+
+                    <!-- Indicador de registros en rango -->
+                    <span id="fecha-rango-info" style="margin-left: auto; font-size: 0.78rem; color: var(--text-muted);"></span>
                 </div>
 
                 <!-- Tabla de Historial -->
@@ -181,6 +296,8 @@ $movimientosJson = json_encode($movimientos);
         const rawData = <?php echo $movimientosJson; ?> || [];
         let filteredData = [...rawData];
         
+        const filtroSkuInicial = <?= $filtroSkuJs ?>;
+        
         let currentPage = 1;
         let pageSize = 10;
         let sortColumn = 'fecha_hora';
@@ -221,27 +338,82 @@ $movimientosJson = json_encode($movimientos);
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
             const tipoFilter = document.getElementById('tipoFilter').value;
 
+            // Rango de fechas: fecha inicio = 00:00:00 del día, fecha fin = 23:59:59 del día
+            const fechaInicioVal = document.getElementById('fechaInicio').value;
+            const fechaFinVal    = document.getElementById('fechaFin').value;
+
+            let fechaInicio = null;
+            let fechaFin    = null;
+
+            if (fechaInicioVal) {
+                // Interpreta la fecha en hora local, arrancando a las 00:00:00
+                const [y, m, d] = fechaInicioVal.split('-').map(Number);
+                fechaInicio = new Date(y, m - 1, d, 0, 0, 0, 0);
+            }
+            if (fechaFinVal) {
+                // Fin del día: 23:59:59.999
+                const [y, m, d] = fechaFinVal.split('-').map(Number);
+                fechaFin = new Date(y, m - 1, d, 23, 59, 59, 999);
+            }
+
+            // Mostrar / ocultar botón limpiar fechas
+            const btnLimpiar = document.getElementById('btn-limpiar-fechas');
+            if (btnLimpiar) {
+                btnLimpiar.style.display = (fechaInicioVal || fechaFinVal) ? 'inline-flex' : 'none';
+            }
+
             filteredData = rawData.filter(item => {
                 const matchTipoFilter = !tipoFilter || item.tipo_movimiento === tipoFilter;
-                
-                const sku = (item.producto_sku || '').toLowerCase();
-                const desc = (item.producto_descripcion || '').toLowerCase();
-                const tipoMov = (item.tipo_movimiento || '').toLowerCase();
-                const usuario = (item.usuario_nombre || '').toLowerCase();
-                const motivo = (item.motivo || '').toLowerCase();
 
-                const matchQuery = !query || 
-                    sku.includes(query) || 
-                    desc.includes(query) || 
-                    tipoMov.includes(query) || 
-                    usuario.includes(query) || 
+                const sku     = (item.producto_sku         || '').toLowerCase();
+                const desc    = (item.producto_descripcion || '').toLowerCase();
+                const tipoMov = (item.tipo_movimiento      || '').toLowerCase();
+                const usuario = (item.usuario_nombre       || '').toLowerCase();
+                const motivo  = (item.motivo               || '').toLowerCase();
+
+                const matchQuery = !query ||
+                    sku.includes(query)     ||
+                    desc.includes(query)    ||
+                    tipoMov.includes(query) ||
+                    usuario.includes(query) ||
                     motivo.includes(query);
 
-                return matchTipoFilter && matchQuery;
+                // Filtro de rango de fechas
+                let matchFecha = true;
+                if (fechaInicio || fechaFin) {
+                    const itemFecha = item.fecha_hora ? new Date(item.fecha_hora) : null;
+                    if (!itemFecha || isNaN(itemFecha.getTime())) {
+                        matchFecha = false;
+                    } else {
+                        if (fechaInicio && itemFecha < fechaInicio) matchFecha = false;
+                        if (fechaFin    && itemFecha > fechaFin)    matchFecha = false;
+                    }
+                }
+
+                return matchTipoFilter && matchQuery && matchFecha;
             });
+
+            // Actualizar indicador de rango
+            const infoRango = document.getElementById('fecha-rango-info');
+            if (infoRango) {
+                if (fechaInicioVal || fechaFinVal) {
+                    const desde = fechaInicioVal ? fechaInicioVal.split('-').reverse().join('/') : '…';
+                    const hasta = fechaFinVal    ? fechaFinVal.split('-').reverse().join('/')    : 'hoy';
+                    infoRango.textContent = `${filteredData.length} registro(s) entre ${desde} y ${hasta}`;
+                    infoRango.style.color = '#a5b4fc';
+                } else {
+                    infoRango.textContent = '';
+                }
+            }
 
             currentPage = 1;
             applySort();
+        }
+
+        function limpiarFechas() {
+            document.getElementById('fechaInicio').value = '';
+            document.getElementById('fechaFin').value    = '';
+            filterData();
         }
 
         function sortData(col) {
@@ -394,8 +566,17 @@ $movimientosJson = json_encode($movimientos);
             renderTable();
         });
 
-        // Initial render
-        applySort();
+        // Si llega un filtro por SKU, pre-cargarlo en el buscador
+        if (filtroSkuInicial) {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.value = filtroSkuInicial;
+            }
+            filterData(); // aplica el filtro y renderiza
+        } else {
+            // Initial render
+            applySort();
+        }
     </script>
     <script src="js/sidebar.js"></script>
 </body>

@@ -195,12 +195,12 @@ body {
 .sidebar-logo img {
     max-width: 100%;
     height: auto;
-    max-height: 60px;
+    max-height: 90px;
     transition: max-height 0.3s ease, opacity 0.3s ease;
 }
 
 .sidebar.collapsed .sidebar-logo img {
-    max-height: 34px;
+    max-height: 46px;
 }
 
 /* Toggle button */
