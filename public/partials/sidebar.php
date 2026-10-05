@@ -7,7 +7,7 @@
  *   $auth         = AuthService instance (for isAdmin check)
  *   $logoutUrl    = (optional) URL for logout, defaults to '?logout=1'
  */
-$logoutUrl = $logoutUrl ?? '?logout=1';
+$logoutUrl = $logoutUrl ?? 'logout.php';
 
 // Helper: active class
 function isActive($page, $current) {
@@ -90,9 +90,49 @@ function isMenuActive($pages, $current) {
         </div>
         <?php endif; ?>
         <div class="nav-separator"></div>
-        <a href="<?= $logoutUrl ?>" class="nav-link nav-link-logout">
+        <a href="javascript:void(0)" id="btn-logout" class="nav-link nav-link-logout" onclick="confirmarCerrarSesion()">
             <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             <span class="nav-text">Cerrar Sesión</span>
         </a>
     </nav>
 </aside>
+
+<!-- Modal de confirmación de cierre de sesión -->
+<div id="modal-logout" style="display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center;">
+    <div id="modal-logout-backdrop" onclick="cancelarCerrarSesion()" style="position:absolute; inset:0; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);"></div>
+    <div style="position:relative; background:var(--surface, #1e1e2e); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:2rem 2.5rem; width:100%; max-width:380px; box-shadow:0 25px 60px rgba(0,0,0,0.5); text-align:center; animation:modalIn .25s ease;">
+        <div style="width:56px; height:56px; border-radius:50%; background:rgba(239,68,68,0.15); display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </div>
+        <h3 style="font-size:1.15rem; font-weight:600; color:var(--text, #e2e8f0); margin-bottom:.5rem;">¿Cerrar sesión?</h3>
+        <p style="font-size:.875rem; color:var(--text-muted, #94a3b8); margin-bottom:1.75rem;">Se cerrará tu sesión actual y tendrás que volver a iniciar sesión para acceder al sistema.</p>
+        <div style="display:flex; gap:.75rem; justify-content:center;">
+            <button id="btn-logout-cancel" onclick="cancelarCerrarSesion()" style="flex:1; padding:.6rem 1rem; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:var(--text-muted, #94a3b8); font-size:.875rem; cursor:pointer; transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">Cancelar</button>
+            <a id="btn-logout-confirm" href="<?= htmlspecialchars($logoutUrl) ?>" style="flex:1; padding:.6rem 1rem; border-radius:8px; border:none; background:#ef4444; color:#fff; font-size:.875rem; font-weight:600; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:all .2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Sí, cerrar sesión</a>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes modalIn {
+    from { opacity:0; transform:scale(.92) translateY(12px); }
+    to   { opacity:1; transform:scale(1)  translateY(0); }
+}
+</style>
+
+<script>
+function confirmarCerrarSesion() {
+    const modal = document.getElementById('modal-logout');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+function cancelarCerrarSesion() {
+    const modal = document.getElementById('modal-logout');
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+// Cerrar con Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') cancelarCerrarSesion();
+});
+</script>
