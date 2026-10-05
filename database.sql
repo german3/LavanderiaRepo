@@ -78,3 +78,49 @@ CREATE TABLE IF NOT EXISTS clientes (
     fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
     estado ENUM('ACTIVO','INACTIVO') DEFAULT 'ACTIVO'
 );
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Spec 04: Inventario y Compras
+-- Las tablas se crean automáticamente via asegurarTablas() en los modelos PHP,
+-- pero se documentan aquí para referencia y para bases de datos nuevas.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS entradas_compras (
+    id          VARCHAR(36)   PRIMARY KEY,
+    folio       VARCHAR(50)   NOT NULL UNIQUE,
+    proveedor   VARCHAR(255)  NOT NULL,
+    fecha       DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    usuario_id  VARCHAR(36)   NOT NULL,
+    importe     DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    total       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS detalle_entradas (
+    id              VARCHAR(36)   PRIMARY KEY,
+    entrada_id      VARCHAR(36)   NOT NULL,
+    producto_id     VARCHAR(36)   NOT NULL,
+    cantidad        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    costo_unitario  DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    FOREIGN KEY (entrada_id)  REFERENCES entradas_compras(id) ON DELETE CASCADE,
+    FOREIGN KEY (producto_id) REFERENCES productos(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS movimientos_inventario (
+    id               VARCHAR(36)   PRIMARY KEY,
+    producto_id      VARCHAR(36)   NOT NULL,
+    cantidad         DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    tipo_movimiento  ENUM('COMPRA','VENTA','KIT_CONSUMO','AJUSTE','MERMA') NOT NULL,
+    motivo           TEXT          NULL,
+    usuario_id       VARCHAR(36)   NULL,
+    fecha            DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    referencia_id    VARCHAR(36)   NULL,
+    costo_unitario   DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    stock_antes      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    stock_despues    DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    INDEX (producto_id),
+    INDEX (tipo_movimiento),
+    INDEX (fecha),
+    FOREIGN KEY (producto_id) REFERENCES productos(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+

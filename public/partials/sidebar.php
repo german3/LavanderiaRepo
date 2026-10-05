@@ -3,7 +3,7 @@
  * Sidebar partial — include from any public/ page.
  * 
  * Before including, set these variables:
- *   $activePage   = 'dashboard' | 'productos_registro' | 'productos' | 'stock_entradas' | 'historial' | 'clientes_registro' | 'clientes' | 'usuarios_alta' | 'usuarios'
+ *   $activePage   = 'dashboard' | 'productos_registro' | 'productos' | 'stock_entradas' | 'compras' | 'inventario_ajustes' | 'historial' | 'clientes_registro' | 'clientes' | 'usuarios_alta' | 'usuarios'
  *   $auth         = AuthService instance (for isAdmin check)
  *   $logoutUrl    = (optional) URL for logout, defaults to '?logout=1'
  */
@@ -45,13 +45,17 @@ function isMenuActive($pages, $current) {
         </div>
         <!-- Inventario -->
         <div class="menu-dropdown">
-            <a href="javascript:void(0)" class="nav-link<?= isMenuActive(['stock_entradas','historial'], $activePage) ?><?= isMenuOpen(['stock_entradas','historial'], $activePage) ?>" onclick="toggleSubmenu('submenu-stock', this)">
+            <a href="javascript:void(0)" class="nav-link<?= isMenuActive(['stock_entradas','compras','inventario_ajustes','historial'], $activePage) ?><?= isMenuOpen(['stock_entradas','compras','inventario_ajustes','historial'], $activePage) ?>" onclick="toggleSubmenu('submenu-stock', this)">
                 <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14l2 2 4-4"/></svg>
                 <span class="nav-text">Inventario</span>
                 <span class="nav-arrow">▾</span>
             </a>
-            <div id="submenu-stock" class="submenu<?= isMenuOpen(['stock_entradas','historial'], $activePage) ?>">
+            <div id="submenu-stock" class="submenu<?= isMenuOpen(['stock_entradas','compras','inventario_ajustes','historial'], $activePage) ?>">
                 <a href="stock_entradas.php" class="<?= isActive('stock_entradas', $activePage) ?>">Entradas / Salidas</a>
+                <a href="compras.php" class="<?= isActive('compras', $activePage) ?>">Entradas de Compra</a>
+                <?php if($auth->isAdmin()): ?>
+                <a href="inventario_ajustes.php" class="<?= isActive('inventario_ajustes', $activePage) ?>">Ajustes (Admin)</a>
+                <?php endif; ?>
                 <a href="historial.php" class="<?= isActive('historial', $activePage) ?>">Historial</a>
             </div>
         </div>
