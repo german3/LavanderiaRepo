@@ -24,88 +24,167 @@ header("Pragma: no-cache");
 $mensaje = "";
 $error   = "";
 
+// Check si es edición vía GET o POST id
+$editId = $_GET['id'] ?? $_POST['id'] ?? null;
+$productoEditar = null;
+$esEdicion = false;
+$insumosKitExistentes = [];
+
+if ($editId) {
+    $productoEditar = $productoModel->obtenerPorId($editId);
+    if ($productoEditar) {
+        $esEdicion = true;
+        if ($productoEditar['tipo'] === 'KIT' && !empty($productoEditar['insumos'])) {
+            foreach ($productoEditar['insumos'] as $ins) {
+                $insumosKitExistentes[] = [
+                    'id'       => $ins['insumo_id'],
+                    'nombre'   => $ins['insumo_descripcion'],
+                    'cantidad' => floatval($ins['cantidad_consumida']),
+                    'unidad'   => $ins['unidad'] ?: $ins['insumo_unidad_base'],
+                    'ropa_kg'  => floatval($ins['ropa_kg'])
+                ];
+            }
+        }
+    }
+}
+$insumosKitExistentesJson = json_encode($insumosKitExistentes);
+
 // Productos NORMAL disponibles para armar Kits (se pasan a JS)
 $productosNormales = $productoModel->obtenerProductosNormales();
 $productosNormalesJson = json_encode($productosNormales);
 
-// Siguiente SKU a mostrar
-$siguienteSku = $productoModel->obtenerSiguienteSku();
+// Siguiente SKU a mostrar (o el SKU actual si es edición)
+$siguienteSku = $esEdicion ? ($productoEditar['codigo_interno_sku'] ?? '') : $productoModel->obtenerSiguienteSku();
 
-// ── Procesar formulario ──────────────────────────────────────────
-if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear') {
+// ── Procesar formulario (Crear / Editar) ──────────────────────────
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $action = $_POST['action'] ?? 'crear';
+
     if (!$auth->isAdmin()) {
-        $error = "Solo los administradores pueden registrar nuevos productos.";
+        $error = "Solo los administradores pueden realizar esta acción.";
     } else {
-        $tipo = $_POST['tipo'];
+        $tipo = $_POST['tipo'] ?? 'NORMAL';
 
-        // Para Kit/Normal/Servicio, stock_cantidad inicia en 0 (se incrementa via Entradas de Stock)
         $unidadMedida  = ($tipo === 'KIT') ? 'PIEZA'  : ($_POST['unidad_medida']  ?? 'PIEZA');
-        $stockCantidad = 0;
         $stockMinimo   = ($tipo === 'NORMAL') ? floatval($_POST['stock_minimo'] ?? 0) : 0;
         $costo         = ($tipo === 'KIT') ? 0        : floatval($_POST['costo']          ?? 0);
         $precioVenta   = floatval($_POST['precio_venta'] ?? 0);
         $ropaKg        = ($tipo === 'KIT') ? floatval($_POST['ropa_kg'] ?? 0)     : 0;
 
-        $productoModel->descripcion         = trim($_POST['descripcion'] ?? '');
-        $productoModel->codigo_barras       = trim($_POST['codigo_barras'] ?? '');
-        $productoModel->tipo                = $tipo;
-        $productoModel->unidad_medida       = $unidadMedida;
-        $productoModel->stock_cantidad      = $stockCantidad;
-        $productoModel->stock_minimo        = $stockMinimo;
-        $productoModel->ropa_kg             = $ropaKg;
-        $productoModel->costo               = $costo;
-        $productoModel->precio_venta        = $precioVenta;
-        $productoModel->estado              = 'ACTIVO';
-        $productoModel->usuario_registro_id = $_SESSION['usuario_id'];
+        if ($action === 'editar') {
+            $idTarget = trim($_POST['id'] ?? '');
+            $datosUpdate = [
+                'descripcion'   => trim($_POST['descripcion'] ?? ''),
+                'codigo_barras' => trim($_POST['codigo_barras'] ?? ''),
+                'unidad_medida' => $unidadMedida,
+                'stock_minimo'  => $stockMinimo,
+                'costo'          => $costo,
+                'precio_venta'   => $precioVenta,
+                'ropa_kg'        => $ropaKg,
+            ];
 
-        if ($productoModel->crear()) {
-            // Si es Kit, guardar insumos en productos_kits
-            if ($tipo === 'KIT') {
-                $insumos = [];
-                $insumosIds      = $_POST['kit_insumo_id']       ?? [];
-                $insumosCant     = $_POST['kit_insumo_cantidad']  ?? [];
-                $insumosUnidades = $_POST['kit_insumo_unidad']    ?? [];
-                $insumosRopaKg   = $_POST['kit_insumo_ropa_kg']  ?? [];
+            if ($productoModel->actualizar($idTarget, $datosUpdate)) {
+                if ($tipo === 'KIT') {
+                    $insumos = [];
+                    $insumosIds      = $_POST['kit_insumo_id']       ?? [];
+                    $insumosCant     = $_POST['kit_insumo_cantidad']  ?? [];
+                    $insumosUnidades = $_POST['kit_insumo_unidad']    ?? [];
+                    $insumosRopaKg   = $_POST['kit_insumo_ropa_kg']  ?? [];
 
-                foreach ($insumosIds as $i => $insumoId) {
-                    if (!empty($insumoId) && isset($insumosCant[$i])) {
-                        $insumos[] = [
-                            'id'       => $insumoId,
-                            'cantidad' => floatval($insumosCant[$i]),
-                            'unidad'   => $insumosUnidades[$i] ?? 'PIEZA',
-                            'ropa_kg'  => floatval($insumosRopaKg[$i] ?? $ropaKg),
-                        ];
+                    foreach ($insumosIds as $i => $insumoId) {
+                        if (!empty($insumoId) && isset($insumosCant[$i])) {
+                            $insumos[] = [
+                                'id'       => $insumoId,
+                                'cantidad' => floatval($insumosCant[$i]),
+                                'unidad'   => $insumosUnidades[$i] ?? 'PIEZA',
+                                'ropa_kg'  => floatval($insumosRopaKg[$i] ?? $ropaKg),
+                            ];
+                        }
+                    }
+                    $productoModel->guardarInsumosKit($idTarget, $insumos);
+                }
+
+                $prodActual = $productoModel->obtenerPorId($idTarget);
+                $historialModel->registrar([
+                    'tipo_movimiento'      => 'EDICION PRODUCTO',
+                    'producto_id'          => $idTarget,
+                    'producto_sku'         => $prodActual['codigo_interno_sku'] ?? '',
+                    'producto_descripcion' => $prodActual['descripcion'] ?? '',
+                    'tipo_producto'        => $prodActual['tipo'] ?? '',
+                    'cantidad'             => floatval($prodActual['stock_cantidad'] ?? 0),
+                    'costo_unitario'      => floatval($prodActual['costo'] ?? 0),
+                    'stock_antes'          => floatval($prodActual['stock_cantidad'] ?? 0),
+                    'stock_despues'        => floatval($prodActual['stock_cantidad'] ?? 0),
+                    'motivo'               => 'Actualización de parámetros e insumos del elemento',
+                    'usuario_id'           => $_SESSION['usuario_id'] ?? null,
+                    'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
+                ]);
+
+                header("Location: productos.php?msg=edit_ok");
+                exit;
+            } else {
+                $error = "Error al actualizar el producto. Revisa los datos.";
+            }
+        } else {
+            // Crear producto nuevo
+            $productoModel->descripcion         = trim($_POST['descripcion'] ?? '');
+            $productoModel->codigo_barras       = trim($_POST['codigo_barras'] ?? '');
+            $productoModel->tipo                = $tipo;
+            $productoModel->unidad_medida       = $unidadMedida;
+            $productoModel->stock_cantidad      = 0;
+            $productoModel->stock_minimo        = $stockMinimo;
+            $productoModel->ropa_kg             = $ropaKg;
+            $productoModel->costo               = $costo;
+            $productoModel->precio_venta        = $precioVenta;
+            $productoModel->estado              = 'ACTIVO';
+            $productoModel->usuario_registro_id = $_SESSION['usuario_id'];
+
+            if ($productoModel->crear()) {
+                if ($tipo === 'KIT') {
+                    $insumos = [];
+                    $insumosIds      = $_POST['kit_insumo_id']       ?? [];
+                    $insumosCant     = $_POST['kit_insumo_cantidad']  ?? [];
+                    $insumosUnidades = $_POST['kit_insumo_unidad']    ?? [];
+                    $insumosRopaKg   = $_POST['kit_insumo_ropa_kg']  ?? [];
+
+                    foreach ($insumosIds as $i => $insumoId) {
+                        if (!empty($insumoId) && isset($insumosCant[$i])) {
+                            $insumos[] = [
+                                'id'       => $insumoId,
+                                'cantidad' => floatval($insumosCant[$i]),
+                                'unidad'   => $insumosUnidades[$i] ?? 'PIEZA',
+                                'ropa_kg'  => floatval($insumosRopaKg[$i] ?? $ropaKg),
+                            ];
+                        }
+                    }
+                    if (!empty($insumos)) {
+                        $productoModel->guardarInsumosKit($productoModel->id, $insumos);
                     }
                 }
-                if (!empty($insumos)) {
-                    $productoModel->guardarInsumosKit($productoModel->id, $insumos);
-                }
+
+                $historialModel->registrar([
+                    'tipo_movimiento'      => 'ALTA PRODUCTO',
+                    'producto_id'          => $productoModel->id,
+                    'producto_sku'         => $productoModel->codigo_interno_sku,
+                    'producto_descripcion' => $productoModel->descripcion,
+                    'tipo_producto'        => $productoModel->tipo,
+                    'cantidad'             => $productoModel->stock_cantidad,
+                    'costo_unitario'      => $productoModel->costo,
+                    'stock_antes'          => 0,
+                    'stock_despues'        => $productoModel->stock_cantidad,
+                    'motivo'               => 'Registro de producto nuevo en catálogo',
+                    'usuario_id'           => $_SESSION['usuario_id'] ?? null,
+                    'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
+                ]);
+
+                $skuAsignado  = htmlspecialchars($productoModel->codigo_interno_sku);
+                $mensaje = "Producto registrado exitosamente con SKU: <strong>{$skuAsignado}</strong>";
+                $siguienteSku = $productoModel->obtenerSiguienteSku();
+                $productosNormales = $productoModel->obtenerProductosNormales();
+                $productosNormalesJson = json_encode($productosNormales);
+            } else {
+                $error = "Error al crear el producto. Revisa los datos.";
             }
-
-            // Registrar movimiento en el historial
-            $historialModel->registrar([
-                'tipo_movimiento'      => 'ALTA PRODUCTO',
-                'producto_id'          => $productoModel->id,
-                'producto_sku'         => $productoModel->codigo_interno_sku,
-                'producto_descripcion' => $productoModel->descripcion,
-                'tipo_producto'        => $productoModel->tipo,
-                'cantidad'             => $productoModel->stock_cantidad,
-                'costo_unitario'      => $productoModel->costo,
-                'stock_antes'          => 0,
-                'stock_despues'        => $productoModel->stock_cantidad,
-                'motivo'               => 'Registro de producto nuevo en catálogo',
-                'usuario_id'           => $_SESSION['usuario_id'] ?? null,
-                'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
-            ]);
-
-            $skuAsignado  = htmlspecialchars($productoModel->codigo_interno_sku);
-            $mensaje = "Producto registrado exitosamente con SKU: <strong>{$skuAsignado}</strong>";
-            $siguienteSku = $productoModel->obtenerSiguienteSku();
-            // Refrescar lista de normales
-            $productosNormales = $productoModel->obtenerProductosNormales();
-            $productosNormalesJson = json_encode($productosNormales);
-        } else {
-            $error = "Error al crear el producto. Revisa los datos.";
         }
     }
 }
@@ -222,8 +301,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
     <main class="main-content">
         <header style="margin-bottom:2.5rem;display:flex;justify-content:space-between;align-items:center;">
             <div>
-                <h1 style="font-size:2rem;">Registro de Producto</h1>
-                <p style="color:var(--text-muted);">Alta de nuevos elementos en el catálogo del sistema.</p>
+                <h1 style="font-size:2rem;"><?= $esEdicion ? 'Editar Elemento' : 'Registro de Producto' ?></h1>
+                <p style="color:var(--text-muted);"><?= $esEdicion ? 'Actualización de parámetros e insumos del elemento en catálogo.' : 'Alta de nuevos elementos en el catálogo del sistema.' ?></p>
             </div>
         </header>
 
@@ -238,11 +317,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
 
         <div class="auth-card" style="width:100%;max-width:100%;padding:2.5rem;border-radius:20px;">
             <h3 style="margin-bottom:1.75rem;font-size:1.35rem;color:#fff;display:flex;align-items:center;gap:0.75rem;">
-                <span style="color:var(--primary);">➕</span> Nuevo Elemento
+                <span style="color:var(--primary);"><?= $esEdicion ? '✏️' : '➕' ?></span> <?= $esEdicion ? 'Editar Elemento / Kit' : 'Nuevo Elemento' ?>
             </h3>
 
             <form method="POST" id="form-producto">
-                <input type="hidden" name="action" value="crear">
+                <input type="hidden" name="action" value="<?= $esEdicion ? 'editar' : 'crear' ?>">
+                <?php if ($esEdicion): ?>
+                    <input type="hidden" name="id" value="<?= htmlspecialchars($productoEditar['id']) ?>">
+                <?php endif; ?>
                 <!-- Hidden fields de insumos Kit (se llenan por JS) -->
                 <div id="kit-hidden-inputs"></div>
 
@@ -250,20 +332,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                 <div style="display:grid;grid-template-columns:180px 1fr 220px;gap:1.25rem;margin-bottom:1.25rem;">
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" style="display:flex;align-items:center;gap:0.5rem;">
-                            SKU Interno <span class="sku-badge">Auto</span>
+                            SKU Interno <span class="sku-badge"><?= $esEdicion ? 'Asignado' : 'Auto' ?></span>
                         </label>
-                        <div class="sku-display" title="El SKU se asigna automáticamente al registrar">
+                        <div class="sku-display" title="<?= $esEdicion ? 'SKU del producto' : 'El SKU se asigna automáticamente al registrar' ?>">
                             🏷️ <?= htmlspecialchars($siguienteSku) ?>
                         </div>
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label">Descripción *</label>
                         <input type="text" name="descripcion" id="inp-descripcion" class="form-control" required
+                               value="<?= htmlspecialchars($esEdicion ? $productoEditar['descripcion'] : '') ?>"
                                placeholder="Ej: Jabón Líquido / Carga de Ropa Grande">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label">Código de Barras</label>
                         <input type="text" name="codigo_barras" class="form-control"
+                               value="<?= htmlspecialchars($esEdicion ? $productoEditar['codigo_barras'] : '') ?>"
                                placeholder="(Auto si se deja vacío)">
                     </div>
                 </div>
@@ -275,9 +359,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                         <div class="select-wrapper">
                             <select name="tipo" id="sel-tipo" class="form-control" required
                                     onchange="onTipoChange(this.value)">
-                                <option value="NORMAL">Normal</option>
-                                <option value="SERVICIO">Servicio</option>
-                                <option value="KIT">Kit / Paquete</option>
+                                <option value="NORMAL" <?= ($esEdicion && $productoEditar['tipo'] === 'NORMAL') ? 'selected' : '' ?>>Normal</option>
+                                <option value="SERVICIO" <?= ($esEdicion && $productoEditar['tipo'] === 'SERVICIO') ? 'selected' : '' ?>>Servicio</option>
+                                <option value="KIT" <?= ($esEdicion && $productoEditar['tipo'] === 'KIT') ? 'selected' : '' ?>>Kit / Paquete</option>
                             </select>
                             <div class="select-arrow-btn">▼</div>
                         </div>
@@ -286,14 +370,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                         <label class="form-label">Unidad de Medida *</label>
                         <div class="select-wrapper">
                             <select name="unidad_medida" id="sel-unidad" class="form-control" required>
-                                <option value="PIEZA">Pieza</option>
-                                <option value="LITRO">Litro</option>
-                                <option value="MILILITRO">Mililitro</option>
-                                <option value="KG">Kilogramo</option>
-                                <option value="GRAMO">Gramo</option>
-                                <option value="METRO">Metro</option>
-                                <option value="CARGA">Carga</option>
-                                <option value="SERVICIO">Servicio</option>
+                                <?php
+                                $unidades = ['PIEZA' => 'Pieza', 'LITRO' => 'Litro', 'MILILITRO' => 'Mililitro', 'KG' => 'Kilogramo', 'GRAMO' => 'Gramo', 'METRO' => 'Metro', 'CARGA' => 'Carga', 'SERVICIO' => 'Servicio'];
+                                $valUnidad = $esEdicion ? $productoEditar['unidad_medida'] : 'PIEZA';
+                                foreach ($unidades as $uVal => $uLabel):
+                                ?>
+                                    <option value="<?= $uVal ?>" <?= ($valUnidad === $uVal) ? 'selected' : '' ?>><?= $uLabel ?></option>
+                                <?php endforeach; ?>
                             </select>
                             <div class="select-arrow-btn">▼</div>
                         </div>
@@ -302,7 +385,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                         <label class="form-label">Stock Mínimo *</label>
                         <div class="number-input-wrapper">
                             <input type="number" step="0.01" min="0" name="stock_minimo" id="inp-stock-minimo"
-                                   class="form-control" value="0" required>
+                                   class="form-control" value="<?= htmlspecialchars($esEdicion ? $productoEditar['stock_minimo'] : '0') ?>" required>
                             <div class="spin-buttons">
                                 <button type="button" class="spin-btn" onclick="stepNumberInput('inp-stock-minimo', 1)">▲</button>
                                 <button type="button" class="spin-btn" onclick="stepNumberInput('inp-stock-minimo', -1)">▼</button>
@@ -313,7 +396,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                         <label class="form-label">Costo ($) *</label>
                         <div class="number-input-wrapper">
                             <input type="number" step="0.01" min="0" name="costo" id="inp-costo"
-                                   class="form-control" value="0.00" required>
+                                   class="form-control" value="<?= htmlspecialchars($esEdicion ? number_format($productoEditar['costo'], 2, '.', '') : '0.00') ?>" required>
                             <div class="spin-buttons">
                                 <button type="button" class="spin-btn" onclick="stepNumberInput('inp-costo', 1)">▲</button>
                                 <button type="button" class="spin-btn" onclick="stepNumberInput('inp-costo', -1)">▼</button>
@@ -324,7 +407,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                         <label class="form-label">Precio Venta ($) *</label>
                         <div class="number-input-wrapper">
                             <input type="number" step="0.01" min="0" name="precio_venta" id="inp-precio"
-                                   class="form-control" value="0.00" required>
+                                   class="form-control" value="<?= htmlspecialchars($esEdicion ? number_format($productoEditar['precio_venta'], 2, '.', '') : '0.00') ?>" required>
                             <div class="spin-buttons">
                                 <button type="button" class="spin-btn" onclick="stepNumberInput('inp-precio', 1)">▲</button>
                                 <button type="button" class="spin-btn" onclick="stepNumberInput('inp-precio', -1)">▼</button>
@@ -382,7 +465,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                         <div>
                             <label class="form-label" style="font-size:0.78rem;">Ropa en Kg.</label>
                             <input type="number" id="kit-inp-ropa-kg" name="ropa_kg" class="form-control"
-                                   step="0.01" min="0" value="1" placeholder="0.00">
+                                   step="0.01" min="0" value="<?= htmlspecialchars($esEdicion ? number_format($productoEditar['ropa_kg'], 2, '.', '') : '1') ?>" placeholder="0.00">
                         </div>
                     </div>
 
@@ -398,10 +481,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'crear')
                 <!-- Botones -->
                 <div style="display:flex;gap:1rem;align-items:center;margin-top:1.75rem;">
                     <button type="submit" class="btn-primary" style="width:auto;padding:0.95rem 2rem;">
-                        Registrar en Catálogo
+                        <?= $esEdicion ? '💾 Guardar Cambios' : 'Registrar en Catálogo' ?>
                     </button>
+                    <?php if ($esEdicion): ?>
+                        <a href="productos.php" style="padding:0.95rem 1.5rem;border-radius:12px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;">
+                            Cancelar
+                        </a>
+                    <?php endif; ?>
                     <span style="margin-left:auto;color:var(--text-muted);font-size:0.82rem;">
-                        🏷️ Próximo SKU: <strong style="color:#a5b4fc;"><?= htmlspecialchars($siguienteSku) ?></strong>
+                        🏷️ <?= $esEdicion ? 'SKU Actual' : 'Próximo SKU' ?>: <strong style="color:#a5b4fc;"><?= htmlspecialchars($siguienteSku) ?></strong>
                     </span>
                 </div>
             </form>
@@ -433,8 +521,8 @@ function stepNumberInput(id, dir) {
 // ── Catálogo de productos normales disponibles ────────────────────
 const productosNormales = <?= $productosNormalesJson ?>;
 
-// ── Estado interno del Kit ────────────────────────────────────────
-let kitInsumos = []; // [{ id, nombre, cantidad, unidad, ropa_kg }]
+// ── Estado interno del Kit (Cargado en edición o vacío al crear) ──
+let kitInsumos = <?= $insumosKitExistentesJson ?> || [];
 
 // ── Toggle Tipo ───────────────────────────────────────────────────
 function onTipoChange(tipo) {

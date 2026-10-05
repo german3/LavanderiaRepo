@@ -28,6 +28,10 @@ header("Pragma: no-cache");
 $mensaje = "";
 $error   = "";
 
+if (isset($_GET['msg']) && $_GET['msg'] === 'edit_ok') {
+    $mensaje = "Elemento / Kit actualizado exitosamente.";
+}
+
 // ── Procesar Acciones (Editar / Eliminar) ─────────────────────────
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $action = $_POST['action'] ?? '';
@@ -852,6 +856,11 @@ $productosJson = json_encode($productos);
         function abrirModalEditar(id) {
             const prod = productosData.find(p => p.id === id);
             if (!prod) return;
+
+            if (prod.tipo === 'KIT') {
+                window.location.href = `productos_registro.php?id=${encodeURIComponent(id)}`;
+                return;
+            }
 
             const desc = prod.descripcion || '';
             const cod = prod.codigo_barras || '';

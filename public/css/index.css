@@ -279,8 +279,8 @@ select.form-control:disabled {
 .sidebar-user-card {
     padding: 0.65rem 0.75rem;
     margin: 0.25rem 0 1rem 0;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--border);
+    background: transparent;
+    border: none;
     border-radius: 12px;
     display: flex;
     align-items: center;
