@@ -292,6 +292,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             min-height: 1.1rem;
             letter-spacing: 0.04em;
         }
+
+        /* Modales */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10050;
+        }
+        .modal-overlay.active { display: flex !important; }
+        .modal-box {
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: modalSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes modalSlide {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -493,8 +520,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     </span>
                 </div>
             </form>
-        </div>
     </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MODAL CONFIRMAR GUARDAR CAMBIOS (EDICIÓN)
+═══════════════════════════════════════════════════ -->
+<div id="modal-confirmar-guardar" class="modal-overlay" style="z-index: 10050;" onclick="cerrarModalConfirmarGuardar(event)">
+    <div class="modal-box" style="max-width: 440px;" onclick="event.stopPropagation()">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+            <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: #60a5fa;">
+                💾
+            </div>
+            <div>
+                <h3 style="font-size: 1.2rem; color: #fff; margin: 0;">Confirmar Cambios</h3>
+                <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 0.15rem;">Actualización del Kit / Producto</p>
+            </div>
+        </div>
+
+        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 1rem 0;">
+            ¿Estás seguro de que deseas guardar los cambios realizados en este elemento / kit?
+        </p>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+            <button type="button" class="btn-action" style="background: rgba(255,255,255,0.06); color: var(--text-main); padding: 0.65rem 1.25rem; border-radius: 8px;" onclick="cerrarModalConfirmarGuardar()">Cancelar</button>
+            <button type="button" class="btn-primary" style="width: auto; padding: 0.65rem 1.5rem; border-radius: 8px;" onclick="ejecutarGuardarProducto()">Sí, Guardar</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -651,8 +703,11 @@ function renderChips() {
     });
 }
 
-// ── Serializar insumos en campos hidden antes de enviar ───────────
+// ── Serializar insumos en campos hidden y confirmar edición ───────
+let regFormConfirmado = false;
+
 document.getElementById('form-producto').addEventListener('submit', function(e) {
+    const actionVal = document.querySelector('input[name="action"]')?.value;
     const tipo = document.getElementById('sel-tipo').value;
 
     const hiddenContainer = document.getElementById('kit-hidden-inputs');
@@ -674,7 +729,24 @@ document.getElementById('form-producto').addEventListener('submit', function(e) 
             `;
         });
     }
+
+    if (actionVal === 'editar' && !regFormConfirmado) {
+        e.preventDefault();
+        document.getElementById('modal-confirmar-guardar').classList.add('active');
+        return false;
+    }
 });
+
+function cerrarModalConfirmarGuardar(e) {
+    if (e && e.target !== e.currentTarget) return;
+    document.getElementById('modal-confirmar-guardar').classList.remove('active');
+}
+
+function ejecutarGuardarProducto() {
+    regFormConfirmado = true;
+    document.getElementById('modal-confirmar-guardar').classList.remove('active');
+    document.getElementById('form-producto').submit();
+}
 
 // ── Utilidades ────────────────────────────────────────────────────
 function escHtml(str) {

@@ -413,7 +413,7 @@ $productosJson = json_encode($productos);
                             <td style="color: var(--text-muted); font-size: 0.9rem;">$<?= number_format($p['costo'], 2) ?></td>
                             <td style="font-weight: 600;">$<?= number_format($p['precio_venta'], 2) ?></td>
                             <td style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
-                                <?= htmlspecialchars($p['unidad_medida'] ?? '') ?>
+                                <?= ($p['tipo'] === 'KIT') ? 'Múltiple' : htmlspecialchars($p['unidad_medida'] ?? '') ?>
                             </td>
                             <td style="text-align: right; white-space: nowrap;">
                                 <button type="button" class="btn-action btn-detalles" title="Ver Detalles" onclick="abrirModalDetalles('<?= htmlspecialchars($p['id'], ENT_QUOTES) ?>')">
@@ -767,7 +767,7 @@ $productosJson = json_encode($productos);
             document.getElementById('det-descripcion').textContent = prod.descripcion;
             document.getElementById('det-sku').textContent = `SKU: ${prod.codigo_interno_sku || '—'}`;
             document.getElementById('det-codigo-barras').textContent = prod.codigo_barras || '—';
-            document.getElementById('det-unidad').textContent = prod.unidad_medida || '—';
+            document.getElementById('det-unidad').textContent = (prod.tipo === 'KIT') ? 'Múltiple' : (prod.unidad_medida || '—');
 
             // Stock & Stock Mínimo
             const cardStock = document.getElementById('card-det-stock');
