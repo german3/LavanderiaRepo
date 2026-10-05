@@ -52,10 +52,14 @@ function isMenuActive($pages, $current) {
             </a>
             <div id="submenu-stock" class="submenu<?= isMenuOpen(['stock_entradas','compras','inventario_ajustes','historial'], $activePage) ?>">
                 <a href="stock_entradas.php" class="<?= isActive('stock_entradas', $activePage) ?>">Entradas / Salidas</a>
+                <?php /* Spec 04 — oculto en interfaz, código fuente disponible en compras.php
                 <a href="compras.php" class="<?= isActive('compras', $activePage) ?>">Entradas de Compra</a>
+                */ ?>
+                <?php /* Spec 04 — Regla 6, oculto en interfaz, código fuente disponible en inventario_ajustes.php
                 <?php if($auth->isAdmin()): ?>
                 <a href="inventario_ajustes.php" class="<?= isActive('inventario_ajustes', $activePage) ?>">Ajustes (Admin)</a>
                 <?php endif; ?>
+                */ ?>
                 <a href="historial.php" class="<?= isActive('historial', $activePage) ?>">Historial</a>
             </div>
         </div>
