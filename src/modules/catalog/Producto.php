@@ -88,6 +88,32 @@ class Producto {
         $ropaKgVal = isset($this->ropa_kg) ? floatval($this->ropa_kg) : 0.00;
         $stockMinimoVal = ($this->tipo === 'NORMAL') ? floatval($this->stock_minimo ?? 0) : 0.00;
 
+        // Validar y asegurar que usuario_registro_id exista en la tabla usuarios
+        if (!empty($this->usuario_registro_id)) {
+            $checkUser = $this->conn->prepare("SELECT id FROM usuarios WHERE id = :id LIMIT 1");
+            $checkUser->execute([':id' => $this->usuario_registro_id]);
+            if (!$checkUser->fetch()) {
+                $this->usuario_registro_id = null;
+            }
+        }
+
+        if (empty($this->usuario_registro_id)) {
+            if (isset($_SESSION['usuario_id'])) {
+                $checkSession = $this->conn->prepare("SELECT id FROM usuarios WHERE id = :id LIMIT 1");
+                $checkSession->execute([':id' => $_SESSION['usuario_id']]);
+                if ($checkSession->fetch()) {
+                    $this->usuario_registro_id = $_SESSION['usuario_id'];
+                }
+            }
+            if (empty($this->usuario_registro_id)) {
+                $userStmt = $this->conn->query("SELECT id FROM usuarios WHERE estado = 'ACTIVO' ORDER BY fecha_creacion ASC LIMIT 1");
+                $userRow = $userStmt ? $userStmt->fetch(PDO::FETCH_ASSOC) : null;
+                if ($userRow) {
+                    $this->usuario_registro_id = $userRow['id'];
+                }
+            }
+        }
+
         $stmt->bindParam(":id", $this->id);
         $stmt->bindParam(":codigo_barras", $this->codigo_barras);
         $stmt->bindParam(":codigo_interno_sku", $this->codigo_interno_sku);

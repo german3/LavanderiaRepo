@@ -399,7 +399,7 @@ $productosJson = json_encode($productos);
             </div>
 
             <!-- Encabezado Pantalla -->
-            <header style="margin-bottom: 2rem;">
+            <!-- <header style="margin-bottom: 2rem;">
                 <div>
                     <h1 style="font-size: 1.8rem; color: #fff; display: flex; align-items: center; gap: 0.6rem;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -413,7 +413,7 @@ $productosJson = json_encode($productos);
                         Muestra todos los productos cuyo inventario actual es menor o igual al stock mínimo registrado para reposición inmediata.
                     </p>
                 </div>
-            </header>
+            </header> -->
 
             <!-- Tarjetas de Métricas -->
             <div class="stats-grid">
@@ -469,11 +469,11 @@ $productosJson = json_encode($productos);
                         <option value="AGOTADO">Agotados (Stock <= 0)</option>
                         <option value="MINIMO">En Stock Mínimo (> 0)</option>
                     </select>
-                    <select id="select-tipo" class="select-filter" onchange="filtrarTabla()">
+                    <!-- <select id="select-tipo" class="select-filter" onchange="filtrarTabla()">
                         <option value="">Todos los tipos</option>
                         <option value="NORMAL">Insumos / Normal</option>
                         <option value="KIT">Kits de Servicio</option>
-                    </select>
+                    </select> -->
                 </div>
                 <div class="toolbar-actions">
                     <button class="btn-tool btn-excel" onclick="exportarExcel()">
@@ -509,7 +509,7 @@ $productosJson = json_encode($productos);
                             <th>Stock Mínimo</th>
                             <th>Faltante Sugerido</th>
                             <th>Estado</th>
-                            <th style="text-align: right;">Acciones</th>
+                            <!-- <th style="text-align: right;">Acciones</th> -->
                         </tr>
                     </thead>
                     <tbody id="tbody-reporte">
@@ -587,15 +587,7 @@ $productosJson = json_encode($productos);
                         +${faltante.toFixed(2)}
                     </td>
                     <td>${badgeEstado}</td>
-                    <td style="text-align: right;">
-                        <a href="stock_entradas.php" class="btn-action-entradas" title="Realizar entrada de inventario">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="12" y1="5" x2="12" y2="19"/>
-                                <line x1="5" y1="12" x2="19" y2="12"/>
-                            </svg>
-                            Cargar Stock
-                        </a>
-                    </td>
+                    
                 `;
                 tbody.appendChild(tr);
             });
@@ -604,7 +596,8 @@ $productosJson = json_encode($productos);
         function filtrarTabla() {
             const query = document.getElementById('input-search').value.toLowerCase().trim();
             const estado = document.getElementById('select-estado').value;
-            const tipo = document.getElementById('select-tipo').value;
+            const selectTipoElem = document.getElementById('select-tipo');
+            const tipo = selectTipoElem ? selectTipoElem.value : '';
 
             const filtrados = productosData.filter(p => {
                 const matchQuery = !query || 

@@ -26,7 +26,7 @@ class ReporteStock {
         $query = "SELECT p.*, u.nombre as usuario_nombre 
                   FROM " . $this->table_name . " p 
                   LEFT JOIN usuarios u ON p.usuario_registro_id = u.id 
-                  WHERE p.stock_cantidad <= p.stock_minimo
+                  WHERE p.stock_cantidad <= p.stock_minimo AND p.tipo = 'NORMAL'
                   ORDER BY (p.stock_minimo - p.stock_cantidad) DESC, p.descripcion ASC";
         
         $stmt = $this->conn->prepare($query);

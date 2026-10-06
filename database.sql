@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS detalle_entradas (
     cantidad        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     costo_unitario  DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     FOREIGN KEY (entrada_id)  REFERENCES entradas_compras(id) ON DELETE CASCADE,
-    FOREIGN KEY (producto_id) REFERENCES productos(id)
+    FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS movimientos_inventario (
@@ -121,6 +121,6 @@ CREATE TABLE IF NOT EXISTS movimientos_inventario (
     INDEX (producto_id),
     INDEX (tipo_movimiento),
     INDEX (fecha),
-    FOREIGN KEY (producto_id) REFERENCES productos(id)
+    FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

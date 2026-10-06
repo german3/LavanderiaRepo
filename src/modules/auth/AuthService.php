@@ -59,7 +59,24 @@ class AuthService {
     }
 
     public function checkAuth() {
-        return isset($_SESSION['usuario_id']);
+        if (!isset($_SESSION['usuario_id'])) {
+            return false;
+        }
+
+        try {
+            $query = "SELECT id FROM usuarios WHERE id = :id AND estado = 'ACTIVO' LIMIT 1";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([':id' => $_SESSION['usuario_id']]);
+            if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
+                $this->logout();
+                return false;
+            }
+        } catch (Exception $e) {
+            // Si la consulta falla por conexión u otro problema, mantenemos el comportamiento básico
+            return isset($_SESSION['usuario_id']);
+        }
+
+        return true;
     }
 
     public function isAdmin() {
