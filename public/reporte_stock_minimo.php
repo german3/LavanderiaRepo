@@ -331,7 +331,7 @@ $productosJson = json_encode($productos);
         /* Estilos de Impresión Profesional Sin Encabezados/Pies de Navegador */
         @page {
             size: portrait;
-            margin: 0mm;
+            margin: 10mm 12mm 10mm 12mm;
         }
 
         @media print {
@@ -340,7 +340,10 @@ $productosJson = json_encode($productos);
                 color: #0f172a !important;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
                 margin: 0 !important;
-                padding: 12mm 15mm !important;
+                padding: 0 !important;
+                height: 100% !important;
+                max-height: 100% !important;
+                overflow: hidden !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
@@ -356,20 +359,32 @@ $productosJson = json_encode($productos);
             }
 
             /* Ocultar interfaz e interactividad de pantalla */
-            .sidebar, .toolbar-card, .btn-action-entradas, .sidebar-toggle, button, .stats-grid {
+            .sidebar, .toolbar-card, .btn-action-entradas, .sidebar-toggle, button, .stats-grid, #empty-state {
                 display: none !important;
             }
 
             .app-container {
-                display: block !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                height: 100% !important;
+                min-height: 100% !important;
+                max-height: 100% !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                box-sizing: border-box !important;
             }
 
             .main-content {
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                flex: 1 !important;
+                height: 100% !important;
                 margin-left: 0 !important;
                 padding: 0 !important;
                 width: 100% !important;
+                position: relative !important;
             }
 
             /* Encabezado Corporativo de Impresión con Logo */
@@ -378,25 +393,27 @@ $productosJson = json_encode($productos);
                 align-items: center;
                 justify-content: space-between;
                 border-bottom: 2px solid #0f172a;
-                padding-bottom: 12px;
-                margin-bottom: 14px;
+                padding-bottom: 8px;
+                margin-bottom: 10px;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
             }
 
             .print-header-brand {
                 display: flex;
                 align-items: center;
-                gap: 14px;
+                gap: 12px;
             }
 
             .print-logo {
-                height: 55px;
+                height: 48px;
                 width: auto;
                 object-fit: contain;
-                border-radius: 6px;
+                border-radius: 4px;
             }
 
             .print-header-titles h1 {
-                font-size: 1.35rem;
+                font-size: 1.25rem;
                 font-weight: 800;
                 color: #0f172a;
                 margin: 0;
@@ -405,17 +422,17 @@ $productosJson = json_encode($productos);
             }
 
             .print-header-titles p {
-                font-size: 0.825rem;
+                font-size: 0.8rem;
                 color: #475569;
-                margin: 2px 0 0 0;
+                margin: 1px 0 0 0;
                 font-weight: 500;
             }
 
             .print-meta-box {
                 text-align: right;
-                font-size: 0.8rem;
+                font-size: 0.775rem;
                 color: #334155;
-                line-height: 1.4;
+                line-height: 1.35;
             }
 
             .print-meta-box strong {
@@ -425,15 +442,17 @@ $productosJson = json_encode($productos);
             /* Resumen de Métricas KPI al imprimir */
             .print-kpis {
                 display: flex !important;
-                gap: 12px;
-                margin-bottom: 14px;
+                gap: 10px;
+                margin-bottom: 10px;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
             }
 
             .print-kpi-item {
                 flex: 1;
                 border: 1px solid #cbd5e1;
                 border-radius: 6px;
-                padding: 6px 12px;
+                padding: 5px 10px;
                 background-color: #f8fafc !important;
                 display: flex;
                 align-items: center;
@@ -441,14 +460,14 @@ $productosJson = json_encode($productos);
             }
 
             .print-kpi-label {
-                font-size: 0.725rem;
+                font-size: 0.7rem;
                 font-weight: 700;
                 color: #475569;
                 text-transform: uppercase;
             }
 
             .print-kpi-val {
-                font-size: 1.15rem;
+                font-size: 1.1rem;
                 font-weight: 800;
                 color: #0f172a;
             }
@@ -461,18 +480,35 @@ $productosJson = json_encode($productos);
                 color: #d97706 !important;
             }
 
+            /* Eliminar scrollbars al imprimir */
+            html, body, .app-container, .main-content, .table-container, table {
+                overflow: visible !important;
+                overflow-x: visible !important;
+                overflow-y: visible !important;
+            }
+
+            ::-webkit-scrollbar {
+                display: none !important;
+                width: 0 !important;
+                height: 0 !important;
+            }
+
             /* Tabla de Impresión Estilo Bootstrap Profesional */
             .table-container {
                 background: #ffffff !important;
                 border: none !important;
                 box-shadow: none !important;
                 padding: 0 !important;
+                margin: 0 !important;
+                overflow: visible !important;
+                overflow-x: visible !important;
+                max-width: 100% !important;
             }
 
             .table {
                 width: 100% !important;
                 border-collapse: collapse !important;
-                font-size: 9pt !important;
+                font-size: 8.5pt !important;
             }
 
             .table th {
@@ -480,8 +516,8 @@ $productosJson = json_encode($productos);
                 color: #ffffff !important;
                 border: 1px solid #0f172a !important;
                 font-weight: 700 !important;
-                padding: 6px 8px !important;
-                font-size: 8pt !important;
+                padding: 5px 6px !important;
+                font-size: 7.5pt !important;
                 text-transform: uppercase;
                 letter-spacing: 0.03em;
             }
@@ -489,7 +525,12 @@ $productosJson = json_encode($productos);
             .table td {
                 border: 1px solid #cbd5e1 !important;
                 color: #1e293b !important;
-                padding: 5px 8px !important;
+                padding: 4px 6px !important;
+            }
+
+            .table tr {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
             }
 
             .table tr:nth-child(even) td {
@@ -507,8 +548,8 @@ $productosJson = json_encode($productos);
 
             .badge {
                 border-radius: 4px !important;
-                padding: 2px 6px !important;
-                font-size: 7pt !important;
+                padding: 2px 5px !important;
+                font-size: 6.5pt !important;
                 font-weight: 700 !important;
                 letter-spacing: 0.02em;
             }
@@ -537,24 +578,40 @@ $productosJson = json_encode($productos);
                 border: 1px solid #c084fc !important;
             }
 
-            /* Pie de página profesional del reporte */
+            /* Pie de página profesional empujado al final absoluto por flexbox margin-top: auto */
             .print-signature-footer {
                 display: flex !important;
-                justify-content: space-between;
-                align-items: flex-end;
-                margin-top: 25px;
-                padding-top: 10px;
+                justify-content: space-between !important;
+                align-items: flex-end !important;
+                margin-top: auto !important;
+                padding-top: 15px !important;
+                width: 100% !important;
+                background: #ffffff !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .print-footer-left {
                 font-size: 7.5pt;
                 color: #64748b;
+                text-align: left;
+            }
+
+            .print-footer-right {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                text-align: right;
             }
 
             .print-signature-box {
-                width: 200px;
+                width: 210px;
                 text-align: center;
                 border-top: 1px solid #94a3b8;
                 padding-top: 4px;
                 color: #334155;
                 font-weight: 600;
+                font-size: 7.5pt;
             }
         }
 
@@ -726,12 +783,17 @@ $productosJson = json_encode($productos);
                     </svg>
                     <h3>¡Inventario en óptimo estado!</h3>
                     <p>No se encontraron productos con stock igual o menor a su límite mínimo configurado.</p>
+                </div>
             </div>
 
             <!-- Pie del Reporte para Impresión -->
             <div class="print-signature-footer">
-                <div>Documento impreso desde el Sistema de Gestión - Lavandería Vera</div>
-                <div class="print-signature-box">Firma / Supervisor de Almacén</div>
+                <div class="print-footer-left">
+                    Documento impreso desde el Sistema de Gestión - Lavandería Vera
+                </div>
+                <div class="print-footer-right">
+                    <div class="print-signature-box">Firma / Supervisor de Almacén</div>
+                </div>
             </div>
         </main>
     </div>
