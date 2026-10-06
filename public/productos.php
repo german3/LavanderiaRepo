@@ -289,15 +289,25 @@ $productosJson = json_encode($productos);
                     <!-- Controles derechos: Búsqueda + Exportar -->
                     <div style="display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
                         <!-- Cuadro de Búsqueda -->
-                        <div style="position: relative; width: 300px;">
+                        <div style="position: relative; width: 220px;">
                             <span style="position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.95rem; pointer-events: none;">🔍</span>
-                            <input type="text" id="input-busqueda" class="form-control" placeholder="Buscar por SKU, descripción o código..."
+                            <input type="text" id="input-busqueda" class="form-control" placeholder="Buscar SKU o descripción..."
                                    style="padding-left: 2.5rem; padding-right: 2.2rem; border-radius: 10px; font-size: 0.85rem; height: 38px;"
                                    oninput="filtrarProductos(this.value)">
                             <button type="button" id="btn-limpiar-busqueda" onclick="limpiarBusqueda()"
                                     style="display: none; position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;"
                                     title="Limpiar búsqueda">✕</button>
                         </div>
+
+                        <!-- Filtro por Tipo -->
+                        <select id="select-filtro-tipo" class="form-control"
+                                style="width: 160px; flex-shrink: 0; border-radius: 10px; font-size: 0.85rem; height: 38px; padding: 0 0.85rem; cursor: pointer;"
+                                onchange="aplicarFiltros()">
+                            <option value="">Todos los tipos</option>
+                            <option value="normal">Normal</option>
+                            <option value="servicio">Servicio</option>
+                            <option value="kit">Kit / Paquete</option>
+                        </select>
 
                         <!-- Botón Exportar Excel (página actual) -->
                         <button type="button" id="btn-exportar-excel" onclick="exportarExcel()"
@@ -410,7 +420,9 @@ $productosJson = json_encode($productos);
                                     <small style="display:block;font-size:0.75rem;color:var(--text-muted);font-weight:normal;">Mín: <?= number_format($p['stock_minimo'], 2) ?></small>
                                 <?php endif; ?>
                             </td>
-                            <td style="color: var(--text-muted); font-size: 0.9rem;">$<?= number_format($p['costo'], 2) ?></td>
+                            <td style="color: var(--text-muted); font-size: 0.9rem;">
+                                <?= (in_array($p['tipo'], ['KIT', 'SERVICIO'])) ? '<span style="font-size: 0.85rem; font-weight: 500;">N/A</span>' : '$' . number_format($p['costo'], 2) ?>
+                            </td>
                             <td style="font-weight: 600;">$<?= number_format($p['precio_venta'], 2) ?></td>
                             <td style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase;">
                                 <?= ($p['tipo'] === 'KIT') ? 'MÚLTIPLE' : htmlspecialchars(mb_strtoupper($p['unidad_medida'] ?? '', 'UTF-8')) ?>
@@ -986,8 +998,16 @@ $productosJson = json_encode($productos);
 
         // ── Filtrado y Búsqueda en Tiempo Real ───────────────────────────
         function filtrarProductos(termino) {
-            const q = (termino || '').trim().toLowerCase();
-            const filas = document.querySelectorAll('.fila-producto');
+            if (document.getElementById('input-busqueda')) {
+                document.getElementById('input-busqueda').value = termino;
+            }
+            aplicarFiltros();
+        }
+
+        function aplicarFiltros() {
+            const q          = (document.getElementById('input-busqueda').value || '').trim().toLowerCase();
+            const tipoFiltro = (document.getElementById('select-filtro-tipo').value || '').toLowerCase();
+            const filas      = document.querySelectorAll('.fila-producto');
             const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
 
             if (btnLimpiar) {
@@ -999,9 +1019,12 @@ $productosJson = json_encode($productos);
                 const desc = fila.dataset.descripcion || '';
                 const cod  = fila.dataset.codigo || '';
                 const tipo = fila.dataset.tipo || '';
-                const coincide = !q || sku.includes(q) || desc.includes(q) || cod.includes(q) || tipo.includes(q);
+
+                const coincideTexto = !q || sku.includes(q) || desc.includes(q) || cod.includes(q);
+                const coincideTipo  = !tipoFiltro || tipo === tipoFiltro;
+
                 // Usamos data-filtrado para que el paginador lo respete
-                fila.dataset.filtrado = coincide ? '1' : '0';
+                fila.dataset.filtrado = (coincideTexto && coincideTipo) ? '1' : '0';
             });
 
             renderPagina(1);
@@ -1012,8 +1035,8 @@ $productosJson = json_encode($productos);
             if (input) {
                 input.value = '';
                 input.focus();
-                filtrarProductos('');
             }
+            aplicarFiltros();
         }
 
         // ── Ordenamiento de Stock (3 Estados) ─────────────────────────────
