@@ -65,9 +65,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } else {
         $tipo = $_POST['tipo'] ?? 'NORMAL';
 
-        $unidadMedida  = ($tipo === 'KIT') ? 'PIEZA'  : ($_POST['unidad_medida']  ?? 'PIEZA');
+        $unidadMedida  = ($tipo === 'KIT') ? 'PIEZA' : (($tipo === 'SERVICIO') ? 'SERVICIO' : ($_POST['unidad_medida'] ?? 'PIEZA'));
         $stockMinimo   = ($tipo === 'NORMAL') ? floatval($_POST['stock_minimo'] ?? 0) : 0;
-        $costo         = ($tipo === 'KIT') ? 0        : floatval($_POST['costo']          ?? 0);
+        $costo         = ($tipo === 'KIT' || $tipo === 'SERVICIO') ? 0 : floatval($_POST['costo'] ?? 0);
         $precioVenta   = floatval($_POST['precio_venta'] ?? 0);
         $ropaKg        = ($tipo === 'KIT') ? floatval($_POST['ropa_kg'] ?? 0)     : 0;
 
@@ -533,13 +533,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 💾
             </div>
             <div>
-                <h3 style="font-size: 1.2rem; color: #fff; margin: 0;">Confirmar Cambios</h3>
-                <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 0.15rem;">Actualización del Kit / Producto</p>
+                <h3 style="font-size: 1.2rem; color: #fff; margin: 0;"><?= $esEdicion ? 'Confirmar Cambios' : 'Confirmar Registro' ?></h3>
+                <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 0.15rem;"><?= $esEdicion ? 'Actualización de Elemento / Kit / Servicio' : 'Registro de Elemento en Catálogo' ?></p>
             </div>
         </div>
 
         <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 1rem 0;">
-            ¿Estás seguro de que deseas guardar los cambios realizados en este elemento / kit?
+            ¿Estás seguro de que deseas guardar <?= $esEdicion ? 'los cambios realizados en este elemento' : 'los datos de este nuevo elemento en el catálogo' ?>?
         </p>
 
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
@@ -598,11 +598,13 @@ function onTipoChange(tipo) {
         if (groupStockMinimo) groupStockMinimo.style.opacity = '0.4';
     } else if (tipo === 'SERVICIO') {
         kitSection.style.display = 'none';
-        selUnidad.disabled       = false;
+        selUnidad.disabled       = true;
+        selUnidad.value          = 'SERVICIO';
         inpStockMinimo.disabled  = true;
         inpStockMinimo.required  = false;
         inpStockMinimo.value     = '0';
-        inpCosto.disabled        = false;
+        inpCosto.disabled        = true;
+        inpCosto.value           = '0.00';
         inpPrecio.disabled       = false;
         if (groupStockMinimo) groupStockMinimo.style.opacity = '0.4';
         kitInsumos = [];
@@ -730,7 +732,7 @@ document.getElementById('form-producto').addEventListener('submit', function(e) 
         });
     }
 
-    if (actionVal === 'editar' && !regFormConfirmado) {
+    if (!regFormConfirmado) {
         e.preventDefault();
         document.getElementById('modal-confirmar-guardar').classList.add('active');
         return false;

@@ -404,16 +404,16 @@ $productosJson = json_encode($productos);
                                 ?>
                                 <span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($p['tipo']) ?></span>
                             </td>
-                            <td style="font-weight: 600; color: <?= ($p['tipo'] === 'KIT') ? 'var(--text-muted)' : (($p['stock_cantidad'] <= 0) ? '#f87171' : 'var(--text-main)') ?>">
-                                <?= ($p['tipo'] === 'KIT') ? '<span style="color: var(--text-muted); font-size: 0.85rem; font-weight: 500;">N/A</span>' : number_format($p['stock_cantidad'], 2) ?>
+                            <td style="font-weight: 600; color: <?= (in_array($p['tipo'], ['KIT', 'SERVICIO'])) ? 'var(--text-muted)' : (($p['stock_cantidad'] <= 0) ? '#f87171' : 'var(--text-main)') ?>">
+                                <?= (in_array($p['tipo'], ['KIT', 'SERVICIO'])) ? '<span style="color: var(--text-muted); font-size: 0.85rem; font-weight: 500;">N/A</span>' : number_format($p['stock_cantidad'], 2) ?>
                                 <?php if ($p['tipo'] === 'NORMAL' && isset($p['stock_minimo'])): ?>
                                     <small style="display:block;font-size:0.75rem;color:var(--text-muted);font-weight:normal;">Mín: <?= number_format($p['stock_minimo'], 2) ?></small>
                                 <?php endif; ?>
                             </td>
                             <td style="color: var(--text-muted); font-size: 0.9rem;">$<?= number_format($p['costo'], 2) ?></td>
                             <td style="font-weight: 600;">$<?= number_format($p['precio_venta'], 2) ?></td>
-                            <td style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
-                                <?= ($p['tipo'] === 'KIT') ? 'Múltiple' : htmlspecialchars($p['unidad_medida'] ?? '') ?>
+                            <td style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase;">
+                                <?= ($p['tipo'] === 'KIT') ? 'MÚLTIPLE' : htmlspecialchars(mb_strtoupper($p['unidad_medida'] ?? '', 'UTF-8')) ?>
                             </td>
                             <td style="text-align: right; white-space: nowrap;">
                                 <button type="button" class="btn-action btn-detalles" title="Ver Detalles" onclick="abrirModalDetalles('<?= htmlspecialchars($p['id'], ENT_QUOTES) ?>')">
@@ -772,11 +772,8 @@ $productosJson = json_encode($productos);
             // Stock & Stock Mínimo
             const cardStock = document.getElementById('card-det-stock');
             const cardStockMinimo = document.getElementById('card-det-stock-minimo');
-            if (prod.tipo === 'KIT') {
+            if (prod.tipo === 'KIT' || prod.tipo === 'SERVICIO') {
                 document.getElementById('det-stock').textContent = 'N/A';
-                cardStockMinimo.style.display = 'none';
-            } else if (prod.tipo === 'SERVICIO') {
-                document.getElementById('det-stock').textContent = parseFloat(prod.stock_cantidad || 0).toFixed(2);
                 cardStockMinimo.style.display = 'none';
             } else {
                 document.getElementById('det-stock').textContent = parseFloat(prod.stock_cantidad || 0).toFixed(2);
