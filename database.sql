@@ -124,3 +124,14 @@ CREATE TABLE IF NOT EXISTS movimientos_inventario (
     FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+drop table clientes
+drop table detalle_entradas
+drop table entradas_compras
+drop table historial_movimientos
+drop table movimientos_inventario
+drop table productos
+drop table productos_kits
+drop table sesiones
+drop table usuarios
+
+

@@ -328,61 +328,237 @@ $productosJson = json_encode($productos);
             margin-bottom: 0.4rem;
         }
 
-        /* Estilos de Impresión */
+        /* Estilos de Impresión Profesional Sin Encabezados/Pies de Navegador */
+        @page {
+            size: portrait;
+            margin: 0mm;
+        }
+
         @media print {
-            body {
-                background: #fff !important;
-                color: #000 !important;
+            html, body {
+                background: #ffffff !important;
+                color: #0f172a !important;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+                margin: 0 !important;
+                padding: 12mm 15mm !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
 
-            .sidebar, .toolbar-card, .btn-action-entradas, .sidebar-toggle, button {
+            /* Desactivar URLs impresas en enlaces */
+            a[href]:after, a:after {
+                content: "" !important;
+            }
+
+            a {
+                text-decoration: none !important;
+                color: inherit !important;
+            }
+
+            /* Ocultar interfaz e interactividad de pantalla */
+            .sidebar, .toolbar-card, .btn-action-entradas, .sidebar-toggle, button, .stats-grid {
                 display: none !important;
+            }
+
+            .app-container {
+                display: block !important;
+                padding: 0 !important;
+                margin: 0 !important;
             }
 
             .main-content {
                 margin-left: 0 !important;
-                padding: 1rem !important;
+                padding: 0 !important;
                 width: 100% !important;
             }
 
-            .table-container, .stat-card {
-                background: #fff !important;
-                border: 1px solid #ccc !important;
+            /* Encabezado Corporativo de Impresión con Logo */
+            .print-header {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                border-bottom: 2px solid #0f172a;
+                padding-bottom: 12px;
+                margin-bottom: 14px;
+            }
+
+            .print-header-brand {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+            }
+
+            .print-logo {
+                height: 55px;
+                width: auto;
+                object-fit: contain;
+                border-radius: 6px;
+            }
+
+            .print-header-titles h1 {
+                font-size: 1.35rem;
+                font-weight: 800;
+                color: #0f172a;
+                margin: 0;
+                line-height: 1.2;
+                letter-spacing: -0.01em;
+            }
+
+            .print-header-titles p {
+                font-size: 0.825rem;
+                color: #475569;
+                margin: 2px 0 0 0;
+                font-weight: 500;
+            }
+
+            .print-meta-box {
+                text-align: right;
+                font-size: 0.8rem;
+                color: #334155;
+                line-height: 1.4;
+            }
+
+            .print-meta-box strong {
+                color: #0f172a;
+            }
+
+            /* Resumen de Métricas KPI al imprimir */
+            .print-kpis {
+                display: flex !important;
+                gap: 12px;
+                margin-bottom: 14px;
+            }
+
+            .print-kpi-item {
+                flex: 1;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 6px 12px;
+                background-color: #f8fafc !important;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .print-kpi-label {
+                font-size: 0.725rem;
+                font-weight: 700;
+                color: #475569;
+                text-transform: uppercase;
+            }
+
+            .print-kpi-val {
+                font-size: 1.15rem;
+                font-weight: 800;
+                color: #0f172a;
+            }
+
+            .print-kpi-val.text-danger {
+                color: #dc2626 !important;
+            }
+
+            .print-kpi-val.text-warning {
+                color: #d97706 !important;
+            }
+
+            /* Tabla de Impresión Estilo Bootstrap Profesional */
+            .table-container {
+                background: #ffffff !important;
+                border: none !important;
                 box-shadow: none !important;
-                color: #000 !important;
+                padding: 0 !important;
+            }
+
+            .table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                font-size: 9pt !important;
             }
 
             .table th {
-                color: #000 !important;
-                border-bottom: 2px solid #000 !important;
+                background-color: #0f172a !important;
+                color: #ffffff !important;
+                border: 1px solid #0f172a !important;
+                font-weight: 700 !important;
+                padding: 6px 8px !important;
+                font-size: 8pt !important;
+                text-transform: uppercase;
+                letter-spacing: 0.03em;
             }
 
             .table td {
-                color: #000 !important;
-                border-bottom: 1px solid #eee !important;
+                border: 1px solid #cbd5e1 !important;
+                color: #1e293b !important;
+                padding: 5px 8px !important;
+            }
+
+            .table tr:nth-child(even) td {
+                background-color: #f8fafc !important;
             }
 
             .sku-tag {
                 background: #f1f5f9 !important;
-                color: #000 !important;
+                color: #0f172a !important;
                 border: 1px solid #cbd5e1 !important;
+                font-weight: 700;
+                padding: 1px 4px;
+                border-radius: 4px;
             }
 
             .badge {
-                border: 1px solid #000 !important;
-                color: #000 !important;
-                background: transparent !important;
+                border-radius: 4px !important;
+                padding: 2px 6px !important;
+                font-size: 7pt !important;
+                font-weight: 700 !important;
+                letter-spacing: 0.02em;
             }
 
-            .print-header {
-                display: block !important;
-                margin-bottom: 1.5rem;
-                border-bottom: 2px solid #000;
-                padding-bottom: 0.75rem;
+            .badge-agotado {
+                background-color: #fee2e2 !important;
+                color: #991b1b !important;
+                border: 1px solid #f87171 !important;
+            }
+
+            .badge-minimo {
+                background-color: #fef3c7 !important;
+                color: #92400e !important;
+                border: 1px solid #fbbf24 !important;
+            }
+
+            .badge-tipo-normal {
+                background-color: #eff6ff !important;
+                color: #1e40af !important;
+                border: 1px solid #93c5fd !important;
+            }
+
+            .badge-tipo-kit {
+                background-color: #f3e8ff !important;
+                color: #6b21a8 !important;
+                border: 1px solid #c084fc !important;
+            }
+
+            /* Pie de página profesional del reporte */
+            .print-signature-footer {
+                display: flex !important;
+                justify-content: space-between;
+                align-items: flex-end;
+                margin-top: 25px;
+                padding-top: 10px;
+                font-size: 7.5pt;
+                color: #64748b;
+            }
+
+            .print-signature-box {
+                width: 200px;
+                text-align: center;
+                border-top: 1px solid #94a3b8;
+                padding-top: 4px;
+                color: #334155;
+                font-weight: 600;
             }
         }
 
-        .print-header {
+        .print-header, .print-kpis, .print-signature-footer {
             display: none;
         }
     </style>
@@ -392,10 +568,36 @@ $productosJson = json_encode($productos);
         <?php $activePage = 'reporte_stock_minimo'; require_once __DIR__ . '/partials/sidebar.php'; ?>
 
         <main class="main-content">
-            <!-- Encabezado exclusivo de Impresión -->
+            <!-- Encabezado exclusivo de Impresión con Logo -->
             <div class="print-header">
-                <h1 style="font-size: 1.6rem; font-weight: 700; margin-bottom: 0.2rem;">LAVANDERÍA VERA — REPORTE DE STOCK MÍNIMO</h1>
-                <p style="font-size: 0.85rem;">Fecha de emisión: <?= date('d/m/Y H:i') ?> | Total de productos en alerta: <?= count($productos) ?></p>
+                <div class="print-header-brand">
+                    <img src="img/Logo.jpeg" alt="Logo Lavandería" class="print-logo">
+                    <div class="print-header-titles">
+                        <h1>REPORTE DE STOCK MÍNIMO</h1>
+                        <p>Reposición de Inventario e Insumos</p>
+                    </div>
+                </div>
+                <div class="print-meta-box">
+                    <div><strong>LAVANDERÍA VERA</strong></div>
+                    <div><strong>Fecha:</strong> <?= date('d/m/Y H:i') ?></div>
+                    <div><strong>Generado por:</strong> <?= htmlspecialchars($_SESSION['nombre'] ?? 'Administrador') ?></div>
+                </div>
+            </div>
+
+            <!-- Resumen KPI para Impresión -->
+            <div class="print-kpis">
+                <div class="print-kpi-item">
+                    <span class="print-kpi-label">Productos en Alerta</span>
+                    <span class="print-kpi-val"><?= $estadisticas['total_alerta'] ?></span>
+                </div>
+                <div class="print-kpi-item">
+                    <span class="print-kpi-label">Agotados (Stock 0)</span>
+                    <span class="print-kpi-val text-danger"><?= $estadisticas['agotados'] ?></span>
+                </div>
+                <div class="print-kpi-item">
+                    <span class="print-kpi-label">En Stock Mínimo</span>
+                    <span class="print-kpi-val text-warning"><?= $estadisticas['en_minimo'] ?></span>
+                </div>
             </div>
 
             <!-- Encabezado Pantalla -->
@@ -466,8 +668,8 @@ $productosJson = json_encode($productos);
                     <input type="text" id="input-search" class="input-search" placeholder="🔍 Buscar por SKU, Producto o Código de Barras..." oninput="filtrarTabla()">
                     <select id="select-estado" class="select-filter" onchange="filtrarTabla()">
                         <option value="">Todos los estados</option>
-                        <option value="AGOTADO">Agotados (Stock <= 0)</option>
-                        <option value="MINIMO">En Stock Mínimo (> 0)</option>
+                        <option value="AGOTADO">Agotados</option>
+                        <option value="MINIMO">En Stock Mínimo</option>
                     </select>
                     <!-- <select id="select-tipo" class="select-filter" onchange="filtrarTabla()">
                         <option value="">Todos los tipos</option>
@@ -524,7 +726,12 @@ $productosJson = json_encode($productos);
                     </svg>
                     <h3>¡Inventario en óptimo estado!</h3>
                     <p>No se encontraron productos con stock igual o menor a su límite mínimo configurado.</p>
-                </div>
+            </div>
+
+            <!-- Pie del Reporte para Impresión -->
+            <div class="print-signature-footer">
+                <div>Documento impreso desde el Sistema de Gestión - Lavandería Vera</div>
+                <div class="print-signature-box">Firma / Supervisor de Almacén</div>
             </div>
         </main>
     </div>
@@ -565,7 +772,7 @@ $productosJson = json_encode($productos);
                     ? `<span class="badge badge-tipo-kit">KIT</span>`
                     : `<span class="badge badge-tipo-normal">NORMAL</span>`;
 
-                const codigoBarrasHtml = p.codigo_barras ? `<br><small style="color: var(--text-muted); font-size: 0.75rem;">EAN: ${escapeHtml(p.codigo_barras)}</small>` : '';
+                const codigoBarrasHtml = p.codigo_barras ? `<br><small style="color: var(--text-muted); font-size: 0.75rem;">${escapeHtml(p.codigo_barras)}</small>` : '';
 
                 tr.innerHTML = `
                     <td>
