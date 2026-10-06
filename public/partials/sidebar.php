@@ -3,7 +3,7 @@
  * Sidebar partial — include from any public/ page.
  * 
  * Before including, set these variables:
- *   $activePage   = 'dashboard' | 'productos_registro' | 'productos' | 'stock_entradas' | 'compras' | 'inventario_ajustes' | 'historial' | 'clientes_registro' | 'clientes' | 'usuarios_alta' | 'usuarios'
+ *   $activePage   = 'dashboard' | 'productos_registro' | 'productos' | 'stock_entradas' | 'compras' | 'inventario_ajustes' | 'historial' | 'clientes_registro' | 'clientes' | 'usuarios_alta' | 'usuarios' | 'reporte_stock_minimo'
  *   $auth         = AuthService instance (for isAdmin check)
  *   $logoutUrl    = (optional) URL for logout, defaults to '?logout=1'
  */
@@ -95,6 +95,16 @@ $userInitial = mb_substr(mb_strtoupper($userName), 0, 1);
             <div id="submenu-clientes" class="submenu<?= isMenuOpen(['clientes_registro','clientes'], $activePage) ?>">
                 <a href="clientes_registro.php" class="<?= isActive('clientes_registro', $activePage) ?>">Registro</a>
                 <a href="clientes.php" class="<?= isActive('clientes', $activePage) ?>">Listado</a>
+            </div>
+        <!-- Reportes -->
+        <div class="menu-dropdown">
+            <a href="javascript:void(0)" class="nav-link<?= isMenuActive(['reporte_stock_minimo'], $activePage) ?><?= isMenuOpen(['reporte_stock_minimo'], $activePage) ?>" onclick="toggleSubmenu('submenu-reportes', this)">
+                <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                <span class="nav-text">Reportes</span>
+                <span class="nav-arrow">▾</span>
+            </a>
+            <div id="submenu-reportes" class="submenu<?= isMenuOpen(['reporte_stock_minimo'], $activePage) ?>">
+                <a href="reporte_stock_minimo.php" class="<?= isActive('reporte_stock_minimo', $activePage) ?>">Stock Mínimo</a>
             </div>
         </div>
         <?php if($auth->isAdmin()): ?>

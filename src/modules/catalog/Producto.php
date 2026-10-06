@@ -188,15 +188,38 @@ class Producto {
     }
 
     public function eliminar($id) {
-        // Eliminar relaciones de kit asociadas
-        $delKits = $this->conn->prepare("DELETE FROM " . $this->table_kits . " WHERE kit_id = :id OR insumo_id = :id");
-        $delKits->bindParam(":id", $id);
-        $delKits->execute();
+        try {
+            $this->conn->beginTransaction();
 
-        $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(":id", $id);
-        return $stmt->execute();
+            // 1. Eliminar relaciones de kit asociadas
+            $delKits = $this->conn->prepare("DELETE FROM " . $this->table_kits . " WHERE kit_id = :id OR insumo_id = :id");
+            $delKits->bindParam(":id", $id);
+            $delKits->execute();
+
+            // 2. Eliminar detalles de entradas de compra asociados
+            $delEntradas = $this->conn->prepare("DELETE FROM detalle_entradas WHERE producto_id = :id");
+            $delEntradas->bindParam(":id", $id);
+            $delEntradas->execute();
+
+            // 3. Eliminar movimientos de inventario asociados
+            $delMovs = $this->conn->prepare("DELETE FROM movimientos_inventario WHERE producto_id = :id");
+            $delMovs->bindParam(":id", $id);
+            $delMovs->execute();
+
+            // 4. Eliminar el producto
+            $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":id", $id);
+            $res = $stmt->execute();
+
+            $this->conn->commit();
+            return $res;
+        } catch (\Exception $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            throw $e;
+        }
     }
 
     public function obtenerTodos() {

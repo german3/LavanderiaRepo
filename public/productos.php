@@ -96,24 +96,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             } else {
                 $prodEliminar = $productoModel->obtenerPorId($id);
                 if ($prodEliminar) {
-                    if ($productoModel->eliminar($id)) {
-                        $historialModel->registrar([
-                            'tipo_movimiento'      => 'ELIMINACION PRODUCTO',
-                            'producto_id'          => $prodEliminar['id'],
-                            'producto_sku'         => $prodEliminar['codigo_interno_sku'],
-                            'producto_descripcion' => $prodEliminar['descripcion'],
-                            'tipo_producto'        => $prodEliminar['tipo'],
-                            'cantidad'             => floatval($prodEliminar['stock_cantidad']),
-                            'costo_unitario'      => floatval($prodEliminar['costo']),
-                            'stock_antes'          => floatval($prodEliminar['stock_cantidad']),
-                            'stock_despues'        => 0,
-                            'motivo'               => 'Producto eliminado del catálogo',
-                            'usuario_id'           => $_SESSION['usuario_id'] ?? null,
-                            'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
-                        ]);
-                        $mensaje = "Producto eliminado exitosamente del catálogo.";
-                    } else {
-                        $error = "No se pudo eliminar el producto.";
+                    try {
+                        if ($productoModel->eliminar($id)) {
+                            $historialModel->registrar([
+                                'tipo_movimiento'      => 'ELIMINACION PRODUCTO',
+                                'producto_id'          => $prodEliminar['id'],
+                                'producto_sku'         => $prodEliminar['codigo_interno_sku'],
+                                'producto_descripcion' => $prodEliminar['descripcion'],
+                                'tipo_producto'        => $prodEliminar['tipo'],
+                                'cantidad'             => floatval($prodEliminar['stock_cantidad']),
+                                'costo_unitario'      => floatval($prodEliminar['costo']),
+                                'stock_antes'          => floatval($prodEliminar['stock_cantidad']),
+                                'stock_despues'        => 0,
+                                'motivo'               => 'Producto eliminado del catálogo',
+                                'usuario_id'           => $_SESSION['usuario_id'] ?? null,
+                                'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
+                            ]);
+                            $mensaje = "Producto eliminado exitosamente del catálogo.";
+                        } else {
+                            $error = "No se pudo eliminar el producto.";
+                        }
+                    } catch (\Exception $e) {
+                        $error = "No se pudo eliminar el producto. Detalle: " . $e->getMessage();
                     }
                 } else {
                     $error = "El producto que se intenta eliminar no existe.";

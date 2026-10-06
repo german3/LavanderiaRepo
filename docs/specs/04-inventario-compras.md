@@ -30,8 +30,7 @@
 - `motivo` (String, nullable)
 - `usuario_id` (Relación con Usuario)
 - `fecha` (DateTime)
-- `referencia_id` (UUID, nullable - Ej. ID de Venta o Entrada)
-
+- `referencia_id` (UUID, nullable - Ej. ID de Venta o Entrada
 ## 2. Reglas de Negocio
 - **Ajustes Manuales (Regla 6)**: Los descuentos manuales de inventario estarán restringidos al Administrador. Los cajeros no pueden hacer ajustes ni eliminar productos.
 - **Entradas**: Inventario = Inventario actual + cantidad recibida.
