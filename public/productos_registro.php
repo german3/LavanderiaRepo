@@ -407,8 +407,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <div class="select-wrapper">
                             <select name="unidad_medida" id="sel-unidad" class="form-control" required>
                                 <?php
-                                $unidades = ['PIEZA' => 'Pieza', 'LITRO' => 'Litro', 'MILILITRO' => 'Mililitro', 'KG' => 'Kilogramo', 'GRAMO' => 'Gramo', 'METRO' => 'Metro', 'CARGA' => 'Carga', 'SERVICIO' => 'Servicio'];
+                                $unidades = ['PIEZA' => 'Pieza', 'LITRO' => 'Litros / Mililitros / Galones', 'KG' => 'Kilogramo', 'GRAMO' => 'Gramo', 'METRO' => 'Metro', 'CARGA' => 'Carga', 'SERVICIO' => 'Servicio'];
                                 $valUnidad = $esEdicion ? $productoEditar['unidad_medida'] : ($_POST['unidad_medida'] ?? 'PIEZA');
+                                // Compatibilidad: MILILITRO legado se trata como LITRO
+                                if ($valUnidad === 'MILILITRO') $valUnidad = 'LITRO';
                                 foreach ($unidades as $uVal => $uLabel):
                                 ?>
                                     <option value="<?= $uVal ?>" <?= ($valUnidad === $uVal) ? 'selected' : '' ?>><?= $uLabel ?></option>

@@ -31,24 +31,46 @@ $error = "";
 // Obtener productos disponibles para entradas (NORMAL)
 $productosNormales = $productoModel->obtenerProductosNormales();
 
+// Factores de conversión a LITROS (unidad base para líquidos)
+define('ML_A_LITRO',  0.001);
+define('GAL_A_LITRO', 3.78541);
+
+function convertirALitros(float $cantidad, string $unidadLiquido): float {
+    switch ($unidadLiquido) {
+        case 'MILILITRO': return $cantidad * ML_A_LITRO;
+        case 'GALON':     return $cantidad * GAL_A_LITRO;
+        default:          return $cantidad; // ya está en LITROS
+    }
+}
+
 // Procesar registro de Movimiento de Stock (Entrada / Salida)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registrar_entrada') {
     $productoId          = trim($_POST['producto_id'] ?? '');
     $tipoMovimiento      = trim($_POST['tipo_movimiento'] ?? 'ENTRADA');
-    $cantidad            = floatval($_POST['cantidad'] ?? 0);
+    $cantidadRaw         = floatval($_POST['cantidad'] ?? 0);
+    $unidadLiquido       = trim($_POST['unidad_liquido'] ?? 'LITRO'); // solo aplica si prod es LITRO
     $costoTotal          = floatval($_POST['costo_total'] ?? 0);
     $permitirEditarCosto = isset($_POST['permitir_editar_costo']) && $_POST['permitir_editar_costo'] == '1';
     $editarCosto         = floatval($_POST['editar_costo'] ?? 0);
     $motivo              = trim($_POST['motivo'] ?? '');
 
-    if (empty($productoId) || $cantidad <= 0) {
+    // Convertir a litros si el producto es de tipo LITRO
+    // (la conversion solo aplica en ENTRADA, en SALIDA el usuario elige cuántos litros retirar)
+    $cantidad = $cantidadRaw;
+
+    if (empty($productoId) || $cantidadRaw <= 0) {
         $error = "Selecciona un producto e ingresa una cantidad válida mayor a 0.";
     } else {
         try {
             // Obtener datos del producto antes de modificarlo
-            $stmtCheck = $db->prepare("SELECT id, codigo_interno_sku, descripcion, tipo, stock_cantidad, costo FROM productos WHERE id = :id");
+            $stmtCheck = $db->prepare("SELECT id, codigo_interno_sku, descripcion, tipo, unidad_medida, stock_cantidad, costo FROM productos WHERE id = :id");
             $stmtCheck->execute([':id' => $productoId]);
             $prodData = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+            // Convertir si es producto líquido
+            if ($prodData && $prodData['unidad_medida'] === 'LITRO') {
+                $cantidad = convertirALitros($cantidadRaw, $unidadLiquido);
+            }
 
             if (!$prodData) {
                 $error = "Producto no encontrado.";
@@ -58,7 +80,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
 
                 if ($tipoMovimiento === 'SALIDA') {
                     if ($stockAntes < $cantidad) {
-                        $error = "Stock insuficiente para realizar la salida. Existencias actuales: " . number_format($stockAntes, 2);
+                        $etiquetaUnid = ($prodData['unidad_medida'] === 'LITRO') ? ' L (litros)' : '';
+                        $error = "Stock insuficiente para realizar la salida. Existencias actuales: " . number_format($stockAntes, 4) . $etiquetaUnid;
                     } else {
                         $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad - :cant WHERE id = :id");
                         $stmt->bindParam(':cant', $cantidad);
@@ -81,7 +104,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
                                 'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
                             ]);
 
-                            $mensaje = "Salida de stock registrada exitosamente (-" . number_format($cantidad, 2) . ").";
+                            if ($prodData['unidad_medida'] === 'LITRO' && $unidadLiquido !== 'LITRO') {
+                                $etiqOrig = ($unidadLiquido === 'MILILITRO') ? 'mL' : 'gal';
+                                $mensaje = "Salida registrada: -" . number_format($cantidadRaw, 2) . " {$etiqOrig} = -" . number_format($cantidad, 4) . " L del stock.";
+                            } else {
+                                $mensaje = "Salida de stock registrada exitosamente (-" . number_format($cantidad, 4) . ($prodData['unidad_medida'] === 'LITRO' ? ' L' : '') . ").";
+                            }
                             $productosNormales = $productoModel->obtenerProductosNormales();
                         } else {
                             $error = "No se pudo registrar la salida de stock.";
@@ -119,7 +147,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
                             'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
                         ]);
 
-                        $mensaje = "Entrada de stock registrada exitosamente (+" . number_format($cantidad, 2) . ").";
+                        // Construir mensaje con informacion de conversion si aplica
+                        if ($prodData['unidad_medida'] === 'LITRO' && $unidadLiquido !== 'LITRO') {
+                            $etiqOrig = ($unidadLiquido === 'MILILITRO') ? 'mL' : 'gal';
+                            $mensaje = "Entrada registrada: +" . number_format($cantidadRaw, 2) . " {$etiqOrig} = +" . number_format($cantidad, 4) . " L al stock.";
+                        } else {
+                            $mensaje = "Entrada de stock registrada exitosamente (+" . number_format($cantidad, 4) . ($prodData['unidad_medida'] === 'LITRO' ? ' L' : '') . ").";
+                        }
                         if ($permitirEditarCosto && $editarCosto >= 0) {
                             $mensaje .= " El costo por unidad fue actualizado a $" . number_format($nuevoCostoUnitario, 2) . ".";
                         }
@@ -273,10 +307,29 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                         </td>
                         <td style="font-weight: 500;"><?= htmlspecialchars($inv['descripcion']) ?></td>
                         <td>
-                            <span class="badge badge-normal"><?= htmlspecialchars($inv['unidad_medida']) ?></span>
+                            <?php if ($inv['unidad_medida'] === 'LITRO'): ?>
+                                <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 0.78rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 6px;">
+                                    Litros / mL / Gal
+                                </span>
+                            <?php else: ?>
+                                <span class="badge badge-normal"><?= htmlspecialchars($inv['unidad_medida']) ?></span>
+                            <?php endif; ?>
                         </td>
                         <td style="font-weight: 700; font-size: 1.05rem; color: <?= ($inv['stock_cantidad'] <= 5) ? '#f87171' : '#34d399' ?>;">
-                            <?= number_format($inv['stock_cantidad'], 2) ?>
+                            <?php if ($inv['unidad_medida'] === 'LITRO'): 
+                                $stkL = floatval($inv['stock_cantidad']);
+                                $stkML = $stkL * 1000;
+                                $stkGal = $stkL / 3.78541;
+                            ?>
+                                <div>
+                                    <span><?= number_format($stkL, 4) ?> L</span>
+                                    <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500; margin-top: 2px;">
+                                        ≈ <?= number_format($stkML, 0) ?> mL &bull; <?= number_format($stkGal, 2) ?> gal
+                                    </div>
+                                </div>
+                            <?php else: ?>
+                                <?= number_format($inv['stock_cantidad'], 2) ?>
+                            <?php endif; ?>
                         </td>
                         <td style="color: var(--text-muted);">$<?= number_format($inv['costo'], 2) ?></td>
                         <td style="font-weight: 600;">$<?= number_format($inv['precio_venta'], 2) ?></td>
@@ -365,12 +418,31 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                         <option value="">— Selecciona un producto —</option>
                         <?php foreach ($productosNormales as $p): ?>
                             <option value="<?= htmlspecialchars($p['id']) ?>" data-costo="<?= htmlspecialchars($p['costo'] ?? 0) ?>" data-unidad="<?= htmlspecialchars($p['unidad_medida'] ?? '') ?>">
-                                <?= htmlspecialchars($p['descripcion']) ?> (<?= htmlspecialchars($p['unidad_medida']) ?>)
+                                <?= htmlspecialchars($p['descripcion']) ?> (<?= ($p['unidad_medida'] === 'LITRO') ? 'Litros / Mililitros / Galones' : htmlspecialchars($p['unidad_medida']) ?>)
                             </option>
                         <?php endforeach; ?>
                     </select>
                     <div class="select-arrow-btn">▼</div>
                 </div>
+            </div>
+
+            <!-- Sub-unidad para líquidos (visible solo cuando el producto es LITRO) -->
+            <div class="form-group" id="group-unidad-liquido" style="margin-bottom: 1.15rem; display: none; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 12px; padding: 0.85rem 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+                    <label class="form-label" style="margin-bottom: 0; color: #38bdf8; font-weight: 600;">
+                        🧪 Unidad Específica de la Cantidad *
+                    </label>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Conversión automática</span>
+                </div>
+                <div class="select-wrapper">
+                    <select name="unidad_liquido" id="entrada-unidad-liquido" class="form-control" onchange="calcularCostoTotal()">
+                        <option value="LITRO" selected>Litros (L)</option>
+                        <option value="MILILITRO">Mililitros (mL)</option>
+                        <option value="GALON">Galones (gal ≈ 3.7854 L)</option>
+                    </select>
+                    <div class="select-arrow-btn">▼</div>
+                </div>
+                <div id="lbl-conversion-liquido" style="margin-top: 0.45rem; font-size: 0.8rem; color: #38bdf8; font-weight: 500; display: none;"></div>
             </div>
 
             <!-- Campo Editar Costo (Disponible solo cuando Tipo Movimiento == ENTRADA) -->
@@ -438,6 +510,15 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 <script>
     let entradaFormConfirmado = false;
 
+    const FACTOR_ML_A_LITRO = 0.001;
+    const FACTOR_GAL_A_LITRO = 3.78541;
+
+    function getFactorLitros(unidadLiquido) {
+        if (unidadLiquido === 'MILILITRO') return FACTOR_ML_A_LITRO;
+        if (unidadLiquido === 'GALON') return FACTOR_GAL_A_LITRO;
+        return 1.0;
+    }
+
     function solicitarGuardarEntrada(e) {
         if (entradaFormConfirmado) {
             entradaFormConfirmado = false;
@@ -455,11 +536,29 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         const selProd = document.getElementById('entrada-producto-id');
         const optSelected = selProd && selProd.options[selProd.selectedIndex];
         const prodNombre = optSelected ? optSelected.text : '';
-        const cantidad = parseFloat(document.getElementById('entrada-cantidad').value || 0).toFixed(2);
+        const unidadMed = optSelected ? (optSelected.getAttribute('data-unidad') || '') : '';
+        const cantidadInput = parseFloat(document.getElementById('entrada-cantidad').value || 0);
+
+        let textoCantidad = `${cantidadInput.toFixed(2)} unidades`;
+        if (unidadMed === 'LITRO') {
+            const selUnidadLiq = document.getElementById('entrada-unidad-liquido');
+            const uLiq = selUnidadLiq ? selUnidadLiq.value : 'LITRO';
+            const factor = getFactorLitros(uLiq);
+            const cantL = cantidadInput * factor;
+            if (uLiq === 'MILILITRO') {
+                textoCantidad = `${cantidadInput.toLocaleString()} mL (${cantL.toFixed(4)} L)`;
+            } else if (uLiq === 'GALON') {
+                textoCantidad = `${cantidadInput} Galones (${cantL.toFixed(4)} L)`;
+            } else {
+                textoCantidad = `${cantL.toFixed(4)} Litros`;
+            }
+        } else if (unidadMed) {
+            textoCantidad = `${cantidadInput.toFixed(2)} ${unidadMed}`;
+        }
 
         const txtTipo = tipoMov === 'SALIDA' ? 'Salida' : 'Entrada';
         document.getElementById('conf-entrada-titulo').textContent = `Confirmar ${txtTipo}`;
-        document.getElementById('conf-entrada-mensaje').innerHTML = `¿Estás seguro de que deseas registrar esta <strong>${txtTipo}</strong> de <strong>${cantidad}</strong> unidades para <strong>${escapeHtml(prodNombre)}</strong>?`;
+        document.getElementById('conf-entrada-mensaje').innerHTML = `¿Estás seguro de que deseas registrar esta <strong>${txtTipo}</strong> de <strong>${textoCantidad}</strong> para <strong>${escapeHtml(prodNombre)}</strong>?`;
 
         document.getElementById('modal-confirmar-entrada').classList.add('active');
         return false;
@@ -517,11 +616,42 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         const tagCostoUnit = document.getElementById('tag-costo-unitario');
         const chkEditar = document.getElementById('chk-editar-costo');
         const inpEditar = document.getElementById('entrada-editar-costo');
+        const grpUnidadLiq = document.getElementById('group-unidad-liquido');
+        const selUnidadLiq = document.getElementById('entrada-unidad-liquido');
+        const lblConv = document.getElementById('lbl-conversion-liquido');
 
         const selectedOption = selProd ? selProd.options[selProd.selectedIndex] : null;
         const costoBase = selectedOption ? (parseFloat(selectedOption.getAttribute('data-costo')) || 0) : 0;
         const unidad = selectedOption ? (selectedOption.getAttribute('data-unidad') || '') : '';
         const cant = parseFloat(inpCant.value) || 0;
+
+        // Mostrar / ocultar subselector de líquidos
+        const esLiquido = (unidad === 'LITRO');
+        if (grpUnidadLiq) {
+            grpUnidadLiq.style.display = esLiquido ? 'block' : 'none';
+        }
+
+        const unidadLiq = (esLiquido && selUnidadLiq) ? selUnidadLiq.value : 'LITRO';
+        const factor = esLiquido ? getFactorLitros(unidadLiq) : 1.0;
+        const cantEnLitros = cant * factor;
+
+        // Mostrar info de conversión en tiempo real
+        if (lblConv) {
+            if (esLiquido && cant > 0) {
+                if (unidadLiq === 'MILILITRO') {
+                    lblConv.innerHTML = `🔄 <strong>${cant.toLocaleString()} mL</strong> equivalen a <strong>${cantEnLitros.toFixed(4)} Litros</strong> base.`;
+                    lblConv.style.display = 'block';
+                } else if (unidadLiq === 'GALON') {
+                    lblConv.innerHTML = `🔄 <strong>${cant.toLocaleString()} Galones</strong> equivalen a <strong>${cantEnLitros.toFixed(4)} Litros</strong> base.`;
+                    lblConv.style.display = 'block';
+                } else {
+                    lblConv.innerHTML = `🔄 <strong>${cantEnLitros.toFixed(2)} Litros</strong> base.`;
+                    lblConv.style.display = 'block';
+                }
+            } else {
+                lblConv.style.display = 'none';
+            }
+        }
 
         let costoAplicar = costoBase;
 
@@ -537,7 +667,8 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         if (selectedOption && selectedOption.value) {
             if (tagCostoUnit) {
                 const esEditado = (chkEditar && chkEditar.checked && costoAplicar !== costoBase);
-                tagCostoUnit.innerHTML = `💵 Costo por Unidad: <strong>$${costoAplicar.toFixed(2)}</strong>${esEditado ? ' <span style="color:#f59e0b;font-size:0.75rem;font-weight:bold;">(Editado)</span>' : ''}${unidad ? ' <span style="opacity:0.8;font-weight:normal;">/ ' + unidad + '</span>' : ''}`;
+                const etiquetaUnidad = (unidad === 'LITRO') ? 'LITRO' : unidad;
+                tagCostoUnit.innerHTML = `💵 Costo por Unidad: <strong>$${costoAplicar.toFixed(2)}</strong>${esEditado ? ' <span style="color:#f59e0b;font-size:0.75rem;font-weight:bold;">(Editado)</span>' : ''}${etiquetaUnidad ? ' <span style="opacity:0.8;font-weight:normal;">/ ' + etiquetaUnidad + '</span>' : ''}`;
                 tagCostoUnit.style.display = 'inline-flex';
             }
         } else {
@@ -552,7 +683,8 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         }
 
         if (cant > 0 && costoAplicar > 0) {
-            inpCostoTotal.value = (cant * costoAplicar).toFixed(2);
+            const total = esLiquido ? (cantEnLitros * costoAplicar) : (cant * costoAplicar);
+            inpCostoTotal.value = total.toFixed(2);
         } else {
             inpCostoTotal.value = '0.00';
         }
@@ -617,6 +749,8 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         document.getElementById('entrada-motivo').value = '';
         const chkEditar = document.getElementById('chk-editar-costo');
         const inpEditar = document.getElementById('entrada-editar-costo');
+        const selUnidadLiq = document.getElementById('entrada-unidad-liquido');
+        if (selUnidadLiq) selUnidadLiq.value = 'LITRO';
         if (chkEditar) chkEditar.checked = false;
         if (inpEditar) {
             inpEditar.disabled = true;
