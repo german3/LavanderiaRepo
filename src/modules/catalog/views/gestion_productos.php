@@ -38,10 +38,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
         // RELACIÓN CON EL USUARIO ACTUAL (Auditoría/Registro)
         $productoModel->usuario_registro_id = $_SESSION['usuario_id'];
         
-        if($productoModel->crear()) {
-            $mensaje = "Producto registrado exitosamente.";
-        } else {
-            $error = "Error al crear el producto. Revisa los datos.";
+        try {
+            if($productoModel->crear()) {
+                $mensaje = "Producto registrado exitosamente.";
+            } else {
+                $error = "Error al crear el producto. Revisa los datos.";
+            }
+        } catch (\Exception $e) {
+            $error = $e->getMessage();
         }
     }
 }

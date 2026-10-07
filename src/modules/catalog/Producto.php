@@ -58,6 +58,29 @@ class Producto {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    // Verificar si un código de barras ya existe en la base de datos
+    public function existeCodigoBarras($codigoBarras, $excluirId = null) {
+        $codigoBarras = trim((string)$codigoBarras);
+        if ($codigoBarras === '') {
+            return false;
+        }
+
+        $query = "SELECT id FROM " . $this->table_name . " WHERE codigo_barras = :codigo_barras";
+        if ($excluirId !== null && $excluirId !== '') {
+            $query .= " AND id != :excluir_id";
+        }
+        $query .= " LIMIT 1";
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":codigo_barras", $codigoBarras);
+        if ($excluirId !== null && $excluirId !== '') {
+            $stmt->bindParam(":excluir_id", $excluirId);
+        }
+        $stmt->execute();
+
+        return (bool)$stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
     // Caso de uso: CrearProducto
     public function crear() {
         $this->codigo_interno_sku = $this->obtenerSiguienteSku();
@@ -67,6 +90,16 @@ class Producto {
             $this->conn->exec("ALTER TABLE " . $this->table_name . " ADD COLUMN stock_minimo DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER stock_cantidad");
         } catch (\Exception $e) {
             // Ya existe o no se requiere alteración
+        }
+
+        if (empty($this->codigo_barras)) {
+            do {
+                $this->codigo_barras = "EAN" . time() . rand(100, 999);
+            } while ($this->existeCodigoBarras($this->codigo_barras));
+        } else {
+            if ($this->existeCodigoBarras($this->codigo_barras)) {
+                throw new Exception("El código de barras '{$this->codigo_barras}' ya está registrado.");
+            }
         }
 
         $query = "INSERT INTO " . $this->table_name . " 
@@ -80,10 +113,6 @@ class Producto {
             mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000,
             mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
         );
-
-        if (empty($this->codigo_barras)) {
-            $this->codigo_barras = "EAN" . time() . rand(100, 999);
-        }
 
         $ropaKgVal = isset($this->ropa_kg) ? floatval($this->ropa_kg) : 0.00;
         $stockMinimoVal = ($this->tipo === 'NORMAL') ? floatval($this->stock_minimo ?? 0) : 0.00;
@@ -128,10 +157,17 @@ class Producto {
         $stmt->bindParam(":estado", $this->estado);
         $stmt->bindParam(":usuario_registro_id", $this->usuario_registro_id);
 
-        if ($stmt->execute()) {
-            return true;
+        try {
+            if ($stmt->execute()) {
+                return true;
+            }
+            return false;
+        } catch (\PDOException $e) {
+            if ($e->getCode() == 23000 || strpos($e->getMessage(), '1062') !== false) {
+                throw new Exception("El código de barras '{$this->codigo_barras}' ya está registrado.");
+            }
+            throw $e;
         }
-        return false;
     }
 
     // Caso de uso: GuardarInsumosKit — guarda los insumos de un kit en productos_kits
@@ -184,6 +220,11 @@ class Producto {
     }
 
     public function actualizar($id, array $datos) {
+        $codigoBarras = trim($datos['codigo_barras'] ?? '');
+        if (!empty($codigoBarras) && $this->existeCodigoBarras($codigoBarras, $id)) {
+            throw new Exception("El código de barras '{$codigoBarras}' ya está registrado.");
+        }
+
         $query = "UPDATE " . $this->table_name . " 
                   SET descripcion = :descripcion,
                       codigo_barras = :codigo_barras,
@@ -199,7 +240,6 @@ class Producto {
         $costo       = floatval($datos['costo'] ?? 0);
         $precioVenta = floatval($datos['precio_venta'] ?? 0);
         $descripcion = trim($datos['descripcion'] ?? '');
-        $codigoBarras = trim($datos['codigo_barras'] ?? '');
         $unidadMedida = trim($datos['unidad_medida'] ?? 'PIEZA');
 
         $stmt->bindParam(":descripcion", $descripcion);
@@ -210,7 +250,15 @@ class Producto {
         $stmt->bindParam(":precio_venta", $precioVenta);
         $stmt->bindParam(":ropa_kg", $ropaKg);
         $stmt->bindParam(":id", $id);
-        return $stmt->execute();
+
+        try {
+            return $stmt->execute();
+        } catch (\PDOException $e) {
+            if ($e->getCode() == 23000 || strpos($e->getMessage(), '1062') !== false) {
+                throw new Exception("El código de barras '{$codigoBarras}' ya está registrado.");
+            }
+            throw $e;
+        }
     }
 
     public function eliminar($id) {

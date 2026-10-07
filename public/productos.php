@@ -63,26 +63,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     'ropa_kg'       => $ropaKg,
                 ];
 
-                if ($productoModel->actualizar($id, $datos)) {
-                    if ($prodActual) {
-                        $historialModel->registrar([
-                            'tipo_movimiento'      => 'EDICION PRODUCTO',
-                            'producto_id'          => $prodActual['id'],
-                            'producto_sku'         => $prodActual['codigo_interno_sku'],
-                            'producto_descripcion' => $descripcion,
-                            'tipo_producto'        => $prodActual['tipo'],
-                            'cantidad'             => floatval($prodActual['stock_cantidad']),
-                            'costo_unitario'      => $costo,
-                            'stock_antes'          => floatval($prodActual['stock_cantidad']),
-                            'stock_despues'        => floatval($prodActual['stock_cantidad']),
-                            'motivo'               => 'Actualización de datos de producto',
-                            'usuario_id'           => $_SESSION['usuario_id'] ?? null,
-                            'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
-                        ]);
+                try {
+                    if ($productoModel->actualizar($id, $datos)) {
+                        if ($prodActual) {
+                            $historialModel->registrar([
+                                'tipo_movimiento'      => 'EDICION PRODUCTO',
+                                'producto_id'          => $prodActual['id'],
+                                'producto_sku'         => $prodActual['codigo_interno_sku'],
+                                'producto_descripcion' => $descripcion,
+                                'tipo_producto'        => $prodActual['tipo'],
+                                'cantidad'             => floatval($prodActual['stock_cantidad']),
+                                'costo_unitario'      => $costo,
+                                'stock_antes'          => floatval($prodActual['stock_cantidad']),
+                                'stock_despues'        => floatval($prodActual['stock_cantidad']),
+                                'motivo'               => 'Actualización de datos de producto',
+                                'usuario_id'           => $_SESSION['usuario_id'] ?? null,
+                                'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
+                            ]);
+                        }
+                        $mensaje = "Producto actualizado exitosamente.";
+                    } else {
+                        $error = "No se pudo actualizar el producto.";
                     }
-                    $mensaje = "Producto actualizado exitosamente.";
-                } else {
-                    $error = "No se pudo actualizar el producto.";
+                } catch (\Exception $e) {
+                    $error = $e->getMessage();
                 }
             }
         }
