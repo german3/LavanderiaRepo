@@ -80,6 +80,20 @@ $filtroSkuJs = json_encode($filtroSku);
             background: #1e293b;
             color: #f1f5f9;
         }
+
+        @media print {
+            .sidebar, .no-print, #banner-filtro-sku, #paginationControls, #pageSizeSelect, #btn-limpiar-fechas, .select-arrow-btn { display: none !important; }
+            .main-content { margin-left: 0 !important; width: 100% !important; padding: 0 !important; background: #fff !important; color: #000 !important; }
+            body { background: #fff !important; color: #000 !important; }
+            .card { background: none !important; border: none !important; padding: 0 !important; box-shadow: none !important; }
+            .table { color: #000 !important; border-collapse: collapse !important; width: 100% !important; margin-top: 1rem !important; }
+            .table th, .table td { border: 1px solid #cbd5e1 !important; color: #000 !important; padding: 6px 8px !important; font-size: 9pt !important; }
+            .badge { border: 1px solid #94a3b8 !important; color: #000 !important; background: #f1f5f9 !important; }
+            .sku-tag { border: 1px solid #cbd5e1 !important; color: #334155 !important; background: #f8fafc !important; }
+            h1 { color: #000 !important; font-size: 1.4rem !important; }
+            p { color: #475569 !important; }
+            input, select { border: none !important; background: none !important; color: #000 !important; }
+        }
     </style>
 </head>
 <body>
@@ -128,11 +142,24 @@ $filtroSkuJs = json_encode($filtroSku);
                 
                 <!-- Barra de Búsqueda y Filtros -->
                 <div style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 0.75rem;">
-                    <div style="display: flex; gap: 0.75rem; flex: 1; min-width: 300px;">
-                        <div style="position: relative; flex: 1;">
+                    <div style="display: flex; gap: 0.75rem; flex: 1; min-width: 300px; flex-wrap: wrap; align-items: center;">
+                        <div style="position: relative; flex: 1; min-width: 200px;">
                             <input type="text" id="searchInput" class="form-control" placeholder="Buscar por SKU, producto, tipo o usuario..." style="width: 100%; padding: 0.4rem 0.75rem 0.4rem 2.2rem; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; height: 38px; font-size: 0.85rem; line-height: 1.2; box-sizing: border-box;">
                             <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); opacity: 0.5;">🔍</span>
                         </div>
+
+                        <!-- Botones de Acción: a la derecha del buscador y a la izquierda de 'Todos los movimientos' -->
+                        <div style="display: flex; gap: 0.5rem; align-items: center;" class="no-print">
+                            <button type="button" onclick="exportarExcel()" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.85rem; height: 38px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #6ee7b7; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.background='rgba(16,185,129,0.3)'; this.style.color='#fff';" onmouseout="this.style.background='rgba(16,185,129,0.15)'; this.style.color='#6ee7b7';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                Exportar a Excel
+                            </button>
+                            <button type="button" onclick="imprimirHistorial()" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.85rem; height: 38px; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); color: #a5b4fc; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.background='rgba(99,102,241,0.3)'; this.style.color='#fff';" onmouseout="this.style.background='rgba(99,102,241,0.15)'; this.style.color='#a5b4fc';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                Imprimir
+                            </button>
+                        </div>
+
                         <div class="select-wrapper" style="width: 210px;">
                             <select id="tipoFilter" class="form-control" style="width: 100%; padding: 0.4rem 2.2rem 0.4rem 0.75rem; height: 38px; background: #1e293b; color: #f1f5f9; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; line-height: 1.2; cursor: pointer; box-sizing: border-box;">
                                 <option value="" style="background:#1e293b; color:#f1f5f9;">Todos los movimientos</option>
@@ -481,6 +508,10 @@ $filtroSkuJs = json_encode($filtroSku);
                     const stockAntesFormatted = parseFloat(item.stock_antes || 0).toFixed(2);
                     const stockDespuesFormatted = parseFloat(item.stock_despues || 0).toFixed(2);
                     
+                    const isCambioPrecio = (item.tipo_movimiento && item.tipo_movimiento.toUpperCase().includes('PRECIO')) ||
+                                           (item.motivo && item.motivo.toLowerCase().includes('precio'));
+                    const motivoDisplay = isCambioPrecio ? 'Cambio de Precio' : (item.motivo || '-');
+
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td style="white-space: nowrap; font-size: 0.85rem; color: var(--text-muted);">
@@ -505,7 +536,7 @@ $filtroSkuJs = json_encode($filtroSku);
                             ${costoFormatted}
                         </td>
                         <td style="font-size: 0.85rem; color: var(--text-muted); max-width: 200px;">
-                            ${item.motivo || '-'}
+                            ${motivoDisplay}
                         </td>
                         <td style="font-size: 0.85rem; font-weight: 500;">
                             ${item.usuario_nombre || 'Sistema'}
@@ -562,6 +593,65 @@ $filtroSkuJs = json_encode($filtroSku);
             currentPage = 1;
             renderTable();
         });
+
+        // Exportación a Excel (CSV UTF-8 BOM para compatibilidad con Excel)
+        function exportarExcel() {
+            if (!filteredData || filteredData.length === 0) {
+                alert('No hay movimientos para exportar.');
+                return;
+            }
+
+            const headers = [
+                'Fecha y Hora',
+                'Tipo Movimiento',
+                'SKU',
+                'Producto',
+                'Cantidad',
+                'Stock Antes',
+                'Stock Después',
+                'Costo Unitario ($)',
+                'Motivo / Notas',
+                'Usuario'
+            ];
+
+            let csvContent = '\uFEFF'; // BOM UTF-8
+            csvContent += headers.map(h => `"${h}"`).join(',') + '\n';
+
+            filteredData.forEach(item => {
+                const isCambioPrecio = (item.tipo_movimiento && item.tipo_movimiento.toUpperCase().includes('PRECIO')) ||
+                                       (item.motivo && item.motivo.toLowerCase().includes('precio'));
+                const motivoDisplay = isCambioPrecio ? 'Cambio de Precio' : (item.motivo || '');
+
+                const row = [
+                    formatFecha(item.fecha_hora),
+                    item.tipo_movimiento || '',
+                    item.producto_sku || '',
+                    item.producto_descripcion || '',
+                    parseFloat(item.cantidad || 0).toFixed(2),
+                    parseFloat(item.stock_antes || 0).toFixed(2),
+                    parseFloat(item.stock_despues || 0).toFixed(2),
+                    parseFloat(item.costo_unitario || 0).toFixed(2),
+                    motivoDisplay,
+                    item.usuario_nombre || 'Sistema'
+                ];
+
+                csvContent += row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',') + '\n';
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `historial_movimientos_${dateStr}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function imprimirHistorial() {
+            window.print();
+        }
 
         // Si llega un filtro por SKU, pre-cargarlo en el buscador
         if (filtroSkuInicial) {

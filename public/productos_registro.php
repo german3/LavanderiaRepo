@@ -73,6 +73,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         if ($action === 'editar') {
             $idTarget = trim($_POST['id'] ?? '');
+            $prodAntes = $productoModel->obtenerPorId($idTarget);
             $datosUpdate = [
                 'descripcion'   => trim($_POST['descripcion'] ?? ''),
                 'codigo_barras' => trim($_POST['codigo_barras'] ?? ''),
@@ -106,6 +107,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     }
 
                     $prodActual = $productoModel->obtenerPorId($idTarget);
+
+                    $costoAnterior  = floatval($prodAntes['costo'] ?? 0);
+                    $precioAnterior = floatval($prodAntes['precio_venta'] ?? 0);
+                    $costoNuevo     = floatval($prodActual['costo'] ?? 0);
+                    $precioNuevo    = floatval($prodActual['precio_venta'] ?? 0);
+                    $esCambioPrecio = ($costoAnterior != $costoNuevo || $precioAnterior != $precioNuevo);
+                    $motivoRegistro = $esCambioPrecio ? 'Cambio de Precio' : 'Actualización de parámetros e insumos del elemento';
+
                     $historialModel->registrar([
                         'tipo_movimiento'      => 'EDICION PRODUCTO',
                         'producto_id'          => $idTarget,
@@ -116,7 +125,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         'costo_unitario'      => floatval($prodActual['costo'] ?? 0),
                         'stock_antes'          => floatval($prodActual['stock_cantidad'] ?? 0),
                         'stock_despues'        => floatval($prodActual['stock_cantidad'] ?? 0),
-                        'motivo'               => 'Actualización de parámetros e insumos del elemento',
+                        'motivo'               => $motivoRegistro,
                         'usuario_id'           => $_SESSION['usuario_id'] ?? null,
                         'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
                     ]);
@@ -266,9 +275,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         /* Kit add row */
         .kit-add-row {
             display: grid;
-            grid-template-columns: auto 1fr 130px 120px;
+            grid-template-columns: auto 1fr 140px;
             gap: 0.75rem;
-            align-items: end;
+            align-items: start;
         }
         .btn-kit-add {
             padding: 0.75rem 1.25rem;
@@ -387,9 +396,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     </div>
                 </div>
 
-                <!-- ── Fila 2: Tipo + Unidad + Cantidad + Stock Mínimo + Costo + Precio ── -->
-                <div style="display:grid;grid-template-columns:1fr 1fr 140px 140px 140px 140px;gap:1.25rem;margin-bottom:0;">
-                    <div class="form-group" style="margin-bottom:0;">
+                <!-- ── Fila 2: Tipo + Unidad + Stock Mínimo + Costo + Precio + Ropa Kg (Kit) ── -->
+                <div id="fila-detalles-producto" style="display:grid;grid-template-columns:1fr 1fr 140px 140px 140px;gap:1.25rem;margin-bottom:0;">
+                    <div class="form-group" style="margin-bottom:0;" id="group-tipo">
                         <label class="form-label">Tipo *</label>
                         <div class="select-wrapper">
                             <select name="tipo" id="sel-tipo" class="form-control" required
@@ -402,12 +411,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <div class="select-arrow-btn">▼</div>
                         </div>
                     </div>
-                    <div class="form-group" style="margin-bottom:0;">
+                    <div class="form-group" style="margin-bottom:0;" id="group-unidad">
                         <label class="form-label">Unidad de Medida *</label>
                         <div class="select-wrapper">
                             <select name="unidad_medida" id="sel-unidad" class="form-control" required>
                                 <?php
-                                $unidades = ['PIEZA' => 'Pieza', 'LITRO' => 'Litros / Mililitros / Galones', 'KG' => 'Kilogramo', 'GRAMO' => 'Gramo', 'METRO' => 'Metro', 'CARGA' => 'Carga', 'SERVICIO' => 'Servicio'];
+                                $unidades = ['PIEZA' => 'Pieza', 'LITRO' => 'Litros', 'KG' => 'Kilogramo', 'GRAMO' => 'Gramo', 'METRO' => 'Metro', 'CARGA' => 'Carga', 'SERVICIO' => 'Servicio'];
                                 $valUnidad = $esEdicion ? $productoEditar['unidad_medida'] : ($_POST['unidad_medida'] ?? 'PIEZA');
                                 // Compatibilidad: MILILITRO legado se trata como LITRO
                                 if ($valUnidad === 'MILILITRO') $valUnidad = 'LITRO';
@@ -430,7 +439,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             </div>
                         </div>
                     </div>
-                    <div class="form-group" style="margin-bottom:0;">
+                    <div class="form-group" style="margin-bottom:0;" id="group-costo">
                         <label class="form-label">Costo ($) *</label>
                         <div class="number-input-wrapper">
                             <input type="number" step="0.01" min="0" name="costo" id="inp-costo"
@@ -441,7 +450,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             </div>
                         </div>
                     </div>
-                    <div class="form-group" style="margin-bottom:0;">
+                    <div class="form-group" style="margin-bottom:0;" id="group-precio">
                         <label class="form-label">Precio Venta ($) *</label>
                         <div class="number-input-wrapper">
                             <input type="number" step="0.01" min="0" name="precio_venta" id="inp-precio"
@@ -449,6 +458,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <div class="spin-buttons">
                                 <button type="button" class="spin-btn" onclick="stepNumberInput('inp-precio', 1)">▲</button>
                                 <button type="button" class="spin-btn" onclick="stepNumberInput('inp-precio', -1)">▼</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;display:none;" id="group-ropa-kg">
+                        <label class="form-label">Ropa en Kg *</label>
+                        <div class="number-input-wrapper">
+                            <input type="number" step="0.01" min="0" name="ropa_kg" id="kit-inp-ropa-kg"
+                                   class="form-control" value="<?= htmlspecialchars($esEdicion ? number_format($productoEditar['ropa_kg'], 2, '.', '') : '1.00') ?>" placeholder="0.00">
+                            <div class="spin-buttons">
+                                <button type="button" class="spin-btn" onclick="stepNumberInput('kit-inp-ropa-kg', 1)">▲</button>
+                                <button type="button" class="spin-btn" onclick="stepNumberInput('kit-inp-ropa-kg', -1)">▼</button>
                             </div>
                         </div>
                     </div>
@@ -494,16 +514,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <!-- Cantidad del insumo -->
                         <div>
                             <label class="form-label" style="font-size:0.78rem;">Cantidad</label>
-                            <input type="number" id="kit-inp-cantidad" class="form-control"
-                                   step="0.01" min="0" value="1" placeholder="0">
+                            <div class="number-input-wrapper">
+                                <input type="number" id="kit-inp-cantidad" class="form-control"
+                                       step="0.01" min="0.01" value="1" placeholder="0">
+                                <div class="spin-buttons">
+                                    <button type="button" class="spin-btn" onclick="stepNumberInput('kit-inp-cantidad', 1)">▲</button>
+                                    <button type="button" class="spin-btn" onclick="stepNumberInput('kit-inp-cantidad', -1)">▼</button>
+                                </div>
+                            </div>
                             <div class="kit-unidad-label" id="kit-unidad-label">—</div>
-                        </div>
-
-                        <!-- Ropa en Kg. -->
-                        <div>
-                            <label class="form-label" style="font-size:0.78rem;">Ropa en Kg.</label>
-                            <input type="number" id="kit-inp-ropa-kg" name="ropa_kg" class="form-control"
-                                   step="0.01" min="0" value="<?= htmlspecialchars($esEdicion ? number_format($productoEditar['ropa_kg'], 2, '.', '') : '1') ?>" placeholder="0.00">
                         </div>
                     </div>
 
@@ -589,15 +608,22 @@ let kitInsumos = <?= $insumosKitExistentesJson ?> || [];
 
 // ── Toggle Tipo ───────────────────────────────────────────────────
 function onTipoChange(tipo) {
+    const filaDetalles     = document.getElementById('fila-detalles-producto');
     const kitSection       = document.getElementById('kit-section');
     const selUnidad        = document.getElementById('sel-unidad');
+    const groupUnidad      = document.getElementById('group-unidad');
     const inpStockMinimo   = document.getElementById('inp-stock-minimo');
     const groupStockMinimo = document.getElementById('group-stock-minimo');
     const inpCosto         = document.getElementById('inp-costo');
+    const groupCosto       = document.getElementById('group-costo');
     const inpPrecio        = document.getElementById('inp-precio');
+    const groupRopaKg      = document.getElementById('group-ropa-kg');
+    const inpRopaKg        = document.getElementById('kit-inp-ropa-kg');
 
     if (tipo === 'KIT') {
         kitSection.style.display = 'block';
+        if (filaDetalles) filaDetalles.style.gridTemplateColumns = '1fr 1fr 130px 130px 130px 130px';
+
         // Deshabilitar campos que no aplican al Kit (Unidad, Stock Mínimo y Costo directo)
         selUnidad.disabled       = true;
         inpStockMinimo.disabled  = true;
@@ -607,8 +633,22 @@ function onTipoChange(tipo) {
         inpCosto.value           = '0.00';
         inpPrecio.disabled       = false;
         if (groupStockMinimo) groupStockMinimo.style.opacity = '0.4';
+        if (groupCosto) groupCosto.style.opacity = '0.4';
+        if (groupUnidad) groupUnidad.style.opacity = '0.4';
+
+        // Mostrar campo Ropa en Kg al mismo nivel de Precio Venta
+        if (groupRopaKg) groupRopaKg.style.display = 'block';
+        if (inpRopaKg) {
+            inpRopaKg.disabled = false;
+            inpRopaKg.required = true;
+            if (!inpRopaKg.value || parseFloat(inpRopaKg.value) <= 0) {
+                inpRopaKg.value = '1.00';
+            }
+        }
     } else if (tipo === 'SERVICIO') {
         kitSection.style.display = 'none';
+        if (filaDetalles) filaDetalles.style.gridTemplateColumns = '1fr 1fr 140px 140px 140px';
+
         selUnidad.disabled       = true;
         selUnidad.value          = 'SERVICIO';
         inpStockMinimo.disabled  = true;
@@ -618,16 +658,38 @@ function onTipoChange(tipo) {
         inpCosto.value           = '0.00';
         inpPrecio.disabled       = false;
         if (groupStockMinimo) groupStockMinimo.style.opacity = '0.4';
+        if (groupCosto) groupCosto.style.opacity = '0.4';
+        if (groupUnidad) groupUnidad.style.opacity = '0.4';
+
+        // Ocultar campo Ropa en Kg
+        if (groupRopaKg) groupRopaKg.style.display = 'none';
+        if (inpRopaKg) {
+            inpRopaKg.disabled = true;
+            inpRopaKg.required = false;
+        }
+
         kitInsumos = [];
         renderChips();
     } else { // NORMAL
         kitSection.style.display = 'none';
+        if (filaDetalles) filaDetalles.style.gridTemplateColumns = '1fr 1fr 140px 140px 140px';
+
         selUnidad.disabled       = false;
         inpStockMinimo.disabled  = false;
         inpStockMinimo.required  = true;
         inpCosto.disabled        = false;
         inpPrecio.disabled       = false;
         if (groupStockMinimo) groupStockMinimo.style.opacity = '1';
+        if (groupCosto) groupCosto.style.opacity = '1';
+        if (groupUnidad) groupUnidad.style.opacity = '1';
+
+        // Ocultar campo Ropa en Kg
+        if (groupRopaKg) groupRopaKg.style.display = 'none';
+        if (inpRopaKg) {
+            inpRopaKg.disabled = true;
+            inpRopaKg.required = false;
+        }
+
         kitInsumos = [];
         renderChips();
     }
@@ -732,13 +794,13 @@ document.getElementById('form-producto').addEventListener('submit', function(e) 
             alert('Un Kit debe tener al menos un insumo agregado.');
             return;
         }
-        const ropaKgGlobal = document.getElementById('kit-inp-ropa-kg') ? document.getElementById('kit-inp-ropa-kg').value : 0;
+        const ropaKgGlobal = document.getElementById('kit-inp-ropa-kg') ? parseFloat(document.getElementById('kit-inp-ropa-kg').value || 0) : 0;
         kitInsumos.forEach((ins, i) => {
             hiddenContainer.innerHTML += `
                 <input type="hidden" name="kit_insumo_id[]"       value="${escHtml(ins.id)}">
                 <input type="hidden" name="kit_insumo_cantidad[]"  value="${ins.cantidad}">
                 <input type="hidden" name="kit_insumo_unidad[]"    value="${escHtml(ins.unidad)}">
-                <input type="hidden" name="kit_insumo_ropa_kg[]"   value="${ins.ropa_kg || ropaKgGlobal || 0}">
+                <input type="hidden" name="kit_insumo_ropa_kg[]"   value="${ropaKgGlobal || ins.ropa_kg || 0}">
             `;
         });
     }

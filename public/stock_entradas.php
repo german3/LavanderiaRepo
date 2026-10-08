@@ -43,128 +43,101 @@ function convertirALitros(float $cantidad, string $unidadLiquido): float {
     }
 }
 
-// Procesar registro de Movimiento de Stock (Entrada / Salida)
+// ══════════════════════════════════════════════════════════════
+// Procesar registro de Movimientos de Stock (múltiples filas)
+// ══════════════════════════════════════════════════════════════
 if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registrar_entrada') {
-    $productoId          = trim($_POST['producto_id'] ?? '');
-    $tipoMovimiento      = trim($_POST['tipo_movimiento'] ?? 'ENTRADA');
-    $cantidadRaw         = floatval($_POST['cantidad'] ?? 0);
-    $unidadLiquido       = trim($_POST['unidad_liquido'] ?? 'LITRO'); // solo aplica si prod es LITRO
-    $costoTotal          = floatval($_POST['costo_total'] ?? 0);
-    $permitirEditarCosto = isset($_POST['permitir_editar_costo']) && $_POST['permitir_editar_costo'] == '1';
-    $editarCosto         = floatval($_POST['editar_costo'] ?? 0);
-    $motivo              = trim($_POST['motivo'] ?? '');
+    $tipoMovimiento = trim($_POST['tipo_movimiento'] ?? 'ENTRADA');
+    $motivoGlobal   = trim($_POST['motivo'] ?? '');
 
-    // Convertir a litros si el producto es de tipo LITRO
-    // (la conversion solo aplica en ENTRADA, en SALIDA el usuario elige cuántos litros retirar)
-    $cantidad = $cantidadRaw;
+    // Los campos vienen como arrays: producto_id[], presentacion[], cantidad[], etc.
+    $productoIds         = $_POST['producto_id']         ?? [];
+    $presentaciones      = $_POST['presentacion']        ?? [];
+    $cantidades          = $_POST['cantidad']            ?? [];
+    $unidadesLiquido     = $_POST['unidad_liquido']      ?? [];
+    $permitirEditar      = $_POST['permitir_editar_costo'] ?? [];
+    $editarCostos        = $_POST['editar_costo']        ?? [];
 
-    if (empty($productoId) || $cantidadRaw <= 0) {
-        $error = "Selecciona un producto e ingresa una cantidad válida mayor a 0.";
+    $totalFilas = count($productoIds);
+    if ($totalFilas === 0) {
+        $error = "No hay filas de productos para procesar.";
     } else {
-        try {
-            // Obtener datos del producto antes de modificarlo
-            $stmtCheck = $db->prepare("SELECT id, codigo_interno_sku, descripcion, tipo, unidad_medida, stock_cantidad, costo FROM productos WHERE id = :id");
-            $stmtCheck->execute([':id' => $productoId]);
-            $prodData = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+        $mensajes = [];
+        $errores  = [];
 
-            // Convertir si es producto líquido
-            if ($prodData && $prodData['unidad_medida'] === 'LITRO') {
-                $cantidad = convertirALitros($cantidadRaw, $unidadLiquido);
+        for ($i = 0; $i < $totalFilas; $i++) {
+            $productoId          = trim($productoIds[$i] ?? '');
+            $presentacion        = floatval($presentaciones[$i] ?? 0);
+            $factorCantidad      = floatval($cantidades[$i]     ?? 1);
+            if ($factorCantidad <= 0) $factorCantidad = 1;
+            $cantidadRaw         = $presentacion * $factorCantidad;
+            $unidadLiquido       = trim($unidadesLiquido[$i] ?? 'LITRO');
+            $permitirEditarCosto = isset($permitirEditar[$i]) && $permitirEditar[$i] == '1';
+            $editarCosto         = floatval($editarCostos[$i] ?? 0);
+
+            if (empty($productoId) || $cantidadRaw <= 0) {
+                $errores[] = "Fila " . ($i + 1) . ": selecciona un producto e ingresa presentación y cantidad válidas.";
+                continue;
             }
 
-            if (!$prodData) {
-                $error = "Producto no encontrado.";
-            } else {
-                $stockAntes = floatval($prodData['stock_cantidad']);
+            try {
+                $stmtCheck = $db->prepare("SELECT id, codigo_interno_sku, descripcion, tipo, unidad_medida, stock_cantidad, costo FROM productos WHERE id = :id");
+                $stmtCheck->execute([':id' => $productoId]);
+                $prodData = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+                if (!$prodData) { $errores[] = "Fila " . ($i+1) . ": producto no encontrado."; continue; }
+
+                $cantidad    = $cantidadRaw;
+                if ($prodData['unidad_medida'] === 'LITRO') {
+                    $cantidad = convertirALitros($cantidadRaw, $unidadLiquido);
+                }
+
+                $stockAntes  = floatval($prodData['stock_cantidad']);
                 $costoActual = floatval($prodData['costo'] ?? 0);
 
                 if ($tipoMovimiento === 'SALIDA') {
                     if ($stockAntes < $cantidad) {
-                        $etiquetaUnid = ($prodData['unidad_medida'] === 'LITRO') ? ' L (litros)' : '';
-                        $error = "Stock insuficiente para realizar la salida. Existencias actuales: " . number_format($stockAntes, 4) . $etiquetaUnid;
-                    } else {
-                        $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad - :cant WHERE id = :id");
-                        $stmt->bindParam(':cant', $cantidad);
-                        $stmt->bindParam(':id', $productoId);
-
-                        if ($stmt->execute()) {
-                            $stockDespues = $stockAntes - $cantidad;
-                            $historialModel->registrar([
-                                'tipo_movimiento'      => 'SALIDA STOCK',
-                                'producto_id'          => $prodData['id'],
-                                'producto_sku'         => $prodData['codigo_interno_sku'],
-                                'producto_descripcion' => $prodData['descripcion'],
-                                'tipo_producto'        => $prodData['tipo'],
-                                'cantidad'             => $cantidad,
-                                'costo_unitario'       => $costoActual,
-                                'stock_antes'          => $stockAntes,
-                                'stock_despues'        => $stockDespues,
-                                'motivo'               => $motivo ?: 'Salida de inventario',
-                                'usuario_id'           => $_SESSION['usuario_id'] ?? null,
-                                'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
-                            ]);
-
-                            if ($prodData['unidad_medida'] === 'LITRO' && $unidadLiquido !== 'LITRO') {
-                                $etiqOrig = ($unidadLiquido === 'MILILITRO') ? 'mL' : 'gal';
-                                $mensaje = "Salida registrada: -" . number_format($cantidadRaw, 2) . " {$etiqOrig} = -" . number_format($cantidad, 4) . " L del stock.";
-                            } else {
-                                $mensaje = "Salida de stock registrada exitosamente (-" . number_format($cantidad, 4) . ($prodData['unidad_medida'] === 'LITRO' ? ' L' : '') . ").";
-                            }
-                            $productosNormales = $productoModel->obtenerProductosNormales();
-                        } else {
-                            $error = "No se pudo registrar la salida de stock.";
-                        }
+                        $etiq = ($prodData['unidad_medida'] === 'LITRO') ? ' L' : '';
+                        $errores[] = "Fila " . ($i+1) . " ({$prodData['descripcion']}): stock insuficiente. Existencias: " . number_format($stockAntes, 2) . $etiq;
+                        continue;
                     }
+                    $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad - :cant WHERE id = :id");
+                    $stmt->bindParam(':cant', $cantidad); $stmt->bindParam(':id', $productoId);
+                    if ($stmt->execute()) {
+                        $stockDespues = $stockAntes - $cantidad;
+                        $historialModel->registrar(['tipo_movimiento'=>'SALIDA STOCK','producto_id'=>$prodData['id'],'producto_sku'=>$prodData['codigo_interno_sku'],'producto_descripcion'=>$prodData['descripcion'],'tipo_producto'=>$prodData['tipo'],'cantidad'=>$cantidad,'costo_unitario'=>$costoActual,'stock_antes'=>$stockAntes,'stock_despues'=>$stockDespues,'motivo'=>$motivoGlobal ?: 'Salida de inventario','usuario_id'=>$_SESSION['usuario_id']??null,'usuario_nombre'=>$_SESSION['nombre']??'Usuario']);
+                        $detalleMult = ($factorCantidad > 1) ? " ({$factorCantidad}×" . number_format($presentacion, 2) . ")" : "";
+                        $mensajes[] = "✔ {$prodData['descripcion']}: -" . number_format($cantidad, 2) . ($prodData['unidad_medida']==='LITRO'?' L':'') . "{$detalleMult}";
+                    } else { $errores[] = "Fila " . ($i+1) . ": no se pudo registrar la salida."; }
                 } else {
-                    // ENTRADA
-                    $nuevoCostoUnitario = ($permitirEditarCosto && $editarCosto >= 0) ? $editarCosto : $costoActual;
-
+                    $nuevoCosto = ($permitirEditarCosto && $editarCosto >= 0) ? $editarCosto : $costoActual;
                     if ($permitirEditarCosto && $editarCosto >= 0) {
                         $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad + :cant, costo = :costo WHERE id = :id");
-                        $stmt->bindParam(':cant', $cantidad);
-                        $stmt->bindParam(':costo', $nuevoCostoUnitario);
-                        $stmt->bindParam(':id', $productoId);
+                        $stmt->bindParam(':cant', $cantidad); $stmt->bindParam(':costo', $nuevoCosto); $stmt->bindParam(':id', $productoId);
                     } else {
                         $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad + :cant WHERE id = :id");
-                        $stmt->bindParam(':cant', $cantidad);
-                        $stmt->bindParam(':id', $productoId);
+                        $stmt->bindParam(':cant', $cantidad); $stmt->bindParam(':id', $productoId);
                     }
-
                     if ($stmt->execute()) {
                         $stockDespues = $stockAntes + $cantidad;
-                        $historialModel->registrar([
-                            'tipo_movimiento'      => 'ENTRADA STOCK',
-                            'producto_id'          => $prodData['id'],
-                            'producto_sku'         => $prodData['codigo_interno_sku'],
-                            'producto_descripcion' => $prodData['descripcion'],
-                            'tipo_producto'        => $prodData['tipo'],
-                            'cantidad'             => $cantidad,
-                            'costo_unitario'       => $nuevoCostoUnitario,
-                            'stock_antes'          => $stockAntes,
-                            'stock_despues'        => $stockDespues,
-                            'motivo'               => $motivo ?: 'Entrada de inventario',
-                            'usuario_id'           => $_SESSION['usuario_id'] ?? null,
-                            'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
-                        ]);
-
-                        // Construir mensaje con informacion de conversion si aplica
-                        if ($prodData['unidad_medida'] === 'LITRO' && $unidadLiquido !== 'LITRO') {
-                            $etiqOrig = ($unidadLiquido === 'MILILITRO') ? 'mL' : 'gal';
-                            $mensaje = "Entrada registrada: +" . number_format($cantidadRaw, 2) . " {$etiqOrig} = +" . number_format($cantidad, 4) . " L al stock.";
-                        } else {
-                            $mensaje = "Entrada de stock registrada exitosamente (+" . number_format($cantidad, 4) . ($prodData['unidad_medida'] === 'LITRO' ? ' L' : '') . ").";
-                        }
-                        if ($permitirEditarCosto && $editarCosto >= 0) {
-                            $mensaje .= " El costo por unidad fue actualizado a $" . number_format($nuevoCostoUnitario, 2) . ".";
-                        }
-                        $productosNormales = $productoModel->obtenerProductosNormales();
-                    } else {
-                        $error = "No se pudo registrar la entrada de stock.";
-                    }
+                        $historialModel->registrar(['tipo_movimiento'=>'ENTRADA STOCK','producto_id'=>$prodData['id'],'producto_sku'=>$prodData['codigo_interno_sku'],'producto_descripcion'=>$prodData['descripcion'],'tipo_producto'=>$prodData['tipo'],'cantidad'=>$cantidad,'costo_unitario'=>$nuevoCosto,'stock_antes'=>$stockAntes,'stock_despues'=>$stockDespues,'motivo'=>$motivoGlobal ?: 'Entrada de inventario','usuario_id'=>$_SESSION['usuario_id']??null,'usuario_nombre'=>$_SESSION['nombre']??'Usuario']);
+                        $detalleMult = ($factorCantidad > 1) ? " ({$factorCantidad}×" . number_format($presentacion, 2) . ")" : "";
+                        $costoMsg = ($permitirEditarCosto && $editarCosto >= 0) ? " | Costo actualizado a $" . number_format($nuevoCosto, 2) : "";
+                        $mensajes[] = "✔ {$prodData['descripcion']}: +" . number_format($cantidad, 2) . ($prodData['unidad_medida']==='LITRO'?' L':'') . "{$detalleMult}{$costoMsg}";
+                    } else { $errores[] = "Fila " . ($i+1) . ": no se pudo registrar la entrada."; }
                 }
+            } catch (Exception $e) {
+                $errores[] = "Fila " . ($i+1) . ": error BD — " . $e->getMessage();
             }
-        } catch (Exception $e) {
-            $error = "Error en base de datos: " . $e->getMessage();
+        }
+
+        $productosNormales = $productoModel->obtenerProductosNormales();
+        if (!empty($mensajes)) {
+            $tipoLabel = ($tipoMovimiento === 'SALIDA') ? 'Salida' : 'Entrada';
+            $mensaje = "{$tipoLabel} procesada " . count($mensajes) . " de {$totalFilas} producto(s):\n" . implode("\n", $mensajes);
+        }
+        if (!empty($errores)) {
+            $error = implode("\n", $errores);
         }
     }
 }
@@ -197,16 +170,73 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(15, 23, 42, 0.75);
             backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-            display: none; align-items: center; justify-content: center;
+            display: none; align-items: flex-start; justify-content: center;
             z-index: 9999; animation: fadeIn 0.2s ease;
+            padding: 1.5rem 1rem; overflow-y: auto;
         }
         .modal-overlay.active { display: flex; }
         .modal-box {
             background: #1e293b; border: 1px solid var(--border);
-            border-radius: 20px; padding: 2rem; max-width: 500px; width: 90%;
+            border-radius: 20px; padding: 2rem; max-width: 860px; width: 100%;
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            margin: auto;
         }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Fila de producto en el modal multi-entrada */
+        .entrada-row {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.1rem 1.2rem 1rem;
+            margin-bottom: 0.85rem;
+            position: relative;
+            transition: border-color 0.2s;
+        }
+        .entrada-row:hover { border-color: rgba(99,102,241,0.35); }
+        .entrada-row-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 0.85rem;
+        }
+        .entrada-row-num {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.08em; color: var(--text-muted);
+            background: rgba(255,255,255,0.06); border-radius: 6px;
+            padding: 0.2rem 0.55rem;
+        }
+        .btn-remove-row {
+            background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25);
+            color: #f87171; border-radius: 8px; padding: 0.3rem 0.65rem;
+            font-size: 0.78rem; font-weight: 600; cursor: pointer;
+            transition: all 0.18s;
+        }
+        .btn-remove-row:hover { background: rgba(239,68,68,0.25); border-color: rgba(239,68,68,0.5); }
+        .btn-add-row {
+            display: flex; align-items: center; gap: 0.5rem;
+            background: rgba(99,102,241,0.12); border: 1.5px dashed rgba(99,102,241,0.4);
+            color: #a5b4fc; border-radius: 12px; padding: 0.7rem 1.2rem;
+            font-size: 0.88rem; font-weight: 600; cursor: pointer; width: 100%;
+            justify-content: center; transition: all 0.2s; margin-bottom: 1.25rem;
+        }
+        .btn-add-row:hover { background: rgba(99,102,241,0.22); border-color: rgba(99,102,241,0.65); color: #c7d2fe; }
+        .row-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+        .row-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+        .liq-panel {
+            background: rgba(56,189,248,0.05); border: 1px solid rgba(56,189,248,0.2);
+            border-radius: 10px; padding: 0.75rem 0.9rem; margin-top: 0.65rem; display: none;
+        }
+        .edit-costo-panel {
+            background: rgba(15,23,42,0.4); border: 1px solid var(--border);
+            border-radius: 10px; padding: 0.75rem 0.9rem; margin-top: 0.65rem;
+        }
+        .resumen-fila {
+            font-size: 0.78rem; color: #a5b4fc; font-weight: 500;
+            margin-top: 0.5rem; display: none;
+        }
+        .separador-global {
+            border: none; border-top: 1px solid var(--border);
+            margin: 1.25rem 0;
+        }
     </style>
 </head>
 <body>
@@ -309,7 +339,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                         <td>
                             <?php if ($inv['unidad_medida'] === 'LITRO'): ?>
                                 <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 0.78rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 6px;">
-                                    Litros / mL / Gal
+                                    Litros
                                 </span>
                             <?php else: ?>
                                 <span class="badge badge-normal"><?= htmlspecialchars($inv['unidad_medida']) ?></span>
@@ -318,15 +348,8 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                         <td style="font-weight: 700; font-size: 1.05rem; color: <?= ($inv['stock_cantidad'] <= 5) ? '#f87171' : '#34d399' ?>;">
                             <?php if ($inv['unidad_medida'] === 'LITRO'): 
                                 $stkL = floatval($inv['stock_cantidad']);
-                                $stkML = $stkL * 1000;
-                                $stkGal = $stkL / 3.78541;
                             ?>
-                                <div>
-                                    <span><?= number_format($stkL, 4) ?> L</span>
-                                    <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500; margin-top: 2px;">
-                                        ≈ <?= number_format($stkML, 0) ?> mL &bull; <?= number_format($stkGal, 2) ?> gal
-                                    </div>
-                                </div>
+                                <?= number_format($stkL, 2) ?> L
                             <?php else: ?>
                                 <?= number_format($inv['stock_cantidad'], 2) ?>
                             <?php endif; ?>
@@ -379,186 +402,426 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
     </main>
 </div>
 
-<!-- Modal de Movimiento de Stock -->
+<!-- ══════════════════════════════════════════════════
+     MODAL MULTI-ENTRADA / SALIDA DE STOCK
+═══════════════════════════════════════════════════ -->
 <div id="modal-entrada" class="modal-overlay" onclick="cerrarModalEntrada(event)">
     <div class="modal-box" onclick="event.stopPropagation()">
-        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
-            <div id="modal-icon-container" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(34, 197, 94, 0.15); display: flex; align-items: center; justify-content: center; color: #22c55e; font-size: 1.3rem;">
-                📥
+
+        <!-- Cabecera del modal -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.4rem;">
+            <div style="display:flex; align-items:center; gap:1rem;">
+                <div id="modal-icon-container" style="width:44px;height:44px;border-radius:12px;background:rgba(34,197,94,0.15);display:flex;align-items:center;justify-content:center;color:#22c55e;font-size:1.3rem;">📥</div>
+                <div>
+                    <h3 id="modal-titulo" style="font-size:1.2rem;color:#fff;margin-bottom:0.15rem;">Registrar Entradas</h3>
+                    <p id="modal-subtitulo" style="color:var(--text-muted);font-size:0.82rem;margin:0;">Puedes agregar múltiples productos en una sola operación</p>
+                </div>
             </div>
-            <div>
-                <h3 id="modal-titulo" style="font-size: 1.25rem; color: #fff; margin-bottom: 0.2rem;">Registrar Movimiento</h3>
-                <p id="modal-subtitulo" style="color: var(--text-muted); font-size: 0.85rem;">Incremento de existencias de insumo</p>
-            </div>
+            <button type="button" onclick="cerrarModalEntrada()" style="background:none;border:none;color:var(--text-muted);font-size:1.4rem;cursor:pointer;line-height:1;padding:0.2rem 0.5rem;border-radius:6px;transition:color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
         </div>
 
         <form method="POST" id="form-entrada" onsubmit="return solicitarGuardarEntrada(event)">
             <input type="hidden" name="action" value="registrar_entrada">
 
-            <div class="form-group" style="margin-bottom: 1.15rem;">
-                <label class="form-label">Tipo de Movimiento *</label>
-                <div class="select-wrapper">
-                    <select name="tipo_movimiento" id="entrada-tipo-movimiento" class="form-control" required onchange="onTipoMovimientoChange(this.value)">
-                        <option value="ENTRADA">Entrada</option>
-                        <option value="SALIDA">Salida</option>
-                    </select>
-                    <div class="select-arrow-btn">▼</div>
+            <!-- Tipo de movimiento + Motivo global -->
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:0.85rem;margin-bottom:1.15rem;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Tipo de Movimiento *</label>
+                    <div class="select-wrapper">
+                        <select name="tipo_movimiento" id="entrada-tipo-movimiento" class="form-control" required onchange="onTipoMovimientoChange(this.value)">
+                            <option value="ENTRADA">Entrada</option>
+                            <option value="SALIDA">Salida</option>
+                        </select>
+                        <div class="select-arrow-btn">▼</div>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label" id="label-motivo">Motivo / Proveedor</label>
+                    <input type="text" name="motivo" id="entrada-motivo" class="form-control" placeholder="Ej: Compra a proveedor / Reposición">
                 </div>
             </div>
 
-            <div class="form-group" style="margin-bottom: 1.15rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
-                    <label class="form-label" style="margin-bottom: 0;">Producto / Insumo *</label>
-                    <span id="tag-costo-unitario" style="font-size: 0.8rem; font-weight: 600; color: #60a5fa; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); padding: 0.25rem 0.65rem; border-radius: 8px; display: none; align-items: center; gap: 0.35rem;">
-                        💵 Costo por Unidad: <strong>$0.00</strong>
-                    </span>
-                </div>
-                <div class="select-wrapper">
-                    <select name="producto_id" id="entrada-producto-id" class="form-control" required onchange="calcularCostoTotal()">
-                        <option value="">— Selecciona un producto —</option>
-                        <?php foreach ($productosNormales as $p): ?>
-                            <option value="<?= htmlspecialchars($p['id']) ?>" data-costo="<?= htmlspecialchars($p['costo'] ?? 0) ?>" data-unidad="<?= htmlspecialchars($p['unidad_medida'] ?? '') ?>">
-                                <?= htmlspecialchars($p['descripcion']) ?> (<?= ($p['unidad_medida'] === 'LITRO') ? 'Litros / Mililitros / Galones' : htmlspecialchars($p['unidad_medida']) ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <div class="select-arrow-btn">▼</div>
-                </div>
-            </div>
+            <hr class="separador-global">
 
-            <!-- Sub-unidad para líquidos (visible solo cuando el producto es LITRO) -->
-            <div class="form-group" id="group-unidad-liquido" style="margin-bottom: 1.15rem; display: none; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 12px; padding: 0.85rem 1rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
-                    <label class="form-label" style="margin-bottom: 0; color: #38bdf8; font-weight: 600;">
-                        🧪 Unidad Específica de la Cantidad *
-                    </label>
-                    <span style="font-size: 0.75rem; color: var(--text-muted);">Conversión automática</span>
-                </div>
-                <div class="select-wrapper">
-                    <select name="unidad_liquido" id="entrada-unidad-liquido" class="form-control" onchange="calcularCostoTotal()">
-                        <option value="LITRO" selected>Litros (L)</option>
-                        <option value="MILILITRO">Mililitros (mL)</option>
-                        <option value="GALON">Galones (gal ≈ 3.7854 L)</option>
-                    </select>
-                    <div class="select-arrow-btn">▼</div>
-                </div>
-                <div id="lbl-conversion-liquido" style="margin-top: 0.45rem; font-size: 0.8rem; color: #38bdf8; font-weight: 500; display: none;"></div>
-            </div>
+            <!-- Contenedor de filas de productos -->
+            <div id="contenedor-filas-entrada"></div>
 
-            <!-- Campo Editar Costo (Disponible solo cuando Tipo Movimiento == ENTRADA) -->
-            <div id="container-editar-costo" style="margin-bottom: 1.15rem; background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border); border-radius: 12px; padding: 0.85rem 1rem;">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <label for="chk-editar-costo" style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none;">
-                        <input type="checkbox" name="permitir_editar_costo" id="chk-editar-costo" value="1" onchange="toggleEditarCosto()" style="width: 1.1rem; height: 1.1rem; accent-color: var(--primary); cursor: pointer;">
-                        <span>Editar Costo ($)</span>
-                    </label>
-                    <span style="font-size: 0.75rem; color: var(--text-muted);">Actualizar costo por unidad del insumo</span>
-                </div>
-                <input type="number" step="0.01" min="0" name="editar_costo" id="entrada-editar-costo" class="form-control" placeholder="0.00" disabled oninput="calcularCostoTotal()">
-            </div>
+            <!-- Botón Agregar Otra Entrada -->
+            <button type="button" class="btn-add-row" id="btn-agregar-fila" onclick="agregarFilaEntrada()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Agregar Otra Entrada
+            </button>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.15rem;">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label class="form-label" id="label-cantidad">Cantidad a Recibir *</label>
-                    <input type="number" step="0.01" min="0.01" name="cantidad" id="entrada-cantidad" class="form-control" required placeholder="0.00" oninput="calcularCostoTotal()">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;" id="group-costo-total">
-                    <label class="form-label" id="label-costo">Costo Total ($)</label>
-                    <input type="number" step="0.01" min="0" name="costo_total" id="entrada-costo-total" class="form-control" placeholder="0.00" readonly>
-                </div>
-            </div>
+            <!-- Resumen total (solo entradas) -->
+            <div id="resumen-total-costo" style="display:none;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);border-radius:12px;padding:0.75rem 1.1rem;margin-bottom:1.2rem;font-size:0.9rem;color:#4ade80;font-weight:600;"></div>
 
-            <div class="form-group" style="margin-bottom: 1.5rem;">
-                <label class="form-label" id="label-motivo">Motivo / Proveedor</label>
-                <input type="text" name="motivo" id="entrada-motivo" class="form-control" placeholder="Ej: Compra a proveedor / Reposición">
-            </div>
-
-            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
-                <button type="button" class="btn-action" style="background: rgba(255,255,255,0.06); color: var(--text-main); padding: 0.65rem 1.25rem; border-radius: 8px;" onclick="cerrarModalEntrada()">Cancelar</button>
-                <button type="submit" id="btn-guardar-movimiento" class="btn-primary" style="padding: 0.65rem 1.5rem; width: auto; font-size: 0.88rem; border-radius: 8px;">Guardar Entrada</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════
-     MODAL CONFIRMAR MOVIMIENTO ENTRADA/SALIDA
-═══════════════════════════════════════════════════ -->
-<div id="modal-confirmar-entrada" class="modal-overlay" style="z-index: 10050;" onclick="cerrarModalConfirmarEntrada(event)">
-    <div class="modal-box" style="max-width: 440px;" onclick="event.stopPropagation()">
-        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-            <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: #60a5fa;">
-                📦
-            </div>
+            <!-- Botones de acción -->
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;margin-top:0.5rem;">
+                <button type="button" class="btn-action" style="background:rgba(255,255,255,0.06);color:var(--text-main);padding:0.65rem 1.25rem;border-radius:8px;" onclick="cerrarModalEntrada()">Cancelar</button>
+                <button type="submit" id="btn-guardar-movimiento" class="btn-primary" style="padding:0.65rem 1.75rem;width:auto;font-size:0.9rem;border-radius:8px;">💾 Guardar Entradas</button>
+            </div><div id="modal-confirmar-entrada" class="modal-overlay" style="z-index:10050;" onclick="cerrarModalConfirmarEntrada(event)">
+    <div class="modal-box" style="max-width:480px;" onclick="event.stopPropagation()">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;">
+            <div style="width:42px;height:42px;border-radius:12px;background:rgba(59,130,246,0.15);display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#60a5fa;">📦</div>
             <div>
-                <h3 id="conf-entrada-titulo" style="font-size: 1.2rem; color: #fff; margin: 0;">Confirmar Movimiento</h3>
-                <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 0.15rem;">Registro de inventario</p>
+                <h3 id="conf-entrada-titulo" style="font-size:1.15rem;color:#fff;margin:0;">Confirmar Movimiento</h3>
+                <p style="color:var(--text-muted);font-size:0.82rem;margin-top:0.15rem;">Revisa el resumen antes de guardar</p>
             </div>
         </div>
-
-        <p id="conf-entrada-mensaje" style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 1rem 0;">
-            ¿Estás seguro de que deseas registrar este movimiento de stock?
-        </p>
-
-        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
-            <button type="button" class="btn-action" style="background: rgba(255,255,255,0.06); color: var(--text-main); padding: 0.65rem 1.25rem; border-radius: 8px;" onclick="cerrarModalConfirmarEntrada()">Cancelar</button>
-            <button type="button" class="btn-primary" style="width: auto; padding: 0.65rem 1.5rem; border-radius: 8px;" onclick="ejecutarGuardarEntrada()">Sí, Guardar</button>
+        <div id="conf-entrada-mensaje" style="color:var(--text-muted);font-size:0.88rem;line-height:1.6;margin:1rem 0;max-height:300px;overflow-y:auto;"></div>
+        <div style="display:flex;justify-content:flex-end;gap:0.75rem;margin-top:1.5rem;">
+            <button type="button" class="btn-action" style="background:rgba(255,255,255,0.06);color:var(--text-main);padding:0.65rem 1.25rem;border-radius:8px;" onclick="cerrarModalConfirmarEntrada()">Cancelar</button>
+            <button type="button" class="btn-primary" style="width:auto;padding:0.65rem 1.5rem;border-radius:8px;" onclick="ejecutarGuardarEntrada()">Sí, Guardar</button>
         </div>
     </div>
 </div>
 
 <script>
     let entradaFormConfirmado = false;
-
-    const FACTOR_ML_A_LITRO = 0.001;
+    const FACTOR_ML_A_LITRO  = 0.001;
     const FACTOR_GAL_A_LITRO = 3.78541;
 
-    function getFactorLitros(unidadLiquido) {
-        if (unidadLiquido === 'MILILITRO') return FACTOR_ML_A_LITRO;
-        if (unidadLiquido === 'GALON') return FACTOR_GAL_A_LITRO;
+    function stepNumberInput(id, dir) {
+        const input = document.getElementById(id);
+        if (!input || input.disabled) return;
+        const step = parseFloat(input.getAttribute('step')) || 1;
+        const min  = input.hasAttribute('min') ? parseFloat(input.getAttribute('min')) : -Infinity;
+        const max  = input.hasAttribute('max') ? parseFloat(input.getAttribute('max')) : Infinity;
+        let val = parseFloat(input.value) || 0;
+        val = val + (step * dir);
+        if (val < min) val = min;
+        if (val > max) val = max;
+        input.value = step < 1 ? val.toFixed(2) : val;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function stepRowInput(rowEl, field, dir) {
+        const inp = rowEl.querySelector('[data-field="' + field + '"]');
+        if (!inp) return;
+        const step = parseFloat(inp.getAttribute('step')) || 1;
+        const min  = inp.hasAttribute('min') ? parseFloat(inp.getAttribute('min')) : -Infinity;
+        let val = parseFloat(inp.value) || 0;
+        val = Math.max(min, val + step * dir);
+        inp.value = step < 1 ? val.toFixed(2) : val;
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function getFactorLitros(u) {
+        if (u === 'MILILITRO') return FACTOR_ML_A_LITRO;
+        if (u === 'GALON')     return FACTOR_GAL_A_LITRO;
         return 1.0;
     }
 
-    function solicitarGuardarEntrada(e) {
-        if (entradaFormConfirmado) {
-            entradaFormConfirmado = false;
-            return true;
+    // Datos de productos inyectados desde PHP
+    const PRODUCTOS_DATA = <?php
+        $pdata = [];
+        foreach ($productosNormales as $p) {
+            $pdata[] = [
+                'id'    => $p['id'],
+                'label' => $p['descripcion'] . ' (' . (($p['unidad_medida'] === 'LITRO') ? 'Litros' : $p['unidad_medida']) . ')',
+                'costo' => floatval($p['costo'] ?? 0),
+                'unidad'=> $p['unidad_medida'] ?? ''
+            ];
         }
-        if (e) e.preventDefault();
+        echo json_encode($pdata);
+    ?>;
 
-        const form = document.getElementById('form-entrada');
-        if (!form.checkValidity()) {
-            form.reportValidity();
-            return false;
-        }
+    let filaCounter = 0;
 
-        const tipoMov = document.getElementById('entrada-tipo-movimiento').value;
-        const selProd = document.getElementById('entrada-producto-id');
-        const optSelected = selProd && selProd.options[selProd.selectedIndex];
-        const prodNombre = optSelected ? optSelected.text : '';
-        const unidadMed = optSelected ? (optSelected.getAttribute('data-unidad') || '') : '';
-        const cantidadInput = parseFloat(document.getElementById('entrada-cantidad').value || 0);
+    function buildSelectOpts(selectedId) {
+        selectedId = selectedId || '';
+        let html = '<option value="">\u2014 Selecciona un producto \u2014</option>';
+        PRODUCTOS_DATA.forEach(function(p) {
+            var sel = (p.id == selectedId) ? ' selected' : '';
+            html += '<option value="' + p.id + '" data-costo="' + p.costo + '" data-unidad="' + p.unidad + '"' + sel + '>' + escapeHtml(p.label) + '</option>';
+        });
+        return html;
+    }
 
-        let textoCantidad = `${cantidadInput.toFixed(2)} unidades`;
-        if (unidadMed === 'LITRO') {
-            const selUnidadLiq = document.getElementById('entrada-unidad-liquido');
-            const uLiq = selUnidadLiq ? selUnidadLiq.value : 'LITRO';
-            const factor = getFactorLitros(uLiq);
-            const cantL = cantidadInput * factor;
-            if (uLiq === 'MILILITRO') {
-                textoCantidad = `${cantidadInput.toLocaleString()} mL (${cantL.toFixed(4)} L)`;
-            } else if (uLiq === 'GALON') {
-                textoCantidad = `${cantidadInput} Galones (${cantL.toFixed(4)} L)`;
-            } else {
-                textoCantidad = `${cantL.toFixed(4)} Litros`;
+    function filtrarInsumosRow(inputEl, idx) {
+        var query = inputEl.value.toLowerCase().trim();
+        var row = document.getElementById('fila-entrada-' + idx);
+        if (!row) return;
+        var selectEl = row.querySelector('select[data-field="producto_id"]');
+        if (!selectEl) return;
+
+        var currentVal = selectEl.value;
+        selectEl.innerHTML = '';
+
+        var defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '— Selecciona un producto —';
+        selectEl.appendChild(defaultOpt);
+
+        PRODUCTOS_DATA.forEach(function(p) {
+            var matchesQuery = !query || p.label.toLowerCase().includes(query);
+            var isCurrent = (currentVal && p.id == currentVal);
+
+            if (matchesQuery || isCurrent) {
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.setAttribute('data-costo', p.costo);
+                opt.setAttribute('data-unidad', p.unidad);
+                opt.textContent = p.label;
+                if (isCurrent) {
+                    opt.selected = true;
+                }
+                selectEl.appendChild(opt);
             }
-        } else if (unidadMed) {
-            textoCantidad = `${cantidadInput.toFixed(2)} ${unidadMed}`;
+        });
+
+        if (currentVal && selectEl.value != currentVal) {
+            selectEl.value = currentVal;
+        }
+    }
+
+    function agregarFilaEntrada(productoId) {
+        productoId = productoId || '';
+        filaCounter++;
+        var idx = filaCounter;
+        var tipo = document.getElementById('entrada-tipo-movimiento').value;
+        var esSalida = (tipo === 'SALIDA');
+
+        var div = document.createElement('div');
+        div.className = 'entrada-row';
+        div.id = 'fila-entrada-' + idx;
+        var numActual = document.querySelectorAll('.entrada-row').length + 1;
+        var displayEditCosto = esSalida ? 'display:none;' : '';
+
+        div.innerHTML =
+            '<div class="entrada-row-header">' +
+                '<span class="entrada-row-num">Producto #' + numActual + '</span>' +
+                '<button type="button" class="btn-remove-row" onclick="eliminarFila(' + idx + ')">\u2715 Quitar</button>' +
+            '</div>' +
+            '<div class="form-group" style="margin-bottom:0.65rem;">' +
+                '<label class="form-label" style="font-size:0.82rem;">Producto / Insumo *</label>' +
+                '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">' +
+                    '<div class="select-wrapper" style="flex:1;min-width:200px;">' +
+                        '<select name="producto_id[]" class="form-control" required onchange="onRowProductoChange(this,' + idx + ')" data-field="producto_id">' +
+                            buildSelectOpts(productoId) +
+                        '</select>' +
+                        '<div class="select-arrow-btn">\u25bc</div>' +
+                    '</div>' +
+                    '<div style="width:180px;position:relative;">' +
+                        '<input type="text" class="form-control" placeholder="\ud83d\udd0d Buscar insumo..." style="font-size:0.82rem;height:38px;padding:0.4rem 0.65rem;background:rgba(15,23,42,0.6);" oninput="filtrarInsumosRow(this,' + idx + ')">' +
+                    '</div>' +
+                    '<span class="tag-costo-row" style="font-size:0.75rem;font-weight:600;color:#60a5fa;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);padding:0.2rem 0.55rem;border-radius:7px;white-space:nowrap;display:none;"></span>' +
+                '</div>' +
+            '</div>' +
+            '<div class="liq-panel" id="liq-panel-' + idx + '">' +
+                '<label class="form-label" style="font-size:0.8rem;color:#38bdf8;margin-bottom:0.4rem;">\ud83e\uddea Unidad de la presentaci\u00f3n</label>' +
+                '<div class="select-wrapper">' +
+                    '<select name="unidad_liquido[]" class="form-control" onchange="calcularFila(' + idx + ')" data-field="unidad_liquido">' +
+                        '<option value="LITRO" selected>Litros (L)</option>' +
+                        '<option value="MILILITRO">Mililitros (mL)</option>' +
+                        '<option value="GALON">Galones (gal \u2248 3.7854 L)</option>' +
+                    '</select>' +
+                    '<div class="select-arrow-btn">\u25bc</div>' +
+                '</div>' +
+                '<div class="lbl-conv-row" style="margin-top:0.35rem;font-size:0.78rem;color:#38bdf8;font-weight:500;display:none;"></div>' +
+            '</div>' +
+            '<div class="row-grid-3" style="margin-top:0.65rem;">' +
+                '<div class="form-group" style="margin-bottom:0;">' +
+                    '<label class="form-label" style="font-size:0.82rem;">' + (esSalida ? 'Presentaci\u00f3n a Retirar *' : 'Presentaci\u00f3n *') + '</label>' +
+                    '<div class="number-input-wrapper">' +
+                        '<input type="number" step="0.01" min="0.01" name="presentacion[]" class="form-control" required placeholder="0.00" data-field="presentacion" oninput="calcularFila(' + idx + ')">' +
+                        '<div class="spin-buttons">' +
+                            '<button type="button" class="spin-btn" onclick="stepRowInput(document.getElementById(\'fila-entrada-' + idx + '\'),\'presentacion\',1)">\u25b2</button>' +
+                            '<button type="button" class="spin-btn" onclick="stepRowInput(document.getElementById(\'fila-entrada-' + idx + '\'),\'presentacion\',-1)">\u25bc</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="form-group" style="margin-bottom:0;">' +
+                    '<label class="form-label" style="font-size:0.82rem;">Cantidad *</label>' +
+                    '<div class="number-input-wrapper">' +
+                        '<input type="number" step="0.01" min="0.01" name="cantidad[]" class="form-control" required value="1.00" placeholder="1.00" data-field="cantidad" oninput="calcularFila(' + idx + ')">' +
+                        '<div class="spin-buttons">' +
+                            '<button type="button" class="spin-btn" onclick="stepRowInput(document.getElementById(\'fila-entrada-' + idx + '\'),\'cantidad\',1)">\u25b2</button>' +
+                            '<button type="button" class="spin-btn" onclick="stepRowInput(document.getElementById(\'fila-entrada-' + idx + '\'),\'cantidad\',-1)">\u25bc</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="form-group" style="margin-bottom:0;">' +
+                    '<label class="form-label" style="font-size:0.82rem;">Costo Total ($)</label>' +
+                    '<input type="number" step="0.01" min="0" name="costo_total[]" class="form-control" placeholder="0.00" readonly data-field="costo_total" style="font-weight:700;color:#4ade80;">' +
+                '</div>' +
+            '</div>' +
+            '<div class="resumen-fila" id="resumen-fila-' + idx + '"></div>' +
+            '<div class="edit-costo-panel" id="edit-costo-panel-' + idx + '" style="margin-top:0.65rem;' + displayEditCosto + '">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem;">' +
+                    '<label style="font-size:0.82rem;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:0.4rem;cursor:pointer;user-select:none;">' +
+                        '<input type="checkbox" name="permitir_editar_costo[' + idx + ']" value="1" onchange="toggleEditarCostoRow(' + idx + ')" style="width:1rem;height:1rem;accent-color:var(--primary);cursor:pointer;">' +
+                        '<span>Actualizar Costo Unitario ($)</span>' +
+                    '</label>' +
+                    '<span style="font-size:0.72rem;color:var(--text-muted);">Actualiza precio de compra</span>' +
+                '</div>' +
+                '<input type="number" step="0.01" min="0" name="editar_costo[]" class="form-control" placeholder="0.00" disabled data-field="editar_costo" oninput="calcularFila(' + idx + ')" style="font-size:0.88rem;">' +
+            '</div>';
+
+        document.getElementById('contenedor-filas-entrada').appendChild(div);
+        renumerarFilas();
+        if (productoId) {
+            onRowProductoChange(div.querySelector('select[data-field="producto_id"]'), idx);
+        }
+        actualizarResumenTotal();
+    }
+
+    function eliminarFila(idx) {
+        var el = document.getElementById('fila-entrada-' + idx);
+        if (el) el.remove();
+        renumerarFilas();
+        actualizarResumenTotal();
+        if (document.querySelectorAll('.entrada-row').length === 0) agregarFilaEntrada();
+    }
+
+    function renumerarFilas() {
+        document.querySelectorAll('.entrada-row').forEach(function(row, i) {
+            var lbl = row.querySelector('.entrada-row-num');
+            if (lbl) lbl.textContent = 'Producto #' + (i + 1);
+        });
+    }
+
+    function onRowProductoChange(selectEl, idx) {
+        var opt   = selectEl.options[selectEl.selectedIndex];
+        var row   = document.getElementById('fila-entrada-' + idx);
+        if (!row) return;
+        var costo  = parseFloat((opt && opt.getAttribute('data-costo')) || 0);
+        var unidad = (opt && opt.getAttribute('data-unidad')) || '';
+
+        var tag = row.querySelector('.tag-costo-row');
+        if (tag) {
+            if (opt && opt.value) { tag.textContent = '\ud83d\udcb5 $' + costo.toFixed(2) + ' / ' + (unidad === 'LITRO' ? 'L' : unidad); tag.style.display = ''; }
+            else tag.style.display = 'none';
+        }
+        var liqPanel = document.getElementById('liq-panel-' + idx);
+        if (liqPanel) liqPanel.style.display = (unidad === 'LITRO') ? 'block' : 'none';
+
+        var inpEditar = row.querySelector('[data-field="editar_costo"]');
+        if (inpEditar && inpEditar.disabled) inpEditar.value = costo > 0 ? costo.toFixed(2) : '';
+
+        calcularFila(idx);
+    }
+
+    function toggleEditarCostoRow(idx) {
+        var row = document.getElementById('fila-entrada-' + idx);
+        if (!row) return;
+        var chk = row.querySelector('input[name="permitir_editar_costo[' + idx + ']"]');
+        var inp = row.querySelector('[data-field="editar_costo"]');
+        var sel = row.querySelector('[data-field="producto_id"]');
+        var opt = sel ? sel.options[sel.selectedIndex] : null;
+        var costoBase = parseFloat((opt && opt.getAttribute('data-costo')) || 0);
+        if (chk && chk.checked) {
+            if (inp) { inp.disabled = false; if (!inp.value || parseFloat(inp.value) <= 0) inp.value = costoBase > 0 ? costoBase.toFixed(2) : ''; inp.focus(); }
+        } else {
+            if (inp) { inp.disabled = true; inp.value = costoBase > 0 ? costoBase.toFixed(2) : '0.00'; }
+        }
+        calcularFila(idx);
+    }
+
+    function calcularFila(idx) {
+        var row = document.getElementById('fila-entrada-' + idx);
+        if (!row) return;
+        var sel    = row.querySelector('[data-field="producto_id"]');
+        var opt    = sel ? sel.options[sel.selectedIndex] : null;
+        var unidad = (opt && opt.getAttribute('data-unidad')) || '';
+        var costoBase = parseFloat((opt && opt.getAttribute('data-costo')) || 0);
+
+        var inpPres = row.querySelector('[data-field="presentacion"]');
+        var inpCant = row.querySelector('[data-field="cantidad"]');
+        var pres = parseFloat((inpPres && inpPres.value) || 0) || 0;
+        var cant = parseFloat((inpCant && inpCant.value) || 0) || 0;
+        var totalCant = pres * cant;
+
+        var esLiquido = (unidad === 'LITRO');
+        var liqPanel  = document.getElementById('liq-panel-' + idx);
+        if (liqPanel) liqPanel.style.display = esLiquido ? 'block' : 'none';
+
+        var selULiq = row.querySelector('[data-field="unidad_liquido"]');
+        var uLiq    = (esLiquido && selULiq) ? selULiq.value : 'LITRO';
+        var factor  = esLiquido ? getFactorLitros(uLiq) : 1.0;
+        var cantL   = totalCant * factor;
+
+        var lblConv = row.querySelector('.lbl-conv-row');
+        if (lblConv) {
+            if (esLiquido && totalCant > 0) {
+                if (uLiq === 'MILILITRO')
+                    lblConv.innerHTML = '\ud83d\udd04 <strong>' + cant.toFixed(2) + ' \u00d7 ' + pres.toLocaleString() + ' mL = ' + totalCant.toLocaleString() + ' mL</strong> = <strong>' + cantL.toFixed(2) + ' L</strong>';
+                else if (uLiq === 'GALON')
+                    lblConv.innerHTML = '\ud83d\udd04 <strong>' + cant.toFixed(2) + ' \u00d7 ' + pres.toFixed(2) + ' Gal = ' + totalCant.toFixed(2) + ' Gal</strong> = <strong>' + cantL.toFixed(2) + ' L</strong>';
+                else
+                    lblConv.innerHTML = '\ud83d\udd04 <strong>' + cant.toFixed(2) + ' \u00d7 ' + pres.toFixed(2) + ' L = ' + cantL.toFixed(2) + ' Litros</strong>';
+                lblConv.style.display = 'block';
+            } else { lblConv.style.display = 'none'; }
         }
 
-        const txtTipo = tipoMov === 'SALIDA' ? 'Salida' : 'Entrada';
-        document.getElementById('conf-entrada-titulo').textContent = `Confirmar ${txtTipo}`;
-        document.getElementById('conf-entrada-mensaje').innerHTML = `¿Estás seguro de que deseas registrar esta <strong>${txtTipo}</strong> de <strong>${textoCantidad}</strong> para <strong>${escapeHtml(prodNombre)}</strong>?`;
+        var resumen = document.getElementById('resumen-fila-' + idx);
+        if (resumen) {
+            if (!esLiquido && totalCant > 0 && cant > 1) {
+                resumen.innerHTML = '\ud83d\udce6 Total: <strong>' + cant.toFixed(2) + ' \u00d7 ' + pres.toFixed(2) + ' = ' + totalCant.toFixed(2) + ' ' + (unidad || 'uds.') + '</strong>';
+                resumen.style.display = 'block';
+            } else { resumen.style.display = 'none'; }
+        }
+
+        var tipo = document.getElementById('entrada-tipo-movimiento').value;
+        var chk  = row.querySelector('input[name="permitir_editar_costo[' + idx + ']"]');
+        var inpE = row.querySelector('[data-field="editar_costo"]');
+        var costoAplicar = costoBase;
+        if (chk && chk.checked && inpE && !inpE.disabled) {
+            var cv = parseFloat(inpE.value);
+            if (!isNaN(cv) && cv >= 0) costoAplicar = cv;
+        }
+        var inpCT = row.querySelector('[data-field="costo_total"]');
+        if (inpCT) {
+            if (tipo === 'ENTRADA' && totalCant > 0 && costoAplicar > 0) {
+                inpCT.value = (esLiquido ? cantL * costoAplicar : totalCant * costoAplicar).toFixed(2);
+            } else { inpCT.value = '0.00'; }
+        }
+        actualizarResumenTotal();
+    }
+
+    function actualizarResumenTotal() {
+        var tipo  = document.getElementById('entrada-tipo-movimiento').value;
+        var resEl = document.getElementById('resumen-total-costo');
+        if (!resEl) return;
+        if (tipo !== 'ENTRADA') { resEl.style.display = 'none'; return; }
+        var total = 0;
+        document.querySelectorAll('[data-field="costo_total"]').forEach(function(inp) { total += parseFloat(inp.value || 0) || 0; });
+        var n = document.querySelectorAll('.entrada-row').length;
+        if (total > 0) {
+            resEl.innerHTML = '\ud83d\udcb0 Costo total (' + n + ' producto' + (n !== 1 ? 's' : '') + '): <strong>$' + total.toFixed(2) + '</strong>';
+            resEl.style.display = 'block';
+        } else { resEl.style.display = 'none'; }
+    }
+
+    function solicitarGuardarEntrada(e) {
+        if (entradaFormConfirmado) { entradaFormConfirmado = false; return true; }
+        if (e) e.preventDefault();
+        var form = document.getElementById('form-entrada');
+        if (!form.checkValidity()) { form.reportValidity(); return false; }
+
+        var tipoMov = document.getElementById('entrada-tipo-movimiento').value;
+        var txtTipo = tipoMov === 'SALIDA' ? 'Salida' : 'Entrada';
+        var lineas  = [];
+
+        document.querySelectorAll('.entrada-row').forEach(function(row) {
+            var sel    = row.querySelector('[data-field="producto_id"]');
+            var opt    = sel ? sel.options[sel.selectedIndex] : null;
+            var nombre = opt ? escapeHtml(opt.text) : '\u2014';
+            var pres   = parseFloat((row.querySelector('[data-field="presentacion"]') || {}).value || 0) || 0;
+            var cant   = parseFloat((row.querySelector('[data-field="cantidad"]')    || {}).value || 0) || 0;
+            var total  = pres * cant;
+            var ct     = parseFloat((row.querySelector('[data-field="costo_total"]') || {}).value || 0) || 0;
+            var unidad = (opt && opt.getAttribute('data-unidad')) || '';
+            var det    = cant.toFixed(2) + ' \u00d7 ' + pres.toFixed(2) + ' = <strong>' + total.toFixed(2) + ' ' + (unidad === 'LITRO' ? 'L' : (unidad || 'uds.')) + '</strong>';
+            if (tipoMov === 'ENTRADA' && ct > 0) det += ' | Costo: <strong>$' + ct.toFixed(2) + '</strong>';
+            lineas.push('<li style="margin-bottom:0.4rem;padding:0.35rem 0.5rem;background:rgba(255,255,255,0.04);border-radius:7px;"><span style="color:#fff;">' + nombre + '</span><br><small>' + det + '</small></li>');
+        });
+
+        document.getElementById('conf-entrada-titulo').textContent = 'Confirmar ' + txtTipo;
+        document.getElementById('conf-entrada-mensaje').innerHTML =
+            '<p style="margin-bottom:0.6rem;">Se registrar\u00e1 la siguiente <strong>' + txtTipo + '</strong> de stock:</p>' +
+            '<ul style="list-style:none;padding:0;margin:0;">' + lineas.join('') + '</ul>';
 
         document.getElementById('modal-confirmar-entrada').classList.add('active');
         return false;
@@ -576,193 +839,54 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
     }
 
     function escapeHtml(str) {
-        return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 
     function toggleSubmenu(id) {
-        const el = document.getElementById(id);
+        var el = document.getElementById(id);
         if (el) el.classList.toggle('open');
     }
 
-    function toggleEditarCosto() {
-        const chk = document.getElementById('chk-editar-costo');
-        const inpEditar = document.getElementById('entrada-editar-costo');
-        const selProd = document.getElementById('entrada-producto-id');
-        const selectedOption = selProd ? selProd.options[selProd.selectedIndex] : null;
-        const costoBase = selectedOption ? (parseFloat(selectedOption.getAttribute('data-costo')) || 0) : 0;
-
-        if (chk && chk.checked) {
-            if (inpEditar) {
-                inpEditar.disabled = false;
-                if (!inpEditar.value || parseFloat(inpEditar.value) <= 0) {
-                    inpEditar.value = costoBase > 0 ? costoBase.toFixed(2) : '';
-                }
-                inpEditar.focus();
-            }
-        } else {
-            if (inpEditar) {
-                inpEditar.disabled = true;
-                inpEditar.value = costoBase > 0 ? costoBase.toFixed(2) : '0.00';
-            }
-        }
-        calcularCostoTotal();
-    }
-
-    function calcularCostoTotal() {
-        const tipo = document.getElementById('entrada-tipo-movimiento').value;
-        const selProd = document.getElementById('entrada-producto-id');
-        const inpCant = document.getElementById('entrada-cantidad');
-        const inpCostoTotal = document.getElementById('entrada-costo-total');
-        const tagCostoUnit = document.getElementById('tag-costo-unitario');
-        const chkEditar = document.getElementById('chk-editar-costo');
-        const inpEditar = document.getElementById('entrada-editar-costo');
-        const grpUnidadLiq = document.getElementById('group-unidad-liquido');
-        const selUnidadLiq = document.getElementById('entrada-unidad-liquido');
-        const lblConv = document.getElementById('lbl-conversion-liquido');
-
-        const selectedOption = selProd ? selProd.options[selProd.selectedIndex] : null;
-        const costoBase = selectedOption ? (parseFloat(selectedOption.getAttribute('data-costo')) || 0) : 0;
-        const unidad = selectedOption ? (selectedOption.getAttribute('data-unidad') || '') : '';
-        const cant = parseFloat(inpCant.value) || 0;
-
-        // Mostrar / ocultar subselector de líquidos
-        const esLiquido = (unidad === 'LITRO');
-        if (grpUnidadLiq) {
-            grpUnidadLiq.style.display = esLiquido ? 'block' : 'none';
-        }
-
-        const unidadLiq = (esLiquido && selUnidadLiq) ? selUnidadLiq.value : 'LITRO';
-        const factor = esLiquido ? getFactorLitros(unidadLiq) : 1.0;
-        const cantEnLitros = cant * factor;
-
-        // Mostrar info de conversión en tiempo real
-        if (lblConv) {
-            if (esLiquido && cant > 0) {
-                if (unidadLiq === 'MILILITRO') {
-                    lblConv.innerHTML = `🔄 <strong>${cant.toLocaleString()} mL</strong> equivalen a <strong>${cantEnLitros.toFixed(4)} Litros</strong> base.`;
-                    lblConv.style.display = 'block';
-                } else if (unidadLiq === 'GALON') {
-                    lblConv.innerHTML = `🔄 <strong>${cant.toLocaleString()} Galones</strong> equivalen a <strong>${cantEnLitros.toFixed(4)} Litros</strong> base.`;
-                    lblConv.style.display = 'block';
-                } else {
-                    lblConv.innerHTML = `🔄 <strong>${cantEnLitros.toFixed(2)} Litros</strong> base.`;
-                    lblConv.style.display = 'block';
-                }
-            } else {
-                lblConv.style.display = 'none';
-            }
-        }
-
-        let costoAplicar = costoBase;
-
-        if (chkEditar && chkEditar.checked && inpEditar && !inpEditar.disabled) {
-            const valCustom = parseFloat(inpEditar.value);
-            if (!isNaN(valCustom) && valCustom >= 0) {
-                costoAplicar = valCustom;
-            }
-        } else if (inpEditar && inpEditar.disabled) {
-            inpEditar.value = selectedOption && selectedOption.value ? (costoBase > 0 ? costoBase.toFixed(2) : '0.00') : '';
-        }
-
-        if (selectedOption && selectedOption.value) {
-            if (tagCostoUnit) {
-                const esEditado = (chkEditar && chkEditar.checked && costoAplicar !== costoBase);
-                const etiquetaUnidad = (unidad === 'LITRO') ? 'LITRO' : unidad;
-                tagCostoUnit.innerHTML = `💵 Costo por Unidad: <strong>$${costoAplicar.toFixed(2)}</strong>${esEditado ? ' <span style="color:#f59e0b;font-size:0.75rem;font-weight:bold;">(Editado)</span>' : ''}${etiquetaUnidad ? ' <span style="opacity:0.8;font-weight:normal;">/ ' + etiquetaUnidad + '</span>' : ''}`;
-                tagCostoUnit.style.display = 'inline-flex';
-            }
-        } else {
-            if (tagCostoUnit) {
-                tagCostoUnit.style.display = 'none';
-            }
-        }
-
-        if (tipo !== 'ENTRADA') {
-            if (inpCostoTotal) inpCostoTotal.value = '0.00';
-            return;
-        }
-
-        if (cant > 0 && costoAplicar > 0) {
-            const total = esLiquido ? (cantEnLitros * costoAplicar) : (cant * costoAplicar);
-            inpCostoTotal.value = total.toFixed(2);
-        } else {
-            inpCostoTotal.value = '0.00';
-        }
-    }
-
     function onTipoMovimientoChange(tipo) {
-        const titulo = document.getElementById('modal-titulo');
-        const subtitulo = document.getElementById('modal-subtitulo');
-        const iconContainer = document.getElementById('modal-icon-container');
-        const labelCant = document.getElementById('label-cantidad');
-        const inpMotivo = document.getElementById('entrada-motivo');
-        const groupCosto = document.getElementById('group-costo-total');
-        const btnGuardar = document.getElementById('btn-guardar-movimiento');
-        const containerEditar = document.getElementById('container-editar-costo');
-        const chkEditar = document.getElementById('chk-editar-costo');
-        const inpEditar = document.getElementById('entrada-editar-costo');
+        var titulo     = document.getElementById('modal-titulo');
+        var subtitulo  = document.getElementById('modal-subtitulo');
+        var iconCont   = document.getElementById('modal-icon-container');
+        var btnGuardar = document.getElementById('btn-guardar-movimiento');
+        var inpMotivo  = document.getElementById('entrada-motivo');
+        var btnAgregar = document.getElementById('btn-agregar-fila');
 
         if (tipo === 'SALIDA') {
-            if (titulo) titulo.textContent = 'Registrar Salida';
-            if (subtitulo) subtitulo.textContent = 'Disminución o merma de existencias';
-            if (iconContainer) {
-                iconContainer.innerHTML = '📤';
-                iconContainer.style.background = 'rgba(239, 68, 68, 0.15)';
-                iconContainer.style.color = '#f87171';
-            }
-            if (labelCant) labelCant.textContent = 'Cantidad a Retirar *';
-            if (inpMotivo) inpMotivo.placeholder = 'Ej: Merma / Uso interno / Ajuste';
-            if (groupCosto) groupCosto.style.opacity = '0.4';
-            if (btnGuardar) {
-                btnGuardar.textContent = 'Guardar Salida';
-            }
-            if (containerEditar) containerEditar.style.display = 'none';
-            if (chkEditar) chkEditar.checked = false;
-            if (inpEditar) {
-                inpEditar.disabled = true;
-                inpEditar.value = '';
-            }
-            calcularCostoTotal();
+            if (titulo)    titulo.textContent    = 'Registrar Salidas de Stock';
+            if (subtitulo) subtitulo.textContent = 'Disminuci\u00f3n o merma de existencias';
+            if (iconCont)  { iconCont.innerHTML = '\ud83d\udce4'; iconCont.style.background = 'rgba(239,68,68,0.15)'; iconCont.style.color = '#f87171'; }
+            if (btnGuardar) btnGuardar.innerHTML = '\ud83d\udcbe Guardar Salidas';
+            if (btnAgregar) btnAgregar.lastChild.textContent = ' Agregar Otra Salida';
+            if (inpMotivo)  inpMotivo.placeholder = 'Ej: Merma / Uso interno / Ajuste';
+            document.querySelectorAll('[id^="edit-costo-panel-"]').forEach(function(p) { p.style.display = 'none'; });
         } else {
-            if (titulo) titulo.textContent = 'Registrar Entrada';
-            if (subtitulo) subtitulo.textContent = 'Incremento de existencias de insumo';
-            if (iconContainer) {
-                iconContainer.innerHTML = '📥';
-                iconContainer.style.background = 'rgba(34, 197, 94, 0.15)';
-                iconContainer.style.color = '#22c55e';
-            }
-            if (labelCant) labelCant.textContent = 'Cantidad a Recibir *';
-            if (inpMotivo) inpMotivo.placeholder = 'Ej: Compra a proveedor / Reposición';
-            if (groupCosto) groupCosto.style.opacity = '1';
-            if (btnGuardar) {
-                btnGuardar.textContent = 'Guardar Entrada';
-            }
-            if (containerEditar) containerEditar.style.display = 'block';
-            calcularCostoTotal();
+            if (titulo)    titulo.textContent    = 'Registrar Entradas de Stock';
+            if (subtitulo) subtitulo.textContent = 'Puedes agregar m\u00faltiples productos en una sola operaci\u00f3n';
+            if (iconCont)  { iconCont.innerHTML = '\ud83d\udce5'; iconCont.style.background = 'rgba(34,197,94,0.15)'; iconCont.style.color = '#22c55e'; }
+            if (btnGuardar) btnGuardar.innerHTML = '\ud83d\udcbe Guardar Entradas';
+            if (btnAgregar) btnAgregar.lastChild.textContent = ' Agregar Otra Entrada';
+            if (inpMotivo)  inpMotivo.placeholder = 'Ej: Compra a proveedor / Reposici\u00f3n';
+            document.querySelectorAll('[id^="edit-costo-panel-"]').forEach(function(p) { p.style.display = 'block'; });
         }
+        document.querySelectorAll('.entrada-row').forEach(function(row) {
+            var m = row.id.match(/fila-entrada-(\d+)/);
+            if (m) calcularFila(parseInt(m[1]));
+        });
+        actualizarResumenTotal();
     }
 
-    function abrirModalEntrada(productoId = '') {
+    function abrirModalEntrada(productoId) {
+        productoId = productoId || '';
+        document.getElementById('contenedor-filas-entrada').innerHTML = '';
+        filaCounter = 0;
         document.getElementById('entrada-tipo-movimiento').value = 'ENTRADA';
-        document.getElementById('entrada-cantidad').value = '';
-        document.getElementById('entrada-costo-total').value = '0.00';
         document.getElementById('entrada-motivo').value = '';
-        const chkEditar = document.getElementById('chk-editar-costo');
-        const inpEditar = document.getElementById('entrada-editar-costo');
-        const selUnidadLiq = document.getElementById('entrada-unidad-liquido');
-        if (selUnidadLiq) selUnidadLiq.value = 'LITRO';
-        if (chkEditar) chkEditar.checked = false;
-        if (inpEditar) {
-            inpEditar.disabled = true;
-            inpEditar.value = '';
-        }
-        if (productoId) {
-            document.getElementById('entrada-producto-id').value = productoId;
-        } else {
-            document.getElementById('entrada-producto-id').value = '';
-        }
         onTipoMovimientoChange('ENTRADA');
-        calcularCostoTotal();
+        agregarFilaEntrada(productoId);
         document.getElementById('modal-entrada').classList.add('active');
     }
 
@@ -772,140 +896,110 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    //  BÚSQUEDA, ORDENAMIENTO Y PAGINACIÓN — INVENTARIO
-    // ══════════════════════════════════════════════════════════════════════
-
-    // ─ Búsqueda ─────────────────────────────────────────────────────
+    // BUSQUEDA, ORDENAMIENTO Y PAGINACION
     function filtrarInventario(termino) {
-        const q = (termino || '').trim().toLowerCase();
-        const btnLimpiar = document.getElementById('btn-limpiar-inv');
+        var q = (termino || '').trim().toLowerCase();
+        var btnLimpiar = document.getElementById('btn-limpiar-inv');
         if (btnLimpiar) btnLimpiar.style.display = q.length > 0 ? 'block' : 'none';
-
-        document.querySelectorAll('.fila-inv').forEach(f => {
-            const sku  = f.dataset.sku || '';
-            const desc = f.dataset.descripcion || '';
+        document.querySelectorAll('.fila-inv').forEach(function(f) {
+            var sku  = f.dataset.sku || '';
+            var desc = f.dataset.descripcion || '';
             f.dataset.filtrado = (!q || sku.includes(q) || desc.includes(q)) ? '1' : '0';
         });
         renderInvPagina(1);
     }
 
     function limpiarBusquedaInv() {
-        const input = document.getElementById('input-busqueda-inv');
+        var input = document.getElementById('input-busqueda-inv');
         if (input) { input.value = ''; input.focus(); filtrarInventario(''); }
     }
 
-    // ─ Ordenamiento (2 estados por columna) ──────────────────────────
-    const invSortState = { stock: 0, costo: 0, precio: 0 };
-    const invSortColors = { stock: '#38bdf8', costo: '#4ade80', precio: '#a78bfa' };
+    var invSortState  = { stock: 0, costo: 0, precio: 0 };
+    var invSortColors = { stock: '#38bdf8', costo: '#4ade80', precio: '#a78bfa' };
 
     function sortInv(col) {
-        // Reiniciar las otras columnas
-        Object.keys(invSortState).forEach(k => {
+        Object.keys(invSortState).forEach(function(k) {
             if (k !== col) {
                 invSortState[k] = 0;
-                const th  = document.getElementById('th-inv-' + k);
-                const ico = document.getElementById('ico-inv-' + k);
+                var th  = document.getElementById('th-inv-' + k);
+                var ico = document.getElementById('ico-inv-' + k);
                 if (th)  th.style.color = '';
-                if (ico) ico.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>`;
+                if (ico) ico.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>';
             }
         });
-
-        invSortState[col] = (invSortState[col] % 2) + 1; // toggle 1↔2
-
-        const tbody = document.querySelector('#tabla-inventario tbody');
-        const filas = Array.from(document.querySelectorAll('.fila-inv'));
-
-        filas.sort((a, b) => {
-            const av = parseFloat(a.dataset[col]) || 0;
-            const bv = parseFloat(b.dataset[col]) || 0;
+        invSortState[col] = (invSortState[col] % 2) + 1;
+        var tbody = document.querySelector('#tabla-inventario tbody');
+        var filas = Array.from(document.querySelectorAll('.fila-inv'));
+        filas.sort(function(a, b) {
+            var av = parseFloat(a.dataset[col]) || 0;
+            var bv = parseFloat(b.dataset[col]) || 0;
             return invSortState[col] === 1 ? av - bv : bv - av;
         });
-
-        filas.forEach(f => tbody.appendChild(f));
-
-        const color = invSortColors[col];
-        const th    = document.getElementById('th-inv-' + col);
-        const ico   = document.getElementById('ico-inv-' + col);
+        filas.forEach(function(f) { tbody.appendChild(f); });
+        var color = invSortColors[col];
+        var th    = document.getElementById('th-inv-' + col);
+        var ico   = document.getElementById('ico-inv-' + col);
         if (th)  th.style.color = color;
         if (ico) {
-            const arrow = invSortState[col] === 1 ? '▲' : '▼';
-            const label = col === 'stock' ? (invSortState[col] === 1 ? '0→9' : '9→0')
-                        : col === 'costo'  ? (invSortState[col] === 1 ? 'menor' : 'mayor')
-                        :                   (invSortState[col] === 1 ? 'menor' : 'mayor');
-            ico.innerHTML = `<span style="display:inline-flex;align-items:center;gap:3px;color:${color};font-size:0.75rem;font-weight:bold;background:${color}22;border:1px solid ${color}55;padding:0.1rem 0.4rem;border-radius:6px;">${arrow} ${label}</span>`;
+            var arrow = invSortState[col] === 1 ? '\u25b2' : '\u25bc';
+            var label = col === 'stock' ? (invSortState[col] === 1 ? '0\u21929' : '9\u21920') : (invSortState[col] === 1 ? 'menor' : 'mayor');
+            ico.innerHTML = '<span style="display:inline-flex;align-items:center;gap:3px;color:' + color + ';font-size:0.75rem;font-weight:bold;background:' + color + '22;border:1px solid ' + color + '55;padding:0.1rem 0.4rem;border-radius:6px;">' + arrow + ' ' + label + '</span>';
         }
-
         renderInvPagina(1);
     }
 
-    // ─ Motor de paginación ──────────────────────────────────────────
-    let invPagActual = 1;
-    let invPorPagina = 10;
+    var invPagActual = 1;
+    var invPorPagina = 10;
 
     function getInvFiltradas() {
-        return Array.from(document.querySelectorAll('.fila-inv'))
-                    .filter(f => f.dataset.filtrado !== '0');
+        return Array.from(document.querySelectorAll('.fila-inv')).filter(function(f) { return f.dataset.filtrado !== '0'; });
     }
 
     function renderInvPagina(pagina) {
-        const filas       = getInvFiltradas();
-        const total       = filas.length;
-        const totalPags   = Math.max(1, Math.ceil(total / invPorPagina));
-        invPagActual      = Math.min(Math.max(1, pagina), totalPags);
-
-        const inicio = (invPagActual - 1) * invPorPagina;
-        const fin    = inicio + invPorPagina;
-
-        document.querySelectorAll('.fila-inv').forEach(f => f.style.display = 'none');
-        filas.forEach((f, i) => { f.style.display = (i >= inicio && i < fin) ? '' : 'none'; });
-
-        const sinRes = document.getElementById('inv-sin-resultados');
+        var filas     = getInvFiltradas();
+        var total     = filas.length;
+        var totalPags = Math.max(1, Math.ceil(total / invPorPagina));
+        invPagActual  = Math.min(Math.max(1, pagina), totalPags);
+        var inicio = (invPagActual - 1) * invPorPagina;
+        var fin    = inicio + invPorPagina;
+        document.querySelectorAll('.fila-inv').forEach(function(f) { f.style.display = 'none'; });
+        filas.forEach(function(f, i) { f.style.display = (i >= inicio && i < fin) ? '' : 'none'; });
+        var sinRes = document.getElementById('inv-sin-resultados');
         if (sinRes) sinRes.style.display = total === 0 ? '' : 'none';
-
-        const infoEl = document.getElementById('pag-inv-info');
-        if (infoEl) {
-            infoEl.textContent = total === 0 ? 'Sin resultados'
-                : `Mostrando ${inicio + 1}–${Math.min(fin, total)} de ${total} registro${total !== 1 ? 's' : ''}`;
-        }
-
-        const botsEl = document.getElementById('pag-inv-botones');
+        var infoEl = document.getElementById('pag-inv-info');
+        if (infoEl) infoEl.textContent = total === 0 ? 'Sin resultados' : 'Mostrando ' + (inicio + 1) + '\u2013' + Math.min(fin, total) + ' de ' + total + ' registro' + (total !== 1 ? 's' : '');
+        var botsEl = document.getElementById('pag-inv-botones');
         if (!botsEl) return;
         botsEl.innerHTML = '';
-
-        const btnS = (activo) => `cursor:pointer;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.65rem;font-size:0.8rem;font-weight:600;transition:all 0.18s;background:${activo ? 'var(--primary)' : 'rgba(255,255,255,0.05)'};color:${activo ? '#fff' : 'var(--text-muted)'};min-width:2.1rem;text-align:center;`;
-
-        const bPrev = document.createElement('button');
+        var btnS = function(activo) { return 'cursor:pointer;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.65rem;font-size:0.8rem;font-weight:600;transition:all 0.18s;background:' + (activo ? 'var(--primary)' : 'rgba(255,255,255,0.05)') + ';color:' + (activo ? '#fff' : 'var(--text-muted)') + ';min-width:2.1rem;text-align:center;'; };
+        var bPrev = document.createElement('button');
         bPrev.innerHTML = '&#8249;'; bPrev.title = 'Anterior';
         bPrev.style.cssText = btnS(false) + (invPagActual === 1 ? 'opacity:0.35;cursor:default;' : '');
         bPrev.disabled = invPagActual === 1;
-        bPrev.onclick = () => renderInvPagina(invPagActual - 1);
+        bPrev.onclick = function() { renderInvPagina(invPagActual - 1); };
         botsEl.appendChild(bPrev);
-
-        const ven = 2;
-        let pS = Math.max(1, invPagActual - ven);
-        let pE = Math.min(totalPags, invPagActual + ven);
-
+        var ven = 2, pS = Math.max(1, invPagActual - ven), pE = Math.min(totalPags, invPagActual + ven);
         if (pS > 1) {
-            const b = document.createElement('button'); b.textContent = '1'; b.style.cssText = btnS(false);
-            b.onclick = () => renderInvPagina(1); botsEl.appendChild(b);
-            if (pS > 2) { const d = document.createElement('span'); d.textContent = '…'; d.style.cssText = 'padding:0 0.3rem;color:var(--text-muted);font-size:0.8rem;'; botsEl.appendChild(d); }
+            var b0 = document.createElement('button'); b0.textContent = '1'; b0.style.cssText = btnS(false);
+            b0.onclick = function() { renderInvPagina(1); }; botsEl.appendChild(b0);
+            if (pS > 2) { var d0 = document.createElement('span'); d0.textContent = '\u2026'; d0.style.cssText = 'padding:0 0.3rem;color:var(--text-muted);font-size:0.8rem;'; botsEl.appendChild(d0); }
         }
-        for (let p = pS; p <= pE; p++) {
-            const b = document.createElement('button'); b.textContent = p; b.style.cssText = btnS(p === invPagActual);
-            b.onclick = () => renderInvPagina(p); botsEl.appendChild(b);
+        for (var p = pS; p <= pE; p++) {
+            (function(pg) {
+                var b = document.createElement('button'); b.textContent = pg; b.style.cssText = btnS(pg === invPagActual);
+                b.onclick = function() { renderInvPagina(pg); }; botsEl.appendChild(b);
+            })(p);
         }
         if (pE < totalPags) {
-            if (pE < totalPags - 1) { const d = document.createElement('span'); d.textContent = '…'; d.style.cssText = 'padding:0 0.3rem;color:var(--text-muted);font-size:0.8rem;'; botsEl.appendChild(d); }
-            const b = document.createElement('button'); b.textContent = totalPags; b.style.cssText = btnS(false);
-            b.onclick = () => renderInvPagina(totalPags); botsEl.appendChild(b);
+            if (pE < totalPags - 1) { var d1 = document.createElement('span'); d1.textContent = '\u2026'; d1.style.cssText = 'padding:0 0.3rem;color:var(--text-muted);font-size:0.8rem;'; botsEl.appendChild(d1); }
+            var bLast = document.createElement('button'); bLast.textContent = totalPags; bLast.style.cssText = btnS(false);
+            bLast.onclick = function() { renderInvPagina(totalPags); }; botsEl.appendChild(bLast);
         }
-
-        const bNext = document.createElement('button');
+        var bNext = document.createElement('button');
         bNext.innerHTML = '&#8250;'; bNext.title = 'Siguiente';
         bNext.style.cssText = btnS(false) + (invPagActual === totalPags ? 'opacity:0.35;cursor:default;' : '');
         bNext.disabled = invPagActual === totalPags;
-        bNext.onclick = () => renderInvPagina(invPagActual + 1);
+        bNext.onclick = function() { renderInvPagina(invPagActual + 1); };
         botsEl.appendChild(bNext);
     }
 
@@ -914,11 +1008,12 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         renderInvPagina(1);
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        document.querySelectorAll('.fila-inv').forEach(f => { if (!f.dataset.filtrado) f.dataset.filtrado = '1'; });
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.fila-inv').forEach(function(f) { if (!f.dataset.filtrado) f.dataset.filtrado = '1'; });
         renderInvPagina(1);
     });
 </script>
+
 <script src="js/sidebar.js"></script>
 </body>
 </html>

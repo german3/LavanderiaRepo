@@ -64,6 +64,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 ];
 
                 try {
+                    if ($prodActual) {
+                        $costoAnterior  = floatval($prodActual['costo'] ?? 0);
+                        $precioAnterior = floatval($prodActual['precio_venta'] ?? 0);
+                        $costoNuevo     = floatval($costo);
+                        $precioNuevo    = floatval($precioVenta);
+                        $esCambioPrecio = ($costoAnterior != $costoNuevo || $precioAnterior != $precioNuevo);
+                        $motivoRegistro = $esCambioPrecio ? 'Cambio de Precio' : 'Actualización de datos de producto';
+                    } else {
+                        $motivoRegistro = 'Actualización de datos de producto';
+                    }
+
                     if ($productoModel->actualizar($id, $datos)) {
                         if ($prodActual) {
                             $historialModel->registrar([
@@ -76,7 +87,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 'costo_unitario'      => $costo,
                                 'stock_antes'          => floatval($prodActual['stock_cantidad']),
                                 'stock_despues'        => floatval($prodActual['stock_cantidad']),
-                                'motivo'               => 'Actualización de datos de producto',
+                                'motivo'               => $motivoRegistro,
                                 'usuario_id'           => $_SESSION['usuario_id'] ?? null,
                                 'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
                             ]);
@@ -427,15 +438,8 @@ $productosJson = json_encode($productos);
                                     <span style="color: var(--text-muted); font-size: 0.85rem; font-weight: 500;">N/A</span>
                                 <?php elseif ($p['tipo'] === 'NORMAL' && ($p['unidad_medida'] === 'LITRO' || $p['unidad_medida'] === 'MILILITRO')): 
                                     $stkL = floatval($p['stock_cantidad']);
-                                    $stkML = $stkL * 1000;
-                                    $stkGal = $stkL / 3.78541;
                                 ?>
-                                    <div>
-                                        <span><?= number_format($stkL, 4) ?> L</span>
-                                        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-top: 2px;">
-                                            ≈ <?= number_format($stkML, 0) ?> mL &bull; <?= number_format($stkGal, 2) ?> gal
-                                        </div>
-                                    </div>
+                                    <?= number_format($stkL, 2) ?> L
                                     <?php if (isset($p['stock_minimo'])): ?>
                                         <small style="display:block;font-size:0.72rem;color:var(--text-muted);font-weight:normal;margin-top:2px;">Mín: <?= number_format($p['stock_minimo'], 2) ?> L</small>
                                     <?php endif; ?>
@@ -451,7 +455,7 @@ $productosJson = json_encode($productos);
                             </td>
                             <td style="font-weight: 600;">$<?= number_format($p['precio_venta'], 2) ?></td>
                             <td style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase;">
-                                <?= ($p['tipo'] === 'KIT') ? 'MÚLTIPLE' : (($p['unidad_medida'] === 'LITRO' || $p['unidad_medida'] === 'MILILITRO') ? '<span style="color:#38bdf8;font-weight:600;">LITROS / ML / GAL</span>' : htmlspecialchars(mb_strtoupper($p['unidad_medida'] ?? '', 'UTF-8'))) ?>
+                                <?= ($p['tipo'] === 'KIT') ? 'MÚLTIPLE' : (($p['unidad_medida'] === 'LITRO' || $p['unidad_medida'] === 'MILILITRO') ? '<span style="color:#38bdf8;font-weight:600;">LITROS</span>' : htmlspecialchars(mb_strtoupper($p['unidad_medida'] ?? '', 'UTF-8'))) ?>
                             </td>
                             <td style="text-align: right; white-space: nowrap;">
                                 <button type="button" class="btn-action btn-detalles" title="Ver Detalles" onclick="abrirModalDetalles('<?= htmlspecialchars($p['id'], ENT_QUOTES) ?>')">
@@ -648,7 +652,7 @@ $productosJson = json_encode($productos);
                         <div class="select-wrapper">
                             <select name="unidad_medida" id="edit-unidad" class="form-control">
                                 <option value="PIEZA">Pieza</option>
-                                <option value="LITRO">Litros / Mililitros / Galones</option>
+                                <option value="LITRO">Litros</option>
                                 <option value="KG">Kilogramo</option>
                                 <option value="GRAMO">Gramo</option>
                                 <option value="METRO">Metro</option>
@@ -814,7 +818,7 @@ $productosJson = json_encode($productos);
             if (prod.tipo === 'KIT') {
                 document.getElementById('det-unidad').textContent = 'Múltiple';
             } else if (esLiquido) {
-                document.getElementById('det-unidad').innerHTML = '<span style="color:#38bdf8; font-weight:600;">Litro, Galón, Mililitros</span>';
+                document.getElementById('det-unidad').innerHTML = '<span style="color:#38bdf8; font-weight:600;">Litros</span>';
             } else {
                 document.getElementById('det-unidad').textContent = prod.unidad_medida || '—';
             }
@@ -828,42 +832,18 @@ $productosJson = json_encode($productos);
                 cardStockMinimo.style.display = 'none';
             } else if (esLiquido) {
                 const stkL = parseFloat(prod.stock_cantidad || 0);
-                const stkML = stkL * 1000;
-                const stkGal = stkL / 3.78541;
-
                 const stkMinL = parseFloat(prod.stock_minimo || 0);
-                const stkMinML = stkMinL * 1000;
-                const stkMinGal = stkMinL / 3.78541;
 
-                cardStock.style.gridColumn = 'span 2';
+                cardStock.style.gridColumn = 'span 1';
+                cardStockMinimo.style.gridColumn = 'span 1';
                 document.getElementById('det-stock').innerHTML = `
-                    <div style="display: flex; flex-direction: column; gap: 0.45rem;">
-                        <div style="font-size: 1.25rem; font-weight: 700; color: ${stkL <= stkMinL ? '#f87171' : '#34d399'}; display: flex; align-items: center; justify-content: space-between;">
-                            <span>${stkL.toFixed(4)} Litros (L)</span>
-                            <span style="font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 6px; background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3);">Disponible</span>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.2rem;">
-                            <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 0.45rem 0.7rem;">
-                                <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">💧 Mililitros</div>
-                                <div style="font-size: 1rem; font-weight: 700; color: #38bdf8;">${stkML.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})} mL</div>
-                            </div>
-                            <div style="background: rgba(167, 139, 250, 0.08); border: 1px solid rgba(167, 139, 250, 0.25); border-radius: 8px; padding: 0.45rem 0.7rem;">
-                                <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">🪣 Galones</div>
-                                <div style="font-size: 1rem; font-weight: 700; color: #c4b5fd;">${stkGal.toFixed(4)} gal</div>
-                            </div>
-                        </div>
+                    <div style="font-size: 1.15rem; font-weight: 700; color: ${stkL <= stkMinL ? '#f87171' : '#34d399'};">
+                        ${stkL.toFixed(2)} Litros
                     </div>
                 `;
-
-                cardStockMinimo.style.gridColumn = 'span 2';
                 document.getElementById('det-stock-minimo').innerHTML = `
-                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                        <div style="font-size: 1.05rem; font-weight: 600; color: #cbd5e1;">
-                            ${stkMinL.toFixed(4)} Litros (L)
-                        </div>
-                        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">
-                            ≈ <strong>${stkMinML.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})}</strong> mL &bull; <strong>${stkMinGal.toFixed(4)}</strong> gal
-                        </div>
+                    <div style="font-size: 1.05rem; font-weight: 600; color: #cbd5e1;">
+                        ${stkMinL.toFixed(2)} Litros
                     </div>
                 `;
                 cardStockMinimo.style.display = 'block';

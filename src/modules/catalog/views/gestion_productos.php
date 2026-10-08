@@ -145,7 +145,7 @@ $productos = $productoModel->obtenerTodos();
                                 <label class="form-label">Unidad</label>
                                 <select name="unidad_medida" class="form-control" required>
                                     <option value="PIEZA">Pieza</option>
-                                    <option value="LITRO">Litros / Mililitros / Galones</option>
+                                    <option value="LITRO">Litros</option>
                                     <option value="KG">Kilogramo</option>
                                     <option value="CARGA">Carga</option>
                                     <option value="SERVICIO">Servicio</option>

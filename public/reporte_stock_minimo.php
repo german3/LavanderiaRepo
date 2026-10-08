@@ -845,15 +845,15 @@ $productosJson = json_encode($productos);
                         ${escapeHtml(p.descripcion)}
                     </td>
                     <td>${badgeTipo}</td>
-                    <td><span style="font-weight: 500; color: var(--text-muted);">${(p.unidad_medida === 'LITRO') ? 'Litros / mL / Gal' : escapeHtml(p.unidad_medida || 'PIEZA')}</span></td>
+                    <td><span style="font-weight: 500; color: var(--text-muted);">${(p.unidad_medida === 'LITRO') ? 'Litros' : escapeHtml(p.unidad_medida || 'PIEZA')}</span></td>
                     <td style="font-weight: 700; color: ${esAgotado ? '#f87171' : '#fbbf24'}; font-size: 0.95rem;">
-                        ${(p.unidad_medida === 'LITRO') ? `${stockActual.toFixed(4)} L<div style="font-size:0.7rem;color:var(--text-muted);font-weight:normal;">≈ ${(stockActual*1000).toLocaleString()} mL • ${(stockActual/3.78541).toFixed(2)} gal</div>` : stockActual.toFixed(2)}
+                        ${(p.unidad_medida === 'LITRO') ? `${stockActual.toFixed(2)} L` : stockActual.toFixed(2)}
                     </td>
                     <td style="font-weight: 600; color: #cbd5e1;">
-                        ${(p.unidad_medida === 'LITRO') ? `${stockMinimo.toFixed(4)} L` : stockMinimo.toFixed(2)}
+                        ${(p.unidad_medida === 'LITRO') ? `${stockMinimo.toFixed(2)} L` : stockMinimo.toFixed(2)}
                     </td>
                     <td style="font-weight: 600; color: #60a5fa;">
-                        +${(p.unidad_medida === 'LITRO') ? `${faltante.toFixed(4)} L` : faltante.toFixed(2)}
+                        +${(p.unidad_medida === 'LITRO') ? `${faltante.toFixed(2)} L` : faltante.toFixed(2)}
                     </td>
                     <td>${badgeEstado}</td>
                     
