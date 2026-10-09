@@ -287,6 +287,75 @@ $productosJson = json_encode($productos);
             border: 1px solid rgba(139, 92, 246, 0.3);
         }
 
+        .btn-action {
+            padding: 0.4rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-detalles {
+            background: rgba(14, 165, 233, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(14, 165, 233, 0.3);
+        }
+
+        .btn-detalles:hover {
+            background: rgba(14, 165, 233, 0.3);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        /* Modales */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.78);
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            display: none; align-items: center; justify-content: center;
+            z-index: 9999; animation: fadeIn 0.2s ease;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: #1e293b; border: 1px solid var(--border);
+            border-radius: 20px; padding: 2rem; max-width: 580px; width: 92%;
+            max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1.25rem 0;
+        }
+        .details-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.85rem 1rem;
+        }
+        .details-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.3rem;
+        }
+        .details-val {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
         .btn-action-entradas {
             padding: 0.4rem 0.75rem;
             border-radius: 8px;
@@ -359,7 +428,11 @@ $productosJson = json_encode($productos);
             }
 
             /* Ocultar interfaz e interactividad de pantalla */
-            .sidebar, .toolbar-card, .btn-action-entradas, .sidebar-toggle, button, .stats-grid, #empty-state {
+            .sidebar, .toolbar-card, .btn-action-entradas, .btn-action, .btn-detalles, .modal-overlay, .sidebar-toggle, button, .stats-grid, #empty-state {
+                display: none !important;
+            }
+
+            .table th:last-child, .table td:last-child {
                 display: none !important;
             }
 
@@ -768,7 +841,7 @@ $productosJson = json_encode($productos);
                             <th>Stock Mínimo</th>
                             <th>Faltante Sugerido</th>
                             <th>Estado</th>
-                            <!-- <th style="text-align: right;">Acciones</th> -->
+                            <th style="text-align: right;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="tbody-reporte">
@@ -796,6 +869,129 @@ $productosJson = json_encode($productos);
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         MODAL DETALLES
+    ═══════════════════════════════════════════════════ -->
+    <div id="modal-detalles" class="modal-overlay" onclick="cerrarModales(event)">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+                <div>
+                    <div id="det-tipo-badge" style="margin-bottom: 0.4rem;"></div>
+                    <h3 id="det-descripcion" style="font-size: 1.35rem; color: #fff; margin: 0;"></h3>
+                    <p id="det-sku" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;"></p>
+                </div>
+                <button type="button" style="background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer;" onclick="cerrarModales()">✕</button>
+            </div>
+
+            <div class="details-grid">
+                <div class="details-card">
+                    <div class="details-label">Código de Barras</div>
+                    <div class="details-val" id="det-codigo-barras" style="font-family: monospace; font-size: 0.95rem;"></div>
+                </div>
+                <div class="details-card">
+                    <div class="details-label">Unidad de Medida</div>
+                    <div class="details-val" id="det-unidad"></div>
+                </div>
+                <div class="details-card" id="card-det-stock">
+                    <div class="details-label">Stock Actual</div>
+                    <div class="details-val" id="det-stock"></div>
+                </div>
+                <div class="details-card" id="card-det-stock-minimo">
+                    <div class="details-label">Stock Mínimo</div>
+                    <div class="details-val" id="det-stock-minimo"></div>
+                </div>
+                <div class="details-card">
+                    <div class="details-label">Costo ($)</div>
+                    <div class="details-val" id="det-costo" style="color: #94a3b8;"></div>
+                </div>
+                <div class="details-card">
+                    <div class="details-label">Precio de Venta ($)</div>
+                    <div class="details-val" id="det-precio" style="color: #4ade80;"></div>
+                </div>
+                <div class="details-card" id="card-det-margen">
+                    <div class="details-label">Margen / Ganancia</div>
+                    <div class="details-val" id="det-margen" style="color: #60a5fa;"></div>
+                </div>
+                <div class="details-card" id="card-det-ropa-kg" style="display:none;">
+                    <div class="details-label">Kilos de Ropa</div>
+                    <div class="details-val" id="det-ropa-kg"></div>
+                </div>
+                <div class="details-card">
+                    <div class="details-label">Registrado Por</div>
+                    <div class="details-val" id="det-usuario" style="font-size: 0.9rem; font-weight: 500;"></div>
+                </div>
+                <div class="details-card">
+                    <div class="details-label">Fecha de Registro</div>
+                    <div class="details-val" id="det-fecha" style="font-size: 0.85rem; font-weight: 500; color: var(--text-muted);"></div>
+                </div>
+            </div>
+
+            <!-- Insumos del Kit (si aplica) -->
+            <div id="det-kit-section" style="display:none; margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                <h4 style="font-size: 0.95rem; color: #c4b5fd; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
+                    📦 Insumos del Kit
+                </h4>
+                <div id="det-kit-lista"></div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                    <a id="btn-ver-historial" href="historial.php"
+                       style="
+                           display: inline-flex; align-items: center; gap: 0.45rem;
+                           padding: 0.6rem 1.1rem;
+                           background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12));
+                           border: 1px solid rgba(99,102,241,0.45);
+                           color: #a5b4fc;
+                           border-radius: 10px;
+                           font-size: 0.83rem;
+                           font-weight: 700;
+                           text-decoration: none;
+                           white-space: nowrap;
+                           transition: all 0.2s ease;
+                           letter-spacing: 0.02em;
+                       "
+                       onmouseover="this.style.background='linear-gradient(135deg,rgba(99,102,241,0.32),rgba(139,92,246,0.24))'; this.style.color='#fff'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(99,102,241,0.3)';"
+                       onmouseout="this.style.background='linear-gradient(135deg,rgba(99,102,241,0.18),rgba(139,92,246,0.12))'; this.style.color='#a5b4fc'; this.style.transform=''; this.style.boxShadow='';">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        Ver Historial
+                    </a>
+                    <a id="btn-movimientos" href="stock_entradas.php"
+                       style="
+                           display: inline-flex; align-items: center; gap: 0.45rem;
+                           padding: 0.6rem 1.1rem;
+                           background: linear-gradient(135deg, rgba(16,185,129,0.18), rgba(5,150,105,0.12));
+                           border: 1px solid rgba(16,185,129,0.45);
+                           color: #6ee7b7;
+                           border-radius: 10px;
+                           font-size: 0.83rem;
+                           font-weight: 700;
+                           text-decoration: none;
+                           white-space: nowrap;
+                           transition: all 0.2s ease;
+                           letter-spacing: 0.02em;
+                       "
+                       onmouseover="this.style.background='linear-gradient(135deg,rgba(16,185,129,0.32),rgba(5,150,105,0.24))'; this.style.color='#fff'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(16,185,129,0.3)';"
+                       onmouseout="this.style.background='linear-gradient(135deg,rgba(16,185,129,0.18),rgba(5,150,105,0.12))'; this.style.color='#6ee7b7'; this.style.transform=''; this.style.boxShadow='';">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="17 1 21 5 17 9"></polyline>
+                            <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                            <polyline points="7 23 3 19 7 15"></polyline>
+                            <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                        </svg>
+                        Movimientos
+                    </a>
+                </div>
+                <button type="button" class="btn-action" style="background: rgba(255,255,255,0.08); color: #fff; padding: 0.6rem 1.25rem;" onclick="cerrarModales()">Cerrar</button>
+            </div>
+        </div>
     </div>
 
     <script src="js/sidebar.js"></script>
@@ -856,7 +1052,11 @@ $productosJson = json_encode($productos);
                         +${(p.unidad_medida === 'LITRO') ? `${faltante.toFixed(2)} L` : faltante.toFixed(2)}
                     </td>
                     <td>${badgeEstado}</td>
-                    
+                    <td style="text-align: right; white-space: nowrap;">
+                        <button type="button" class="btn-action btn-detalles" title="Ver Detalles" onclick="abrirModalDetalles('${escapeHtml(p.id)}')">
+                            👁️ Detalles
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -896,6 +1096,143 @@ $productosJson = json_encode($productos);
                 .replace(/"/g, "&quot;")
                 .replace(/'/g, "&#039;");
         }
+
+        // ── Modal Detalles ────────────────────────────────────────────────
+        function abrirModalDetalles(id) {
+            const prod = productosData.find(p => String(p.id) === String(id));
+            if (!prod) return;
+
+            // Badges
+            let badgeHtml = '';
+            if (prod.tipo === 'NORMAL') {
+                badgeHtml = '<span class="badge badge-tipo-normal">Normal / Insumo</span>';
+            } else if (prod.tipo === 'KIT') {
+                badgeHtml = '<span class="badge badge-tipo-kit">Kit / Paquete</span>';
+            } else {
+                badgeHtml = '<span class="badge badge-tipo-normal">Servicio</span>';
+            }
+
+            const esLiquido = (prod.unidad_medida === 'LITRO' || prod.unidad_medida === 'MILILITRO');
+
+            document.getElementById('det-tipo-badge').innerHTML = badgeHtml;
+            document.getElementById('det-descripcion').textContent = prod.descripcion;
+            document.getElementById('det-sku').textContent = `SKU: ${prod.codigo_interno_sku || '—'}`;
+            document.getElementById('det-codigo-barras').textContent = prod.codigo_barras || '—';
+
+            if (prod.tipo === 'KIT') {
+                document.getElementById('det-unidad').textContent = 'Múltiple';
+            } else if (esLiquido) {
+                document.getElementById('det-unidad').innerHTML = '<span style="color:#38bdf8; font-weight:600;">Litros</span>';
+            } else {
+                document.getElementById('det-unidad').textContent = prod.unidad_medida || '—';
+            }
+
+            // Stock & Stock Mínimo
+            const cardStock = document.getElementById('card-det-stock');
+            const cardStockMinimo = document.getElementById('card-det-stock-minimo');
+            if (prod.tipo === 'KIT' || prod.tipo === 'SERVICIO') {
+                document.getElementById('det-stock').textContent = 'N/A';
+                cardStock.style.gridColumn = 'span 1';
+                cardStockMinimo.style.display = 'none';
+            } else if (esLiquido) {
+                const stkL = parseFloat(prod.stock_cantidad || 0);
+                const stkMinL = parseFloat(prod.stock_minimo || 0);
+
+                cardStock.style.gridColumn = 'span 1';
+                cardStockMinimo.style.gridColumn = 'span 1';
+                document.getElementById('det-stock').innerHTML = `
+                    <div style="font-size: 1.15rem; font-weight: 700; color: ${stkL <= stkMinL ? '#f87171' : '#34d399'};">
+                        ${stkL.toFixed(2)} Litros
+                    </div>
+                `;
+                document.getElementById('det-stock-minimo').innerHTML = `
+                    <div style="font-size: 1.05rem; font-weight: 600; color: #cbd5e1;">
+                        ${stkMinL.toFixed(2)} Litros
+                    </div>
+                `;
+                cardStockMinimo.style.display = 'block';
+            } else {
+                cardStock.style.gridColumn = 'span 1';
+                cardStockMinimo.style.gridColumn = 'span 1';
+                document.getElementById('det-stock').textContent = `${parseFloat(prod.stock_cantidad || 0).toFixed(2)} ${prod.unidad_medida || ''}`;
+                document.getElementById('det-stock-minimo').textContent = `${parseFloat(prod.stock_minimo || 0).toFixed(2)} ${prod.unidad_medida || ''}`;
+                cardStockMinimo.style.display = 'block';
+            }
+
+            // Costo y Precio
+            const costo = parseFloat(prod.costo || 0);
+            const precio = parseFloat(prod.precio_venta || 0);
+            document.getElementById('det-costo').textContent = `$${costo.toFixed(2)}`;
+            document.getElementById('det-precio').textContent = `$${precio.toFixed(2)}`;
+
+            // Margen
+            const margen = precio - costo;
+            const margenPct = (costo > 0) ? ((margen / costo) * 100).toFixed(1) : (precio > 0 ? '100' : '0');
+            document.getElementById('det-margen').textContent = `$${margen.toFixed(2)} (${margenPct}%)`;
+
+            // Ropa Kg
+            const cardRopa = document.getElementById('card-det-ropa-kg');
+            if (prod.tipo === 'KIT' && parseFloat(prod.ropa_kg) > 0) {
+                document.getElementById('det-ropa-kg').textContent = `${parseFloat(prod.ropa_kg).toFixed(2)} Kg`;
+                cardRopa.style.display = 'block';
+            } else {
+                cardRopa.style.display = 'none';
+            }
+
+            // Usuario y Fecha
+            document.getElementById('det-usuario').textContent = prod.usuario_nombre || 'Sistema';
+            document.getElementById('det-fecha').textContent = prod.fecha_registro || '—';
+
+            // Insumos de Kit
+            const kitSec = document.getElementById('det-kit-section');
+            const kitLista = document.getElementById('det-kit-lista');
+            if (prod.tipo === 'KIT' && Array.isArray(prod.insumos) && prod.insumos.length > 0) {
+                kitSec.style.display = 'block';
+                let tableHtml = `
+                    <table class="kit-insumos-table" style="width:100%; border-collapse:collapse; margin-top:0.75rem; font-size:0.85rem;">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left; padding:0.4rem 0.6rem; color:var(--text-muted); border-bottom:1px solid var(--border); font-size:0.75rem;">Insumo</th>
+                                <th style="text-align:left; padding:0.4rem 0.6rem; color:var(--text-muted); border-bottom:1px solid var(--border); font-size:0.75rem;">Cantidad Consumida</th>
+                                <th style="text-align:left; padding:0.4rem 0.6rem; color:var(--text-muted); border-bottom:1px solid var(--border); font-size:0.75rem;">Unidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                prod.insumos.forEach(ins => {
+                    const insUnidad = (ins.unidad === 'LITRO' || ins.unidad === 'MILILITRO') ? 'Litros / mL / Gal' : (ins.unidad || 'PIEZA');
+                    tableHtml += `
+                        <tr>
+                            <td style="font-weight: 500; color: #fff; padding:0.5rem 0.6rem; border-bottom:1px solid rgba(255,255,255,0.04);">${escapeHtml(ins.insumo_descripcion || ins.insumo_id)}</td>
+                            <td style="color: #c4b5fd; font-weight: 600; padding:0.5rem 0.6rem; border-bottom:1px solid rgba(255,255,255,0.04);">${parseFloat(ins.cantidad_consumida).toFixed(2)}</td>
+                            <td style="color: var(--text-muted); padding:0.5rem 0.6rem; border-bottom:1px solid rgba(255,255,255,0.04);">${escapeHtml(insUnidad)}</td>
+                        </tr>
+                    `;
+                });
+                tableHtml += '</tbody></table>';
+                kitLista.innerHTML = tableHtml;
+            } else {
+                kitSec.style.display = 'none';
+                kitLista.innerHTML = '';
+            }
+
+            document.getElementById('modal-detalles').classList.add('active');
+
+            // Actualizar enlace al historial de este producto
+            const btnHistorial = document.getElementById('btn-ver-historial');
+            if (btnHistorial) {
+                btnHistorial.href = `historial.php?sku=${encodeURIComponent(prod.codigo_interno_sku || '')}`;
+            }
+        }
+
+        function cerrarModales(e) {
+            if (e && e.target !== e.currentTarget) return;
+            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') cerrarModales();
+        });
 
         function exportarExcel() {
             if (!productosData || productosData.length === 0) {

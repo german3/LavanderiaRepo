@@ -49,6 +49,7 @@ function convertirALitros(float $cantidad, string $unidadLiquido): float {
 if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registrar_entrada') {
     $tipoMovimiento = trim($_POST['tipo_movimiento'] ?? 'ENTRADA');
     $motivoGlobal   = trim($_POST['motivo'] ?? '');
+    $motivosItem    = $_POST['motivo_item'] ?? [];
 
     // Los campos vienen como arrays: producto_id[], presentacion[], cantidad[], etc.
     $productoIds         = $_POST['producto_id']         ?? [];
@@ -103,14 +104,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
                     }
                     $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad - :cant WHERE id = :id");
                     $stmt->bindParam(':cant', $cantidad); $stmt->bindParam(':id', $productoId);
+                    $motivoFila = trim($motivosItem[$i] ?? '') ?: ($motivoGlobal ?: ($tipoMovimiento === 'SALIDA' ? 'Salida de inventario' : 'Entrada de inventario'));
+
                     if ($stmt->execute()) {
                         $stockDespues = $stockAntes - $cantidad;
-                        $historialModel->registrar(['tipo_movimiento'=>'SALIDA STOCK','producto_id'=>$prodData['id'],'producto_sku'=>$prodData['codigo_interno_sku'],'producto_descripcion'=>$prodData['descripcion'],'tipo_producto'=>$prodData['tipo'],'cantidad'=>$cantidad,'costo_unitario'=>$costoActual,'stock_antes'=>$stockAntes,'stock_despues'=>$stockDespues,'motivo'=>$motivoGlobal ?: 'Salida de inventario','usuario_id'=>$_SESSION['usuario_id']??null,'usuario_nombre'=>$_SESSION['nombre']??'Usuario']);
+                        $historialModel->registrar(['tipo_movimiento'=>'SALIDA STOCK','producto_id'=>$prodData['id'],'producto_sku'=>$prodData['codigo_interno_sku'],'producto_descripcion'=>$prodData['descripcion'],'tipo_producto'=>$prodData['tipo'],'cantidad'=>$cantidad,'costo_unitario'=>$costoActual,'stock_antes'=>$stockAntes,'stock_despues'=>$stockDespues,'motivo'=>$motivoFila,'usuario_id'=>$_SESSION['usuario_id']??null,'usuario_nombre'=>$_SESSION['nombre']??'Usuario']);
                         $detalleMult = ($factorCantidad > 1) ? " ({$factorCantidad}×" . number_format($presentacion, 2) . ")" : "";
                         $mensajes[] = "✔ {$prodData['descripcion']}: -" . number_format($cantidad, 2) . ($prodData['unidad_medida']==='LITRO'?' L':'') . "{$detalleMult}";
                     } else { $errores[] = "Fila " . ($i+1) . ": no se pudo registrar la salida."; }
                 } else {
                     $nuevoCosto = ($permitirEditarCosto && $editarCosto >= 0) ? $editarCosto : $costoActual;
+                    $motivoFila = trim($motivosItem[$i] ?? '') ?: ($motivoGlobal ?: 'Entrada de inventario');
                     if ($permitirEditarCosto && $editarCosto >= 0) {
                         $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad + :cant, costo = :costo WHERE id = :id");
                         $stmt->bindParam(':cant', $cantidad); $stmt->bindParam(':costo', $nuevoCosto); $stmt->bindParam(':id', $productoId);
@@ -120,7 +124,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
                     }
                     if ($stmt->execute()) {
                         $stockDespues = $stockAntes + $cantidad;
-                        $historialModel->registrar(['tipo_movimiento'=>'ENTRADA STOCK','producto_id'=>$prodData['id'],'producto_sku'=>$prodData['codigo_interno_sku'],'producto_descripcion'=>$prodData['descripcion'],'tipo_producto'=>$prodData['tipo'],'cantidad'=>$cantidad,'costo_unitario'=>$nuevoCosto,'stock_antes'=>$stockAntes,'stock_despues'=>$stockDespues,'motivo'=>$motivoGlobal ?: 'Entrada de inventario','usuario_id'=>$_SESSION['usuario_id']??null,'usuario_nombre'=>$_SESSION['nombre']??'Usuario']);
+                        $historialModel->registrar(['tipo_movimiento'=>'ENTRADA STOCK','producto_id'=>$prodData['id'],'producto_sku'=>$prodData['codigo_interno_sku'],'producto_descripcion'=>$prodData['descripcion'],'tipo_producto'=>$prodData['tipo'],'cantidad'=>$cantidad,'costo_unitario'=>$nuevoCosto,'stock_antes'=>$stockAntes,'stock_despues'=>$stockDespues,'motivo'=>$motivoFila,'usuario_id'=>$_SESSION['usuario_id']??null,'usuario_nombre'=>$_SESSION['nombre']??'Usuario']);
                         $detalleMult = ($factorCantidad > 1) ? " ({$factorCantidad}×" . number_format($presentacion, 2) . ")" : "";
                         $costoMsg = ($permitirEditarCosto && $editarCosto >= 0) ? " | Costo actualizado a $" . number_format($nuevoCosto, 2) : "";
                         $mensajes[] = "✔ {$prodData['descripcion']}: +" . number_format($cantidad, 2) . ($prodData['unidad_medida']==='LITRO'?' L':'') . "{$detalleMult}{$costoMsg}";
@@ -183,42 +187,32 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* Fila de producto en el modal multi-entrada */
-        .entrada-row {
-            background: rgba(255,255,255,0.03);
+        /* Panel de captura y tabla de registros pendientes */
+        .captura-card {
+            background: rgba(255,255,255,0.02);
             border: 1px solid var(--border);
             border-radius: 14px;
-            padding: 1.1rem 1.2rem 1rem;
-            margin-bottom: 0.85rem;
-            position: relative;
+            padding: 1.15rem 1.25rem;
+            margin-bottom: 1.15rem;
             transition: border-color 0.2s;
         }
-        .entrada-row:hover { border-color: rgba(99,102,241,0.35); }
-        .entrada-row-header {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 0.85rem;
+        .captura-card:hover { border-color: rgba(99,102,241,0.35); }
+        .item-row-fade { animation: fadeInRow 0.22s ease-out; }
+        @keyframes fadeInRow { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        .btn-del-item {
+            background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #f87171; border-radius: 6px; padding: 0.25rem 0.55rem;
+            font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
         }
-        .entrada-row-num {
-            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
-            letter-spacing: 0.08em; color: var(--text-muted);
-            background: rgba(255,255,255,0.06); border-radius: 6px;
-            padding: 0.2rem 0.55rem;
-        }
-        .btn-remove-row {
-            background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25);
-            color: #f87171; border-radius: 8px; padding: 0.3rem 0.65rem;
-            font-size: 0.78rem; font-weight: 600; cursor: pointer;
-            transition: all 0.18s;
-        }
-        .btn-remove-row:hover { background: rgba(239,68,68,0.25); border-color: rgba(239,68,68,0.5); }
+        .btn-del-item:hover { background: rgba(239, 68, 68, 0.28); color: #fff; border-color: rgba(239, 68, 68, 0.5); }
         .btn-add-row {
             display: flex; align-items: center; gap: 0.5rem;
-            background: rgba(99,102,241,0.12); border: 1.5px dashed rgba(99,102,241,0.4);
-            color: #a5b4fc; border-radius: 12px; padding: 0.7rem 1.2rem;
-            font-size: 0.88rem; font-weight: 600; cursor: pointer; width: 100%;
-            justify-content: center; transition: all 0.2s; margin-bottom: 1.25rem;
+            background: rgba(99,102,241,0.15); border: 1.5px dashed rgba(99,102,241,0.45);
+            color: #c7d2fe; border-radius: 12px; padding: 0.75rem 1.2rem;
+            font-size: 0.9rem; font-weight: 600; cursor: pointer; width: 100%;
+            justify-content: center; transition: all 0.2s;
         }
-        .btn-add-row:hover { background: rgba(99,102,241,0.22); border-color: rgba(99,102,241,0.65); color: #c7d2fe; }
+        .btn-add-row:hover { background: rgba(99,102,241,0.25); border-color: rgba(99,102,241,0.7); color: #fff; }
         .row-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
         .row-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
         .liq-panel {
@@ -236,6 +230,34 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         .separador-global {
             border: none; border-top: 1px solid var(--border);
             margin: 1.25rem 0;
+        }
+
+        /* Combobox unificado estilo Select2 / jQuery */
+        .combobox-wrapper { position: relative; }
+        .combobox-dropdown {
+            position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+            max-height: 250px; overflow-y: auto; background: #1e293b;
+            border: 1px solid rgba(99,102,241,0.35); border-radius: 10px;
+            z-index: 10050; box-shadow: 0 14px 30px rgba(0,0,0,0.6);
+            display: none; animation: fadeIn 0.15s ease-out;
+        }
+        .combobox-item {
+            padding: 0.65rem 0.9rem; display: flex; align-items: center;
+            justify-content: space-between; gap: 0.6rem; cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.84rem; color: var(--text-main); transition: all 0.12s;
+        }
+        .combobox-item:last-child { border-bottom: none; }
+        .combobox-item:hover, .combobox-item.active-item {
+            background: rgba(99,102,241,0.18); color: #fff;
+        }
+        .combobox-item.selected-item {
+            background: rgba(99,102,241,0.28); color: #c7d2fe; font-weight: 600;
+        }
+        .combobox-item-badge {
+            font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 6px;
+            background: rgba(255,255,255,0.06); color: var(--text-muted);
+            white-space: nowrap; font-weight: 500;
         }
     </style>
 </head>
@@ -423,9 +445,9 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         <form method="POST" id="form-entrada" onsubmit="return solicitarGuardarEntrada(event)">
             <input type="hidden" name="action" value="registrar_entrada">
 
-            <!-- Tipo de movimiento + Motivo global -->
-            <div style="display:grid;grid-template-columns:1fr 2fr;gap:0.85rem;margin-bottom:1.15rem;">
-                <div class="form-group" style="margin-bottom:0;">
+            <!-- Tipo de movimiento -->
+            <div style="margin-bottom:1.15rem;">
+                <div class="form-group" style="margin-bottom:0; max-width:280px;">
                     <label class="form-label">Tipo de Movimiento *</label>
                     <div class="select-wrapper">
                         <select name="tipo_movimiento" id="entrada-tipo-movimiento" class="form-control" required onchange="onTipoMovimientoChange(this.value)">
@@ -435,31 +457,169 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                         <div class="select-arrow-btn">▼</div>
                     </div>
                 </div>
-                <div class="form-group" style="margin-bottom:0;">
-                    <label class="form-label" id="label-motivo">Motivo / Proveedor</label>
-                    <input type="text" name="motivo" id="entrada-motivo" class="form-control" placeholder="Ej: Compra a proveedor / Reposición">
-                </div>
             </div>
 
             <hr class="separador-global">
 
-            <!-- Contenedor de filas de productos -->
-            <div id="contenedor-filas-entrada"></div>
+            <!-- Panel de Captura de Entrada / Insumo -->
+            <div class="captura-card" id="panel-captura-entrada">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.85rem;">
+                    <span style="font-size:0.82rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#38bdf8; display:flex; align-items:center; gap:0.4rem;">
+                        <span>📦</span> <span id="lbl-captura-titulo">Ingreso de Entrada</span>
+                    </span>
+                    <span id="alerta-validacion-captura" style="display:none; font-size:0.78rem; color:#f87171; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.25); padding:0.25rem 0.65rem; border-radius:6px; font-weight:500;"></span>
+                </div>
 
-            <!-- Botón Agregar Otra Entrada -->
-            <button type="button" class="btn-add-row" id="btn-agregar-fila" onclick="agregarFilaEntrada()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Agregar Otra Entrada
-            </button>
+                <!-- Selección Unificada de Producto / Insumo (Combobox con búsqueda) -->
+                <div class="form-group" style="margin-bottom:0.75rem;">
+                    <label class="form-label" style="font-size:0.82rem;">Producto / Insumo *</label>
+                    <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                        <div class="combobox-wrapper" id="combobox-producto-wrapper" style="flex:1; min-width:240px; position:relative;">
+                            <input type="hidden" id="captura-producto-id" value="">
+                            
+                            <div style="position:relative; display:flex; align-items:center;">
+                                <span style="position:absolute; left:0.75rem; color:var(--text-muted); font-size:0.88rem; pointer-events:none;">🔍</span>
+                                <input type="text" id="captura-producto-input" class="form-control"
+                                    placeholder="Escribe para buscar o despliega la lista..."
+                                    autocomplete="off"
+                                    style="padding-left:2.25rem; padding-right:3.25rem; cursor:pointer;"
+                                    onclick="abrirDropdownProductos()"
+                                    onfocus="abrirDropdownProductos()"
+                                    oninput="onInputBusquedaProducto(this.value)"
+                                    onkeydown="onKeydownProductoCombobox(event)">
+                                
+                                <div style="position:absolute; right:0.4rem; display:flex; align-items:center; gap:0.15rem;">
+                                    <button type="button" id="btn-limpiar-producto" onclick="limpiarSeleccionProducto(event)" title="Limpiar selección" style="display:none; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.9rem; padding:0.25rem 0.4rem; line-height:1; border-radius:4px; transition:color 0.15s;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
+                                    <button type="button" id="btn-toggle-dropdown" onclick="toggleDropdownProductos(event)" title="Desplegar lista" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.75rem; padding:0.35rem 0.5rem; line-height:1; border-radius:4px; transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-muted)'">▼</button>
+                                </div>
+                            </div>
+
+                            <!-- Menú flotante desplegable -->
+                            <div id="captura-producto-dropdown" class="combobox-dropdown"></div>
+                        </div>
+
+                        <span id="captura-tag-costo" class="tag-costo-row" style="font-size:0.75rem; font-weight:600; color:#60a5fa; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.25); padding:0.25rem 0.6rem; border-radius:7px; white-space:nowrap; display:none;"></span>
+                    </div>
+                </div>
+
+                <!-- Panel de Unidad Líquida -->
+                <div class="liq-panel" id="captura-liq-panel" style="margin-bottom:0.75rem;">
+                    <label class="form-label" style="font-size:0.8rem; color:#38bdf8; margin-bottom:0.4rem;">🧪 Unidad de la presentación</label>
+                    <div class="select-wrapper">
+                        <select id="captura-unidad-liquido" class="form-control" onchange="onUnidadLiquidoChange()">
+                            <option value="LITRO" selected>Litros (L)</option>
+                            <option value="MILILITRO">Mililitros (mL)</option>
+                            <option value="GALON">Galones (gal ≈ 3.7854 L)</option>
+                        </select>
+                        <div class="select-arrow-btn">▼</div>
+                    </div>
+                    <div id="captura-lbl-conv" class="lbl-conv-row" style="margin-top:0.35rem; font-size:0.78rem; color:#38bdf8; font-weight:500; display:none;"></div>
+                </div>
+
+                <!-- Grid de Presentación, Cantidad y Costo Total -->
+                <div class="row-grid-3" id="grid-captura-cantidades">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label" id="lbl-captura-presentacion" style="font-size:0.82rem;">Presentación *</label>
+                        <div class="number-input-wrapper">
+                            <input type="number" step="0.01" min="0.01" id="captura-presentacion" class="form-control" placeholder="0.00" oninput="calcularCaptura()">
+                            <div class="spin-buttons">
+                                <button type="button" class="spin-btn" onclick="stepCapturaInput('presentacion', 1)">▲</button>
+                                <button type="button" class="spin-btn" onclick="stepCapturaInput('presentacion', -1)">▼</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group" id="grupo-captura-cantidad" style="margin-bottom:0; display:none;">
+                        <label class="form-label" style="font-size:0.82rem;">Cantidad *</label>
+                        <div class="number-input-wrapper">
+                            <input type="number" step="0.01" min="0.01" id="captura-cantidad" class="form-control" value="1.00" placeholder="1.00" oninput="calcularCaptura()">
+                            <div class="spin-buttons">
+                                <button type="button" class="spin-btn" onclick="stepCapturaInput('cantidad', 1)">▲</button>
+                                <button type="button" class="spin-btn" onclick="stepCapturaInput('cantidad', -1)">▼</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group" id="grupo-captura-costo-total" style="margin-bottom:0;">
+                        <label class="form-label" style="font-size:0.82rem;">Costo Total ($)</label>
+                        <input type="number" step="0.01" min="0" id="captura-costo-total" class="form-control" placeholder="0.00" readonly style="font-weight:700; color:#4ade80;">
+                    </div>
+                </div>
+
+                <div class="resumen-fila" id="captura-resumen-fila"></div>
+
+                <!-- Campo Motivo / Proveedor -->
+                <div class="form-group" style="margin-top:0.75rem; margin-bottom:0;">
+                    <label class="form-label" id="label-motivo" style="font-size:0.82rem;">Motivo / Proveedor</label>
+                    <input type="text" name="motivo" id="entrada-motivo" class="form-control" placeholder="Ej: Compra a proveedor / Reposición">
+                </div>
+
+                <!-- Panel editar costo unitario (solo en Entrada) -->
+                <div class="edit-costo-panel" id="captura-edit-costo-panel" style="margin-top:0.75rem;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.4rem;">
+                        <label style="font-size:0.82rem; font-weight:600; color:var(--text-main); display:flex; align-items:center; gap:0.4rem; cursor:pointer; user-select:none;">
+                            <input type="checkbox" id="captura-chk-editar-costo" onchange="toggleEditarCostoCaptura()" style="width:1rem; height:1rem; accent-color:var(--primary); cursor:pointer;">
+                            <span>Actualizar Costo Unitario ($)</span>
+                        </label>
+                        <span style="font-size:0.72rem; color:var(--text-muted);">Actualiza precio de compra</span>
+                    </div>
+                    <input type="number" step="0.01" min="0" id="captura-editar-costo" class="form-control" placeholder="0.00" disabled oninput="calcularCaptura()" style="font-size:0.88rem;">
+                </div>
+
+                <!-- Botón Agregar Otra Entrada -->
+                <div style="margin-top:1rem;">
+                    <button type="button" class="btn-add-row" id="btn-agregar-fila" onclick="agregarEntradaALista()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span id="btn-agregar-texto">Agregar Otra Entrada</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- SECCIÓN: REGISTROS A GUARDAR (TABLA DE PENDIENTES) -->
+            <div id="seccion-registros-pendientes" style="margin-bottom:1.25rem;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.6rem;">
+                    <h4 style="margin:0; font-size:0.92rem; color:#cbd5e1; display:flex; align-items:center; gap:0.5rem;">
+                        <span>📋 Registros a Guardar</span>
+                        <span id="badge-contador-registros" style="background:rgba(99,102,241,0.2); color:#a5b4fc; border:1px solid rgba(99,102,241,0.4); border-radius:99px; font-size:0.75rem; padding:0.15rem 0.55rem; font-weight:700;">0</span>
+                    </h4>
+                    <span id="txt-sub-contador" style="font-size:0.78rem; color:var(--text-muted);">Listos para procesar</span>
+                </div>
+
+                <div style="border:1px solid var(--border); border-radius:12px; overflow:hidden; background:rgba(15,23,42,0.4);">
+                    <div id="sin-registros-msg" style="padding:1.4rem 1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">
+                        Aún no has agregado registros. Completa los datos arriba y presiona <strong style="color:#a5b4fc;">"Agregar Otra Entrada"</strong>.
+                    </div>
+                    <table id="tabla-registros-pendientes" style="width:100%; border-collapse:collapse; display:none; font-size:0.83rem;">
+                        <thead>
+                            <tr style="background:rgba(255,255,255,0.04); border-bottom:1px solid var(--border); color:var(--text-muted); text-transform:uppercase; font-size:0.72rem; letter-spacing:0.05em;">
+                                <th style="padding:0.6rem 0.8rem; text-align:center; width:35px;">#</th>
+                                <th style="padding:0.6rem 0.8rem; text-align:left;">Producto / Insumo</th>
+                                <th style="padding:0.6rem 0.8rem; text-align:left;">Cantidad / Detalle</th>
+                                <th style="padding:0.6rem 0.8rem; text-align:right;" class="col-costo-header">Costo Unit.</th>
+                                <th style="padding:0.6rem 0.8rem; text-align:right;" class="col-costo-header">Total ($)</th>
+                                <th style="padding:0.6rem 0.8rem; text-align:center; width:45px;">Quitar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-registros-pendientes">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Contenedor oculto donde se inyectan los inputs hidden al momento de enviar -->
+            <div id="contenedor-hidden-inputs"></div>
 
             <!-- Resumen total (solo entradas) -->
-            <div id="resumen-total-costo" style="display:none;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);border-radius:12px;padding:0.75rem 1.1rem;margin-bottom:1.2rem;font-size:0.9rem;color:#4ade80;font-weight:600;"></div>
+            <div id="resumen-total-costo" style="display:none; background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.2); border-radius:12px; padding:0.75rem 1.1rem; margin-bottom:1.2rem; font-size:0.9rem; color:#4ade80; font-weight:600;"></div>
 
             <!-- Botones de acción -->
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;margin-top:0.5rem;">
-                <button type="button" class="btn-action" style="background:rgba(255,255,255,0.06);color:var(--text-main);padding:0.65rem 1.25rem;border-radius:8px;" onclick="cerrarModalEntrada()">Cancelar</button>
-                <button type="submit" id="btn-guardar-movimiento" class="btn-primary" style="padding:0.65rem 1.75rem;width:auto;font-size:0.9rem;border-radius:8px;">💾 Guardar Entradas</button>
-            </div><div id="modal-confirmar-entrada" class="modal-overlay" style="z-index:10050;" onclick="cerrarModalConfirmarEntrada(event)">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin-top:0.5rem;">
+                <button type="button" class="btn-action" style="background:rgba(255,255,255,0.06); color:var(--text-main); padding:0.65rem 1.25rem; border-radius:8px;" onclick="cerrarModalEntrada()">Cancelar</button>
+                <button type="submit" id="btn-guardar-movimiento" class="btn-primary" style="padding:0.65rem 1.75rem; width:auto; font-size:0.9rem; border-radius:8px;">💾 Guardar Entradas</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="modal-confirmar-entrada" class="modal-overlay" style="z-index:10050;" onclick="cerrarModalConfirmarEntrada(event)">
     <div class="modal-box" style="max-width:480px;" onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;">
             <div style="width:42px;height:42px;border-radius:12px;background:rgba(59,130,246,0.15);display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#60a5fa;">📦</div>
@@ -478,34 +638,9 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 
 <script>
     let entradaFormConfirmado = false;
+    let listaEntradas = [];
     const FACTOR_ML_A_LITRO  = 0.001;
     const FACTOR_GAL_A_LITRO = 3.78541;
-
-    function stepNumberInput(id, dir) {
-        const input = document.getElementById(id);
-        if (!input || input.disabled) return;
-        const step = parseFloat(input.getAttribute('step')) || 1;
-        const min  = input.hasAttribute('min') ? parseFloat(input.getAttribute('min')) : -Infinity;
-        const max  = input.hasAttribute('max') ? parseFloat(input.getAttribute('max')) : Infinity;
-        let val = parseFloat(input.value) || 0;
-        val = val + (step * dir);
-        if (val < min) val = min;
-        if (val > max) val = max;
-        input.value = step < 1 ? val.toFixed(2) : val;
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    function stepRowInput(rowEl, field, dir) {
-        const inp = rowEl.querySelector('[data-field="' + field + '"]');
-        if (!inp) return;
-        const step = parseFloat(inp.getAttribute('step')) || 1;
-        const min  = inp.hasAttribute('min') ? parseFloat(inp.getAttribute('min')) : -Infinity;
-        let val = parseFloat(inp.value) || 0;
-        val = Math.max(min, val + step * dir);
-        inp.value = step < 1 ? val.toFixed(2) : val;
-        inp.dispatchEvent(new Event('input', { bubbles: true }));
-    }
 
     function getFactorLitros(u) {
         if (u === 'MILILITRO') return FACTOR_ML_A_LITRO;
@@ -527,300 +662,648 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode($pdata);
     ?>;
 
-    let filaCounter = 0;
-
-    function buildSelectOpts(selectedId) {
-        selectedId = selectedId || '';
-        let html = '<option value="">\u2014 Selecciona un producto \u2014</option>';
-        PRODUCTOS_DATA.forEach(function(p) {
-            var sel = (p.id == selectedId) ? ' selected' : '';
-            html += '<option value="' + p.id + '" data-costo="' + p.costo + '" data-unidad="' + p.unidad + '"' + sel + '>' + escapeHtml(p.label) + '</option>';
-        });
-        return html;
+    function getProductoCapturaSeleccionado() {
+        var id = (document.getElementById('captura-producto-id') || {}).value;
+        if (!id) return null;
+        return PRODUCTOS_DATA.find(function(p) { return String(p.id) === String(id); }) || null;
     }
 
-    function filtrarInsumosRow(inputEl, idx) {
-        var query = inputEl.value.toLowerCase().trim();
-        var row = document.getElementById('fila-entrada-' + idx);
-        if (!row) return;
-        var selectEl = row.querySelector('select[data-field="producto_id"]');
-        if (!selectEl) return;
+    let productoFocusIndex = -1;
 
-        var currentVal = selectEl.value;
-        selectEl.innerHTML = '';
+    function renderDropdownProductos(filtroTexto) {
+        filtroTexto = (filtroTexto || '').toLowerCase().trim();
+        var dropdown = document.getElementById('captura-producto-dropdown');
+        if (!dropdown) return;
 
-        var defaultOpt = document.createElement('option');
-        defaultOpt.value = '';
-        defaultOpt.textContent = '— Selecciona un producto —';
-        selectEl.appendChild(defaultOpt);
+        var actualId = (document.getElementById('captura-producto-id') || {}).value;
+        var filtrados = PRODUCTOS_DATA.filter(function(p) {
+            return !filtroTexto || p.label.toLowerCase().includes(filtroTexto);
+        });
 
-        PRODUCTOS_DATA.forEach(function(p) {
-            var matchesQuery = !query || p.label.toLowerCase().includes(query);
-            var isCurrent = (currentVal && p.id == currentVal);
+        if (filtrados.length === 0) {
+            dropdown.innerHTML = '<div style="padding:0.85rem; text-align:center; color:var(--text-muted); font-size:0.82rem;">🔍 No se encontraron productos coincidentes</div>';
+            return;
+        }
 
-            if (matchesQuery || isCurrent) {
-                var opt = document.createElement('option');
-                opt.value = p.id;
-                opt.setAttribute('data-costo', p.costo);
-                opt.setAttribute('data-unidad', p.unidad);
-                opt.textContent = p.label;
-                if (isCurrent) {
-                    opt.selected = true;
+        var html = '';
+        filtrados.forEach(function(p, i) {
+            var esSel = (String(p.id) === String(actualId));
+            var unidadLabel = p.unidad === 'LITRO' ? 'Litros' : (p.unidad === 'MILILITRO' ? 'mL' : p.unidad);
+            var badgeCosto = p.costo > 0 ? ('<span class="combobox-item-badge">$' + p.costo.toFixed(2) + '</span>') : '';
+            var badgeUnidad = '<span class="combobox-item-badge" style="color:#38bdf8;background:rgba(56,189,248,0.1);">' + escapeHtml(unidadLabel) + '</span>';
+
+            html += '<div class="combobox-item ' + (esSel ? 'selected-item' : '') + '" data-id="' + p.id + '" data-index="' + i + '" onclick="seleccionarProductoItem(\'' + p.id + '\')">' +
+                '<div style="display:flex;align-items:center;gap:0.45rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+                    '<span style="font-weight:500;">' + escapeHtml(p.label) + '</span>' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:0.35rem;flex-shrink:0;">' +
+                    badgeUnidad +
+                    badgeCosto +
+                '</div>' +
+            '</div>';
+        });
+
+        dropdown.innerHTML = html;
+        productoFocusIndex = -1;
+    }
+
+    function abrirDropdownProductos() {
+        var dropdown = document.getElementById('captura-producto-dropdown');
+        if (!dropdown) return;
+        dropdown.style.display = 'block';
+        var inputVal = (document.getElementById('captura-producto-input') || {}).value || '';
+        var prod = getProductoCapturaSeleccionado();
+        var filtro = (prod && inputVal === prod.label) ? '' : inputVal;
+        renderDropdownProductos(filtro);
+    }
+
+    function cerrarDropdownProductos() {
+        var dropdown = document.getElementById('captura-producto-dropdown');
+        if (dropdown) dropdown.style.display = 'none';
+        productoFocusIndex = -1;
+    }
+
+    function toggleDropdownProductos(e) {
+        if (e) e.stopPropagation();
+        var dropdown = document.getElementById('captura-producto-dropdown');
+        if (!dropdown) return;
+        if (dropdown.style.display === 'block') {
+            cerrarDropdownProductos();
+        } else {
+            abrirDropdownProductos();
+            var inp = document.getElementById('captura-producto-input');
+            if (inp) inp.focus();
+        }
+    }
+
+    function onInputBusquedaProducto(val) {
+        var dropdown = document.getElementById('captura-producto-dropdown');
+        if (dropdown && dropdown.style.display !== 'block') {
+            dropdown.style.display = 'block';
+        }
+
+        var btnLimpiar = document.getElementById('btn-limpiar-producto');
+        if (btnLimpiar) btnLimpiar.style.display = val.trim() ? 'block' : 'none';
+
+        var prod = getProductoCapturaSeleccionado();
+        if (prod && val !== prod.label) {
+            document.getElementById('captura-producto-id').value = '';
+            actualizarEstadoProductoSeleccionado(null);
+        }
+
+        renderDropdownProductos(val);
+    }
+
+    function onKeydownProductoCombobox(e) {
+        var dropdown = document.getElementById('captura-producto-dropdown');
+        if (!dropdown) return;
+
+        var items = dropdown.querySelectorAll('.combobox-item');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (dropdown.style.display !== 'block') {
+                abrirDropdownProductos();
+                return;
+            }
+            if (items.length > 0) {
+                productoFocusIndex = (productoFocusIndex + 1) % items.length;
+                resaltarItemCombobox(items);
+            }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (dropdown.style.display !== 'block') {
+                abrirDropdownProductos();
+                return;
+            }
+            if (items.length > 0) {
+                productoFocusIndex = (productoFocusIndex - 1 + items.length) % items.length;
+                resaltarItemCombobox(items);
+            }
+        } else if (e.key === 'Enter') {
+            if (dropdown.style.display === 'block') {
+                e.preventDefault();
+                if (productoFocusIndex >= 0 && items[productoFocusIndex]) {
+                    var id = items[productoFocusIndex].getAttribute('data-id');
+                    seleccionarProductoItem(id);
+                } else if (items.length === 1) {
+                    var id = items[0].getAttribute('data-id');
+                    seleccionarProductoItem(id);
                 }
-                selectEl.appendChild(opt);
+            }
+        } else if (e.key === 'Escape') {
+            cerrarDropdownProductos();
+        }
+    }
+
+    function resaltarItemCombobox(items) {
+        items.forEach(function(item, idx) {
+            if (idx === productoFocusIndex) {
+                item.classList.add('active-item');
+                item.scrollIntoView({ block: 'nearest' });
+            } else {
+                item.classList.remove('active-item');
             }
         });
-
-        if (currentVal && selectEl.value != currentVal) {
-            selectEl.value = currentVal;
-        }
     }
 
-    function agregarFilaEntrada(productoId) {
-        productoId = productoId || '';
-        filaCounter++;
-        var idx = filaCounter;
-        var tipo = document.getElementById('entrada-tipo-movimiento').value;
-        var esSalida = (tipo === 'SALIDA');
+    function seleccionarProductoItem(id) {
+        var prod = PRODUCTOS_DATA.find(function(p) { return String(p.id) === String(id); });
+        if (!prod) return;
 
-        var div = document.createElement('div');
-        div.className = 'entrada-row';
-        div.id = 'fila-entrada-' + idx;
-        var numActual = document.querySelectorAll('.entrada-row').length + 1;
-        var displayEditCosto = esSalida ? 'display:none;' : '';
+        document.getElementById('captura-producto-id').value = prod.id;
+        var inp = document.getElementById('captura-producto-input');
+        if (inp) inp.value = prod.label;
 
-        div.innerHTML =
-            '<div class="entrada-row-header">' +
-                '<span class="entrada-row-num">Producto #' + numActual + '</span>' +
-                '<button type="button" class="btn-remove-row" onclick="eliminarFila(' + idx + ')">\u2715 Quitar</button>' +
-            '</div>' +
-            '<div class="form-group" style="margin-bottom:0.65rem;">' +
-                '<label class="form-label" style="font-size:0.82rem;">Producto / Insumo *</label>' +
-                '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">' +
-                    '<div class="select-wrapper" style="flex:1;min-width:200px;">' +
-                        '<select name="producto_id[]" class="form-control" required onchange="onRowProductoChange(this,' + idx + ')" data-field="producto_id">' +
-                            buildSelectOpts(productoId) +
-                        '</select>' +
-                        '<div class="select-arrow-btn">\u25bc</div>' +
-                    '</div>' +
-                    '<div style="width:180px;position:relative;">' +
-                        '<input type="text" class="form-control" placeholder="\ud83d\udd0d Buscar insumo..." style="font-size:0.82rem;height:38px;padding:0.4rem 0.65rem;background:rgba(15,23,42,0.6);" oninput="filtrarInsumosRow(this,' + idx + ')">' +
-                    '</div>' +
-                    '<span class="tag-costo-row" style="font-size:0.75rem;font-weight:600;color:#60a5fa;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);padding:0.2rem 0.55rem;border-radius:7px;white-space:nowrap;display:none;"></span>' +
-                '</div>' +
-            '</div>' +
-            '<div class="liq-panel" id="liq-panel-' + idx + '">' +
-                '<label class="form-label" style="font-size:0.8rem;color:#38bdf8;margin-bottom:0.4rem;">\ud83e\uddea Unidad de la presentaci\u00f3n</label>' +
-                '<div class="select-wrapper">' +
-                    '<select name="unidad_liquido[]" class="form-control" onchange="calcularFila(' + idx + ')" data-field="unidad_liquido">' +
-                        '<option value="LITRO" selected>Litros (L)</option>' +
-                        '<option value="MILILITRO">Mililitros (mL)</option>' +
-                        '<option value="GALON">Galones (gal \u2248 3.7854 L)</option>' +
-                    '</select>' +
-                    '<div class="select-arrow-btn">\u25bc</div>' +
-                '</div>' +
-                '<div class="lbl-conv-row" style="margin-top:0.35rem;font-size:0.78rem;color:#38bdf8;font-weight:500;display:none;"></div>' +
-            '</div>' +
-            '<div class="row-grid-3" style="margin-top:0.65rem;">' +
-                '<div class="form-group" style="margin-bottom:0;">' +
-                    '<label class="form-label" style="font-size:0.82rem;">' + (esSalida ? 'Presentaci\u00f3n a Retirar *' : 'Presentaci\u00f3n *') + '</label>' +
-                    '<div class="number-input-wrapper">' +
-                        '<input type="number" step="0.01" min="0.01" name="presentacion[]" class="form-control" required placeholder="0.00" data-field="presentacion" oninput="calcularFila(' + idx + ')">' +
-                        '<div class="spin-buttons">' +
-                            '<button type="button" class="spin-btn" onclick="stepRowInput(document.getElementById(\'fila-entrada-' + idx + '\'),\'presentacion\',1)">\u25b2</button>' +
-                            '<button type="button" class="spin-btn" onclick="stepRowInput(document.getElementById(\'fila-entrada-' + idx + '\'),\'presentacion\',-1)">\u25bc</button>' +
-                        '</div>' +
-                    '</div>' +
-                '</div>' +
-                '<div class="form-group" style="margin-bottom:0;">' +
-                    '<label class="form-label" style="font-size:0.82rem;">Cantidad *</label>' +
-                    '<div class="number-input-wrapper">' +
-                        '<input type="number" step="0.01" min="0.01" name="cantidad[]" class="form-control" required value="1.00" placeholder="1.00" data-field="cantidad" oninput="calcularFila(' + idx + ')">' +
-                        '<div class="spin-buttons">' +
-                            '<button type="button" class="spin-btn" onclick="stepRowInput(document.getElementById(\'fila-entrada-' + idx + '\'),\'cantidad\',1)">\u25b2</button>' +
-                            '<button type="button" class="spin-btn" onclick="stepRowInput(document.getElementById(\'fila-entrada-' + idx + '\'),\'cantidad\',-1)">\u25bc</button>' +
-                        '</div>' +
-                    '</div>' +
-                '</div>' +
-                '<div class="form-group" style="margin-bottom:0;">' +
-                    '<label class="form-label" style="font-size:0.82rem;">Costo Total ($)</label>' +
-                    '<input type="number" step="0.01" min="0" name="costo_total[]" class="form-control" placeholder="0.00" readonly data-field="costo_total" style="font-weight:700;color:#4ade80;">' +
-                '</div>' +
-            '</div>' +
-            '<div class="resumen-fila" id="resumen-fila-' + idx + '"></div>' +
-            '<div class="edit-costo-panel" id="edit-costo-panel-' + idx + '" style="margin-top:0.65rem;' + displayEditCosto + '">' +
-                '<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem;">' +
-                    '<label style="font-size:0.82rem;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:0.4rem;cursor:pointer;user-select:none;">' +
-                        '<input type="checkbox" name="permitir_editar_costo[' + idx + ']" value="1" onchange="toggleEditarCostoRow(' + idx + ')" style="width:1rem;height:1rem;accent-color:var(--primary);cursor:pointer;">' +
-                        '<span>Actualizar Costo Unitario ($)</span>' +
-                    '</label>' +
-                    '<span style="font-size:0.72rem;color:var(--text-muted);">Actualiza precio de compra</span>' +
-                '</div>' +
-                '<input type="number" step="0.01" min="0" name="editar_costo[]" class="form-control" placeholder="0.00" disabled data-field="editar_costo" oninput="calcularFila(' + idx + ')" style="font-size:0.88rem;">' +
-            '</div>';
+        var btnLimpiar = document.getElementById('btn-limpiar-producto');
+        if (btnLimpiar) btnLimpiar.style.display = 'block';
 
-        document.getElementById('contenedor-filas-entrada').appendChild(div);
-        renumerarFilas();
-        if (productoId) {
-            onRowProductoChange(div.querySelector('select[data-field="producto_id"]'), idx);
-        }
-        actualizarResumenTotal();
+        cerrarDropdownProductos();
+        actualizarEstadoProductoSeleccionado(prod);
+
+        var inpPres = document.getElementById('captura-presentacion');
+        if (inpPres) inpPres.focus();
     }
 
-    function eliminarFila(idx) {
-        var el = document.getElementById('fila-entrada-' + idx);
-        if (el) el.remove();
-        renumerarFilas();
-        actualizarResumenTotal();
-        if (document.querySelectorAll('.entrada-row').length === 0) agregarFilaEntrada();
+    function limpiarSeleccionProducto(e) {
+        if (e) e.stopPropagation();
+        document.getElementById('captura-producto-id').value = '';
+        var inp = document.getElementById('captura-producto-input');
+        if (inp) { inp.value = ''; inp.focus(); }
+
+        var btnLimpiar = document.getElementById('btn-limpiar-producto');
+        if (btnLimpiar) btnLimpiar.style.display = 'none';
+
+        actualizarEstadoProductoSeleccionado(null);
+        abrirDropdownProductos();
     }
 
-    function renumerarFilas() {
-        document.querySelectorAll('.entrada-row').forEach(function(row, i) {
-            var lbl = row.querySelector('.entrada-row-num');
-            if (lbl) lbl.textContent = 'Producto #' + (i + 1);
-        });
-    }
+    function actualizarEstadoProductoSeleccionado(prod) {
+        var tag = document.getElementById('captura-tag-costo');
+        var liqPanel = document.getElementById('captura-liq-panel');
+        var inpEditar = document.getElementById('captura-editar-costo');
 
-    function onRowProductoChange(selectEl, idx) {
-        var opt   = selectEl.options[selectEl.selectedIndex];
-        var row   = document.getElementById('fila-entrada-' + idx);
-        if (!row) return;
-        var costo  = parseFloat((opt && opt.getAttribute('data-costo')) || 0);
-        var unidad = (opt && opt.getAttribute('data-unidad')) || '';
+        if (prod) {
+            var costo = prod.costo;
+            var unidad = prod.unidad || '';
+            var esLiquido = (unidad === 'LITRO' || unidad === 'MILILITRO');
+            var etiquetaUnidad = (unidad === 'LITRO') ? 'L' : ((unidad === 'MILILITRO') ? 'mL' : unidad);
 
-        var tag = row.querySelector('.tag-costo-row');
-        if (tag) {
-            if (opt && opt.value) { tag.textContent = '\ud83d\udcb5 $' + costo.toFixed(2) + ' / ' + (unidad === 'LITRO' ? 'L' : unidad); tag.style.display = ''; }
-            else tag.style.display = 'none';
-        }
-        var liqPanel = document.getElementById('liq-panel-' + idx);
-        if (liqPanel) liqPanel.style.display = (unidad === 'LITRO') ? 'block' : 'none';
-
-        var inpEditar = row.querySelector('[data-field="editar_costo"]');
-        if (inpEditar && inpEditar.disabled) inpEditar.value = costo > 0 ? costo.toFixed(2) : '';
-
-        calcularFila(idx);
-    }
-
-    function toggleEditarCostoRow(idx) {
-        var row = document.getElementById('fila-entrada-' + idx);
-        if (!row) return;
-        var chk = row.querySelector('input[name="permitir_editar_costo[' + idx + ']"]');
-        var inp = row.querySelector('[data-field="editar_costo"]');
-        var sel = row.querySelector('[data-field="producto_id"]');
-        var opt = sel ? sel.options[sel.selectedIndex] : null;
-        var costoBase = parseFloat((opt && opt.getAttribute('data-costo')) || 0);
-        if (chk && chk.checked) {
-            if (inp) { inp.disabled = false; if (!inp.value || parseFloat(inp.value) <= 0) inp.value = costoBase > 0 ? costoBase.toFixed(2) : ''; inp.focus(); }
+            if (tag) {
+                tag.textContent = '💵 $' + costo.toFixed(2) + ' / ' + etiquetaUnidad;
+                tag.style.display = '';
+            }
+            if (liqPanel) liqPanel.style.display = esLiquido ? 'block' : 'none';
+            if (inpEditar && inpEditar.disabled) inpEditar.value = costo > 0 ? costo.toFixed(2) : '';
         } else {
-            if (inp) { inp.disabled = true; inp.value = costoBase > 0 ? costoBase.toFixed(2) : '0.00'; }
+            if (tag) tag.style.display = 'none';
+            if (liqPanel) liqPanel.style.display = 'none';
+            if (inpEditar && inpEditar.disabled) inpEditar.value = '';
         }
-        calcularFila(idx);
+
+        actualizarVisibilidadCantidad();
+        ocultarAlertaCaptura();
+        calcularCaptura();
     }
 
-    function calcularFila(idx) {
-        var row = document.getElementById('fila-entrada-' + idx);
-        if (!row) return;
-        var sel    = row.querySelector('[data-field="producto_id"]');
-        var opt    = sel ? sel.options[sel.selectedIndex] : null;
-        var unidad = (opt && opt.getAttribute('data-unidad')) || '';
-        var costoBase = parseFloat((opt && opt.getAttribute('data-costo')) || 0);
+    // Cerrar dropdown al hacer clic fuera del combobox
+    document.addEventListener('click', function(e) {
+        var wrap = document.getElementById('combobox-producto-wrapper');
+        if (wrap && !wrap.contains(e.target)) {
+            cerrarDropdownProductos();
+        }
+    });
 
-        var inpPres = row.querySelector('[data-field="presentacion"]');
-        var inpCant = row.querySelector('[data-field="cantidad"]');
-        var pres = parseFloat((inpPres && inpPres.value) || 0) || 0;
-        var cant = parseFloat((inpCant && inpCant.value) || 0) || 0;
+    function onUnidadLiquidoChange() {
+        actualizarVisibilidadCantidad();
+        calcularCaptura();
+    }
+
+    function actualizarVisibilidadCantidad() {
+        var prod = getProductoCapturaSeleccionado();
+        var unidadProd = prod ? prod.unidad : '';
+        var esLiquidoProd = (unidadProd === 'LITRO' || unidadProd === 'MILILITRO');
+
+        var unidadActiva = unidadProd;
+        if (esLiquidoProd) {
+            var selULiq = document.getElementById('captura-unidad-liquido');
+            unidadActiva = (selULiq && selULiq.value) ? selULiq.value : 'LITRO';
+        }
+
+        // El campo Cantidad solo debe estar disponible cuando la unidad sea LITRO o MILILITRO (no Galones ni otras unidades).
+        // Desaparecerlo (display: none), no deshabilitarlo.
+        var disponible = (unidadActiva === 'LITRO' || unidadActiva === 'MILILITRO');
+
+        var grupoCant = document.getElementById('grupo-captura-cantidad');
+        var inpCant   = document.getElementById('captura-cantidad');
+        var gridCant  = document.getElementById('grid-captura-cantidades');
+        var tipo      = document.getElementById('entrada-tipo-movimiento').value;
+        var esSalida  = (tipo === 'SALIDA');
+
+        if (grupoCant) {
+            if (disponible) {
+                grupoCant.style.display = 'block';
+            } else {
+                grupoCant.style.display = 'none';
+                if (inpCant) inpCant.value = '1.00';
+            }
+        }
+
+        if (gridCant) {
+            var cols = 1; // Presentación
+            if (disponible) cols++;
+            if (!esSalida) cols++; // Costo Total en Entrada
+            if (cols === 3) gridCant.style.gridTemplateColumns = '1fr 1fr 1fr';
+            else if (cols === 2) gridCant.style.gridTemplateColumns = '1fr 1fr';
+            else gridCant.style.gridTemplateColumns = '1fr';
+        }
+    }
+
+    function toggleEditarCostoCaptura() {
+        var chk = document.getElementById('captura-chk-editar-costo');
+        var inp = document.getElementById('captura-editar-costo');
+        var prod = getProductoCapturaSeleccionado();
+        var costoBase = prod ? prod.costo : 0;
+
+        if (chk && chk.checked) {
+            if (inp) {
+                inp.disabled = false;
+                if (!inp.value || parseFloat(inp.value) <= 0) {
+                    inp.value = costoBase > 0 ? costoBase.toFixed(2) : '';
+                }
+                inp.focus();
+            }
+        } else {
+            if (inp) {
+                inp.disabled = true;
+                inp.value = costoBase > 0 ? costoBase.toFixed(2) : '0.00';
+            }
+        }
+        calcularCaptura();
+    }
+
+    function stepCapturaInput(field, dir) {
+        var inp = document.getElementById('captura-' + field);
+        if (!inp || inp.disabled) return;
+        var step = parseFloat(inp.getAttribute('step')) || 1;
+        var min = inp.hasAttribute('min') ? parseFloat(inp.getAttribute('min')) : 0.01;
+        var val = parseFloat(inp.value) || 0;
+        val = Math.max(min, val + (step * dir));
+        inp.value = step < 1 ? val.toFixed(2) : val;
+        calcularCaptura();
+    }
+
+    function calcularCaptura() {
+        var prod = getProductoCapturaSeleccionado();
+        var unidad = prod ? prod.unidad : '';
+        var costoBase = prod ? prod.costo : 0;
+
+        var grupoCant = document.getElementById('grupo-captura-cantidad');
+        var cantDisponible = (grupoCant && grupoCant.style.display !== 'none');
+
+        var pres = parseFloat(document.getElementById('captura-presentacion').value || 0) || 0;
+        var cant = cantDisponible ? (parseFloat(document.getElementById('captura-cantidad').value || 0) || 0) : 1.0;
         var totalCant = pres * cant;
 
-        var esLiquido = (unidad === 'LITRO');
-        var liqPanel  = document.getElementById('liq-panel-' + idx);
-        if (liqPanel) liqPanel.style.display = esLiquido ? 'block' : 'none';
+        var esLiquido = (unidad === 'LITRO' || unidad === 'MILILITRO');
+        var selULiq = document.getElementById('captura-unidad-liquido');
+        var uLiq = (esLiquido && selULiq) ? selULiq.value : 'LITRO';
+        var factor = esLiquido ? getFactorLitros(uLiq) : 1.0;
+        var cantL = totalCant * factor;
 
-        var selULiq = row.querySelector('[data-field="unidad_liquido"]');
-        var uLiq    = (esLiquido && selULiq) ? selULiq.value : 'LITRO';
-        var factor  = esLiquido ? getFactorLitros(uLiq) : 1.0;
-        var cantL   = totalCant * factor;
-
-        var lblConv = row.querySelector('.lbl-conv-row');
+        var lblConv = document.getElementById('captura-lbl-conv');
         if (lblConv) {
             if (esLiquido && totalCant > 0) {
+                var detalleCantStr = cantDisponible && cant > 1 ? (cant.toFixed(2) + ' × ') : '';
                 if (uLiq === 'MILILITRO')
-                    lblConv.innerHTML = '\ud83d\udd04 <strong>' + cant.toFixed(2) + ' \u00d7 ' + pres.toLocaleString() + ' mL = ' + totalCant.toLocaleString() + ' mL</strong> = <strong>' + cantL.toFixed(2) + ' L</strong>';
+                    lblConv.innerHTML = '🔄 <strong>' + detalleCantStr + pres.toLocaleString() + ' mL = ' + totalCant.toLocaleString() + ' mL</strong> = <strong>' + cantL.toFixed(2) + ' L</strong>';
                 else if (uLiq === 'GALON')
-                    lblConv.innerHTML = '\ud83d\udd04 <strong>' + cant.toFixed(2) + ' \u00d7 ' + pres.toFixed(2) + ' Gal = ' + totalCant.toFixed(2) + ' Gal</strong> = <strong>' + cantL.toFixed(2) + ' L</strong>';
+                    lblConv.innerHTML = '🔄 <strong>' + pres.toFixed(2) + ' Gal = ' + cantL.toFixed(2) + ' L</strong>';
                 else
-                    lblConv.innerHTML = '\ud83d\udd04 <strong>' + cant.toFixed(2) + ' \u00d7 ' + pres.toFixed(2) + ' L = ' + cantL.toFixed(2) + ' Litros</strong>';
+                    lblConv.innerHTML = '🔄 <strong>' + detalleCantStr + pres.toFixed(2) + ' L = ' + cantL.toFixed(2) + ' Litros</strong>';
                 lblConv.style.display = 'block';
-            } else { lblConv.style.display = 'none'; }
+            } else {
+                lblConv.style.display = 'none';
+            }
         }
 
-        var resumen = document.getElementById('resumen-fila-' + idx);
+        var resumen = document.getElementById('captura-resumen-fila');
         if (resumen) {
-            if (!esLiquido && totalCant > 0 && cant > 1) {
-                resumen.innerHTML = '\ud83d\udce6 Total: <strong>' + cant.toFixed(2) + ' \u00d7 ' + pres.toFixed(2) + ' = ' + totalCant.toFixed(2) + ' ' + (unidad || 'uds.') + '</strong>';
+            if (!esLiquido && totalCant > 0 && cantDisponible && cant > 1) {
+                resumen.innerHTML = '📦 Total: <strong>' + cant.toFixed(2) + ' × ' + pres.toFixed(2) + ' = ' + totalCant.toFixed(2) + ' ' + (unidad || 'uds.') + '</strong>';
                 resumen.style.display = 'block';
-            } else { resumen.style.display = 'none'; }
+            } else {
+                resumen.style.display = 'none';
+            }
         }
 
         var tipo = document.getElementById('entrada-tipo-movimiento').value;
-        var chk  = row.querySelector('input[name="permitir_editar_costo[' + idx + ']"]');
-        var inpE = row.querySelector('[data-field="editar_costo"]');
+        var chk = document.getElementById('captura-chk-editar-costo');
+        var inpE = document.getElementById('captura-editar-costo');
         var costoAplicar = costoBase;
         if (chk && chk.checked && inpE && !inpE.disabled) {
             var cv = parseFloat(inpE.value);
             if (!isNaN(cv) && cv >= 0) costoAplicar = cv;
         }
-        var inpCT = row.querySelector('[data-field="costo_total"]');
+
+        var inpCT = document.getElementById('captura-costo-total');
         if (inpCT) {
             if (tipo === 'ENTRADA' && totalCant > 0 && costoAplicar > 0) {
                 inpCT.value = (esLiquido ? cantL * costoAplicar : totalCant * costoAplicar).toFixed(2);
-            } else { inpCT.value = '0.00'; }
+            } else {
+                inpCT.value = '0.00';
+            }
         }
+    }
+
+    function mostrarAlertaCaptura(msg) {
+        var el = document.getElementById('alerta-validacion-captura');
+        if (el) {
+            el.textContent = '⚠️ ' + msg;
+            el.style.display = 'inline-block';
+        }
+    }
+
+    function ocultarAlertaCaptura() {
+        var el = document.getElementById('alerta-validacion-captura');
+        if (el) el.style.display = 'none';
+    }
+
+    function agregarEntradaALista() {
+        var prod = getProductoCapturaSeleccionado();
+        if (!prod) {
+            mostrarAlertaCaptura('Selecciona un producto o insumo.');
+            var inp = document.getElementById('captura-producto-input');
+            if (inp) inp.focus();
+            abrirDropdownProductos();
+            return false;
+        }
+
+        var inpPres = document.getElementById('captura-presentacion');
+        var pres = parseFloat((inpPres && inpPres.value) || 0) || 0;
+        if (pres <= 0) {
+            mostrarAlertaCaptura('Ingresa una presentación válida mayor a 0.');
+            if (inpPres) inpPres.focus();
+            return false;
+        }
+
+        var grupoCant = document.getElementById('grupo-captura-cantidad');
+        var cantDisponible = (grupoCant && grupoCant.style.display !== 'none');
+        var inpCant = document.getElementById('captura-cantidad');
+        var cant = cantDisponible ? (parseFloat((inpCant && inpCant.value) || 0) || 0) : 1.0;
+
+        if (cantDisponible && cant <= 0) {
+            mostrarAlertaCaptura('Ingresa una cantidad válida mayor a 0.');
+            if (inpCant) inpCant.focus();
+            return false;
+        }
+
+        var productoId = prod.id;
+        var nombreProducto = prod.label;
+        var unidad = prod.unidad || '';
+        var costoBase = prod.costo;
+
+        var esLiquido = (unidad === 'LITRO' || unidad === 'MILILITRO');
+        var selULiq = document.getElementById('captura-unidad-liquido');
+        var uLiq = (esLiquido && selULiq) ? selULiq.value : 'LITRO';
+        var factor = esLiquido ? getFactorLitros(uLiq) : 1.0;
+        var totalCant = pres * cant;
+        var totalEnUnidadBase = esLiquido ? (totalCant * factor) : totalCant;
+
+        var chkEditar = document.getElementById('captura-chk-editar-costo');
+        var inpEditar = document.getElementById('captura-editar-costo');
+        var permitirEditarCosto = chkEditar && chkEditar.checked;
+        var nuevoCosto = permitirEditarCosto ? (parseFloat(inpEditar ? inpEditar.value : 0) || 0) : costoBase;
+
+        var inpCT = document.getElementById('captura-costo-total');
+        var costoTotal = parseFloat((inpCT && inpCT.value) || 0) || 0;
+
+        var inpMotivo = document.getElementById('entrada-motivo');
+        var motivoItem = (inpMotivo && inpMotivo.value) ? inpMotivo.value.trim() : '';
+
+        var tipo = document.getElementById('entrada-tipo-movimiento').value;
+
+        // Agregar al arreglo
+        listaEntradas.push({
+            producto_id: productoId,
+            producto_nombre: nombreProducto,
+            unidad_medida: unidad,
+            presentacion: pres,
+            cantidad: cant,
+            total_cant: totalCant,
+            unidad_liquido: uLiq,
+            total_base: totalEnUnidadBase,
+            permitir_editar_costo: permitirEditarCosto,
+            editar_costo: nuevoCosto,
+            costo_unitario: nuevoCosto,
+            costo_total: costoTotal,
+            motivo: motivoItem,
+            tipo_movimiento: tipo,
+            cantidad_visible: cantDisponible
+        });
+
+        // Limpiar campos del formulario de captura para la siguiente entrada
+        limpiarCamposCaptura();
+
+        // Renderizar registros pendientes
+        renderListaPendientes();
+
+        return true;
+    }
+
+    function limpiarCamposCaptura() {
+        document.getElementById('captura-producto-id').value = '';
+        var inp = document.getElementById('captura-producto-input');
+        if (inp) inp.value = '';
+        var btnLimpiar = document.getElementById('btn-limpiar-producto');
+        if (btnLimpiar) btnLimpiar.style.display = 'none';
+        cerrarDropdownProductos();
+
+        var tag = document.getElementById('captura-tag-costo');
+        if (tag) tag.style.display = 'none';
+
+        var liqPanel = document.getElementById('captura-liq-panel');
+        if (liqPanel) liqPanel.style.display = 'none';
+        var selULiq = document.getElementById('captura-unidad-liquido');
+        if (selULiq) selULiq.value = 'LITRO';
+        var lblConv = document.getElementById('captura-lbl-conv');
+        if (lblConv) lblConv.style.display = 'none';
+
+        var inpPres = document.getElementById('captura-presentacion');
+        if (inpPres) inpPres.value = '';
+        var inpCant = document.getElementById('captura-cantidad');
+        if (inpCant) inpCant.value = '1.00';
+        var inpCT = document.getElementById('captura-costo-total');
+        if (inpCT) inpCT.value = '';
+
+        var resFila = document.getElementById('captura-resumen-fila');
+        if (resFila) resFila.style.display = 'none';
+
+        var chkEditar = document.getElementById('captura-chk-editar-costo');
+        if (chkEditar) chkEditar.checked = false;
+        var inpEditar = document.getElementById('captura-editar-costo');
+        if (inpEditar) { inpEditar.value = ''; inpEditar.disabled = true; }
+
+        actualizarVisibilidadCantidad();
+        ocultarAlertaCaptura();
+
+        if (inp) inp.focus();
+    }
+
+    function renderListaPendientes() {
+        var tbody = document.getElementById('tbody-registros-pendientes');
+        var sinMsg = document.getElementById('sin-registros-msg');
+        var tabla = document.getElementById('tabla-registros-pendientes');
+        var badge = document.getElementById('badge-contador-registros');
+        var tipo = document.getElementById('entrada-tipo-movimiento').value;
+        var esSalida = (tipo === 'SALIDA');
+
+        if (badge) badge.textContent = listaEntradas.length;
+
+        // Ocultar o mostrar encabezados de costo según tipo
+        document.querySelectorAll('.col-costo-header').forEach(function(th) {
+            th.style.display = esSalida ? 'none' : '';
+        });
+
+        if (listaEntradas.length === 0) {
+            if (sinMsg) sinMsg.style.display = 'block';
+            if (tabla) tabla.style.display = 'none';
+            if (tbody) tbody.innerHTML = '';
+            actualizarResumenTotal();
+            return;
+        }
+
+        if (sinMsg) sinMsg.style.display = 'none';
+        if (tabla) tabla.style.display = 'table';
+
+        var html = '';
+        listaEntradas.forEach(function(item, idx) {
+            var esLiq = (item.unidad_medida === 'LITRO' || item.unidad_medida === 'MILILITRO');
+            var detalleTexto = '';
+            var etiquetaULiq = item.unidad_liquido === 'MILILITRO' ? 'mL' : (item.unidad_liquido === 'GALON' ? 'Gal' : 'L');
+            if (esLiq) {
+                if (item.cantidad_visible && item.cantidad > 1) {
+                    detalleTexto = item.cantidad.toFixed(2) + ' × ' + item.presentacion.toFixed(2) + ' ' + etiquetaULiq + ' = <strong style="color:#38bdf8;">' + item.total_base.toFixed(2) + ' L</strong>';
+                } else {
+                    detalleTexto = item.presentacion.toFixed(2) + ' ' + etiquetaULiq + (item.unidad_liquido !== 'LITRO' ? ' = <strong style="color:#38bdf8;">' + item.total_base.toFixed(2) + ' L</strong>' : '');
+                }
+            } else {
+                if (item.cantidad_visible && item.cantidad > 1) {
+                    detalleTexto = item.cantidad.toFixed(2) + ' × ' + item.presentacion.toFixed(2) + ' = <strong style="color:#a5b4fc;">' + item.total_cant.toFixed(2) + ' ' + (item.unidad_medida || 'uds.') + '</strong>';
+                } else {
+                    detalleTexto = item.presentacion.toFixed(2) + ' <strong style="color:#a5b4fc;">' + (item.unidad_medida || 'uds.') + '</strong>';
+                }
+            }
+
+            var costoUnitTxt = item.permitir_editar_costo
+                ? '<span style="color:#4ade80;font-weight:600;">$' + item.editar_costo.toFixed(2) + '</span> <span style="font-size:0.7rem;color:#a3e635;">(nuevo)</span>'
+                : '$' + item.costo_unitario.toFixed(2);
+
+            var estiloCostoTD = esSalida ? 'display:none;' : '';
+
+            var nombreProdCol = '<div style="font-weight:600;color:#fff;">' + escapeHtml(item.producto_nombre) + '</div>';
+            if (item.motivo) {
+                nombreProdCol += '<div style="font-size:0.73rem;color:#94a3b8;margin-top:0.2rem;display:flex;align-items:center;gap:0.3rem;"><span>📝</span><span>' + escapeHtml(item.motivo) + '</span></div>';
+            }
+
+            html += '<tr class="item-row-fade" style="border-bottom:1px solid rgba(255,255,255,0.05);">' +
+                '<td style="padding:0.6rem 0.8rem;text-align:center;color:var(--text-muted);font-weight:600;">' + (idx + 1) + '</td>' +
+                '<td style="padding:0.6rem 0.8rem;">' + nombreProdCol + '</td>' +
+                '<td style="padding:0.6rem 0.8rem;color:var(--text-muted);">' + detalleTexto + '</td>' +
+                '<td style="padding:0.6rem 0.8rem;text-align:right;' + estiloCostoTD + '">' + costoUnitTxt + '</td>' +
+                '<td style="padding:0.6rem 0.8rem;text-align:right;font-weight:700;color:#4ade80;' + estiloCostoTD + '">$' + item.costo_total.toFixed(2) + '</td>' +
+                '<td style="padding:0.6rem 0.8rem;text-align:center;">' +
+                    '<button type="button" class="btn-del-item" onclick="eliminarEntradaLista(' + idx + ')" title="Quitar este registro">✕</button>' +
+                '</td>' +
+            '</tr>';
+        });
+
+        if (tbody) tbody.innerHTML = html;
         actualizarResumenTotal();
     }
 
+    function eliminarEntradaLista(idx) {
+        listaEntradas.splice(idx, 1);
+        renderListaPendientes();
+    }
+
     function actualizarResumenTotal() {
-        var tipo  = document.getElementById('entrada-tipo-movimiento').value;
+        var tipo = document.getElementById('entrada-tipo-movimiento').value;
         var resEl = document.getElementById('resumen-total-costo');
         if (!resEl) return;
-        if (tipo !== 'ENTRADA') { resEl.style.display = 'none'; return; }
+        if (tipo !== 'ENTRADA') {
+            resEl.style.display = 'none';
+            return;
+        }
+
         var total = 0;
-        document.querySelectorAll('[data-field="costo_total"]').forEach(function(inp) { total += parseFloat(inp.value || 0) || 0; });
-        var n = document.querySelectorAll('.entrada-row').length;
-        if (total > 0) {
-            resEl.innerHTML = '\ud83d\udcb0 Costo total (' + n + ' producto' + (n !== 1 ? 's' : '') + '): <strong>$' + total.toFixed(2) + '</strong>';
+        listaEntradas.forEach(function(item) {
+            total += parseFloat(item.costo_total || 0) || 0;
+        });
+
+        var n = listaEntradas.length;
+        if (total > 0 && n > 0) {
+            resEl.innerHTML = '💰 Costo total acumulado (' + n + ' registro' + (n !== 1 ? 's' : '') + '): <strong>$' + total.toFixed(2) + '</strong>';
             resEl.style.display = 'block';
-        } else { resEl.style.display = 'none'; }
+        } else {
+            resEl.style.display = 'none';
+        }
     }
 
     function solicitarGuardarEntrada(e) {
-        if (entradaFormConfirmado) { entradaFormConfirmado = false; return true; }
+        if (entradaFormConfirmado) {
+            entradaFormConfirmado = false;
+            return true;
+        }
         if (e) e.preventDefault();
-        var form = document.getElementById('form-entrada');
-        if (!form.checkValidity()) { form.reportValidity(); return false; }
+
+        // Si el usuario tiene datos válidos en el formulario de captura actual y aún no pulsó "Agregar Otra Entrada"
+        var prod = getProductoCapturaSeleccionado();
+        var pres = parseFloat((document.getElementById('captura-presentacion') || {}).value || 0) || 0;
+        var cant = parseFloat((document.getElementById('captura-cantidad') || {}).value || 0) || 0;
+
+        if (prod && pres > 0 && cant > 0) {
+            agregarEntradaALista();
+        }
+
+        // Si no hay registros acumulados
+        if (listaEntradas.length === 0) {
+            mostrarAlertaCaptura('Agrega al menos una entrada antes de guardar.');
+            var inp = document.getElementById('captura-producto-input');
+            if (inp) inp.focus();
+            return false;
+        }
 
         var tipoMov = document.getElementById('entrada-tipo-movimiento').value;
         var txtTipo = tipoMov === 'SALIDA' ? 'Salida' : 'Entrada';
-        var lineas  = [];
+        var lineas = [];
 
-        document.querySelectorAll('.entrada-row').forEach(function(row) {
-            var sel    = row.querySelector('[data-field="producto_id"]');
-            var opt    = sel ? sel.options[sel.selectedIndex] : null;
-            var nombre = opt ? escapeHtml(opt.text) : '\u2014';
-            var pres   = parseFloat((row.querySelector('[data-field="presentacion"]') || {}).value || 0) || 0;
-            var cant   = parseFloat((row.querySelector('[data-field="cantidad"]')    || {}).value || 0) || 0;
-            var total  = pres * cant;
-            var ct     = parseFloat((row.querySelector('[data-field="costo_total"]') || {}).value || 0) || 0;
-            var unidad = (opt && opt.getAttribute('data-unidad')) || '';
-            var det    = cant.toFixed(2) + ' \u00d7 ' + pres.toFixed(2) + ' = <strong>' + total.toFixed(2) + ' ' + (unidad === 'LITRO' ? 'L' : (unidad || 'uds.')) + '</strong>';
-            if (tipoMov === 'ENTRADA' && ct > 0) det += ' | Costo: <strong>$' + ct.toFixed(2) + '</strong>';
-            lineas.push('<li style="margin-bottom:0.4rem;padding:0.35rem 0.5rem;background:rgba(255,255,255,0.04);border-radius:7px;"><span style="color:#fff;">' + nombre + '</span><br><small>' + det + '</small></li>');
+        listaEntradas.forEach(function(item) {
+            var esLiq = (item.unidad_medida === 'LITRO' || item.unidad_medida === 'MILILITRO');
+            var uLiq = item.unidad_liquido === 'MILILITRO' ? 'mL' : (item.unidad_liquido === 'GALON' ? 'Gal' : 'L');
+            var det = '';
+            if (esLiq) {
+                if (item.cantidad_visible && item.cantidad > 1) {
+                    det = item.cantidad.toFixed(2) + ' × ' + item.presentacion.toFixed(2) + ' ' + uLiq + ' = <strong>' + item.total_base.toFixed(2) + ' L</strong>';
+                } else {
+                    det = item.presentacion.toFixed(2) + ' ' + uLiq + (item.unidad_liquido !== 'LITRO' ? ' = <strong>' + item.total_base.toFixed(2) + ' L</strong>' : '');
+                }
+            } else {
+                if (item.cantidad_visible && item.cantidad > 1) {
+                    det = item.cantidad.toFixed(2) + ' × ' + item.presentacion.toFixed(2) + ' = <strong>' + item.total_cant.toFixed(2) + ' ' + (item.unidad_medida || 'uds.') + '</strong>';
+                } else {
+                    det = item.presentacion.toFixed(2) + ' <strong>' + (item.unidad_medida || 'uds.') + '</strong>';
+                }
+            }
+            if (tipoMov === 'ENTRADA' && item.costo_total > 0) {
+                det += ' | Costo: <strong>$' + item.costo_total.toFixed(2) + '</strong>';
+            }
+            var subMotivo = item.motivo ? ('<br><span style="font-size:0.75rem;color:#94a3b8;">📝 ' + escapeHtml(item.motivo) + '</span>') : '';
+            lineas.push('<li style="margin-bottom:0.4rem;padding:0.35rem 0.5rem;background:rgba(255,255,255,0.04);border-radius:7px;"><span style="color:#fff;">' + escapeHtml(item.producto_nombre) + '</span>' + subMotivo + '<br><small>' + det + '</small></li>');
         });
 
-        document.getElementById('conf-entrada-titulo').textContent = 'Confirmar ' + txtTipo;
+        document.getElementById('conf-entrada-titulo').textContent = 'Confirmar ' + txtTipo + 's';
         document.getElementById('conf-entrada-mensaje').innerHTML =
-            '<p style="margin-bottom:0.6rem;">Se registrar\u00e1 la siguiente <strong>' + txtTipo + '</strong> de stock:</p>' +
+            '<p style="margin-bottom:0.6rem;">Se registrarán <strong>' + listaEntradas.length + ' ' + txtTipo.toLowerCase() + '(s)</strong> de stock:</p>' +
             '<ul style="list-style:none;padding:0;margin:0;">' + lineas.join('') + '</ul>';
 
         document.getElementById('modal-confirmar-entrada').classList.add('active');
@@ -833,6 +1316,29 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
     }
 
     function ejecutarGuardarEntrada() {
+        var container = document.getElementById('contenedor-hidden-inputs');
+        if (!container) return;
+        container.innerHTML = '';
+
+        listaEntradas.forEach(function(item, i) {
+            function crearHidden(name, val) {
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = name;
+                inp.value = val;
+                return inp;
+            }
+            container.appendChild(crearHidden('producto_id[' + i + ']', item.producto_id));
+            container.appendChild(crearHidden('presentacion[' + i + ']', item.presentacion));
+            container.appendChild(crearHidden('cantidad[' + i + ']', item.cantidad));
+            container.appendChild(crearHidden('unidad_liquido[' + i + ']', item.unidad_liquido));
+            container.appendChild(crearHidden('permitir_editar_costo[' + i + ']', item.permitir_editar_costo ? '1' : '0'));
+            container.appendChild(crearHidden('editar_costo[' + i + ']', item.editar_costo));
+            if (item.motivo) {
+                container.appendChild(crearHidden('motivo_item[' + i + ']', item.motivo));
+            }
+        });
+
         entradaFormConfirmado = true;
         document.getElementById('modal-confirmar-entrada').classList.remove('active');
         document.getElementById('form-entrada').submit();
@@ -853,40 +1359,61 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         var iconCont   = document.getElementById('modal-icon-container');
         var btnGuardar = document.getElementById('btn-guardar-movimiento');
         var inpMotivo  = document.getElementById('entrada-motivo');
-        var btnAgregar = document.getElementById('btn-agregar-fila');
+        var lblMotivo  = document.getElementById('label-motivo');
+        var btnAgregarTxt = document.getElementById('btn-agregar-texto');
+        var lblTituloCaptura = document.getElementById('lbl-captura-titulo');
+        var lblPres = document.getElementById('lbl-captura-presentacion');
+        var grupoCT = document.getElementById('grupo-captura-costo-total');
+        var panelEditCosto = document.getElementById('captura-edit-costo-panel');
 
         if (tipo === 'SALIDA') {
             if (titulo)    titulo.textContent    = 'Registrar Salidas de Stock';
-            if (subtitulo) subtitulo.textContent = 'Disminuci\u00f3n o merma de existencias';
-            if (iconCont)  { iconCont.innerHTML = '\ud83d\udce4'; iconCont.style.background = 'rgba(239,68,68,0.15)'; iconCont.style.color = '#f87171'; }
-            if (btnGuardar) btnGuardar.innerHTML = '\ud83d\udcbe Guardar Salidas';
-            if (btnAgregar) btnAgregar.lastChild.textContent = ' Agregar Otra Salida';
+            if (subtitulo) subtitulo.textContent = 'Disminución o merma de existencias';
+            if (iconCont)  { iconCont.innerHTML = '📤'; iconCont.style.background = 'rgba(239,68,68,0.15)'; iconCont.style.color = '#f87171'; }
+            if (btnGuardar) btnGuardar.innerHTML = '💾 Guardar Salidas';
+            if (btnAgregarTxt) btnAgregarTxt.textContent = 'Agregar Otra Salida';
+            if (lblTituloCaptura) lblTituloCaptura.textContent = 'Retiro de Salida';
+            if (lblPres) lblPres.textContent = 'Presentación a Retirar *';
+            if (lblMotivo) lblMotivo.textContent = 'Motivo de Salida';
             if (inpMotivo)  inpMotivo.placeholder = 'Ej: Merma / Uso interno / Ajuste';
-            document.querySelectorAll('[id^="edit-costo-panel-"]').forEach(function(p) { p.style.display = 'none'; });
+            if (panelEditCosto) panelEditCosto.style.display = 'none';
+            if (grupoCT) grupoCT.style.display = 'none';
         } else {
             if (titulo)    titulo.textContent    = 'Registrar Entradas de Stock';
-            if (subtitulo) subtitulo.textContent = 'Puedes agregar m\u00faltiples productos en una sola operaci\u00f3n';
-            if (iconCont)  { iconCont.innerHTML = '\ud83d\udce5'; iconCont.style.background = 'rgba(34,197,94,0.15)'; iconCont.style.color = '#22c55e'; }
-            if (btnGuardar) btnGuardar.innerHTML = '\ud83d\udcbe Guardar Entradas';
-            if (btnAgregar) btnAgregar.lastChild.textContent = ' Agregar Otra Entrada';
-            if (inpMotivo)  inpMotivo.placeholder = 'Ej: Compra a proveedor / Reposici\u00f3n';
-            document.querySelectorAll('[id^="edit-costo-panel-"]').forEach(function(p) { p.style.display = 'block'; });
+            if (subtitulo) subtitulo.textContent = 'Puedes agregar múltiples productos en una sola operación';
+            if (iconCont)  { iconCont.innerHTML = '📥'; iconCont.style.background = 'rgba(34,197,94,0.15)'; iconCont.style.color = '#22c55e'; }
+            if (btnGuardar) btnGuardar.innerHTML = '💾 Guardar Entradas';
+            if (btnAgregarTxt) btnAgregarTxt.textContent = 'Agregar Otra Entrada';
+            if (lblTituloCaptura) lblTituloCaptura.textContent = 'Ingreso de Entrada';
+            if (lblPres) lblPres.textContent = 'Presentación *';
+            if (lblMotivo) lblMotivo.textContent = 'Motivo / Proveedor';
+            if (inpMotivo)  inpMotivo.placeholder = 'Ej: Compra a proveedor / Reposición';
+            if (panelEditCosto) panelEditCosto.style.display = 'block';
+            if (grupoCT) grupoCT.style.display = 'block';
         }
-        document.querySelectorAll('.entrada-row').forEach(function(row) {
-            var m = row.id.match(/fila-entrada-(\d+)/);
-            if (m) calcularFila(parseInt(m[1]));
-        });
-        actualizarResumenTotal();
+
+        actualizarVisibilidadCantidad();
+        renderListaPendientes();
+        calcularCaptura();
     }
 
     function abrirModalEntrada(productoId) {
         productoId = productoId || '';
-        document.getElementById('contenedor-filas-entrada').innerHTML = '';
-        filaCounter = 0;
+        listaEntradas = [];
+        var container = document.getElementById('contenedor-hidden-inputs');
+        if (container) container.innerHTML = '';
+
         document.getElementById('entrada-tipo-movimiento').value = 'ENTRADA';
         document.getElementById('entrada-motivo').value = '';
         onTipoMovimientoChange('ENTRADA');
-        agregarFilaEntrada(productoId);
+
+        limpiarCamposCaptura();
+
+        if (productoId) {
+            seleccionarProductoItem(productoId);
+        }
+
+        renderListaPendientes();
         document.getElementById('modal-entrada').classList.add('active');
     }
 

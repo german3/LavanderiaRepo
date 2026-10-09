@@ -590,29 +590,55 @@ $productosJson = json_encode($productos);
                 <div id="det-kit-lista"></div>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-                <a id="btn-ver-historial" href="historial.php"
-                   style="
-                       display: inline-flex; align-items: center; gap: 0.45rem;
-                       padding: 0.6rem 1.2rem;
-                       background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12));
-                       border: 1px solid rgba(99,102,241,0.45);
-                       color: #a5b4fc;
-                       border-radius: 10px;
-                       font-size: 0.83rem; font-weight: 700;
-                       text-decoration: none;
-                       white-space: nowrap;
-                       transition: all 0.2s ease;
-                       letter-spacing: 0.02em;
-                   "
-                   onmouseover="this.style.background='linear-gradient(135deg,rgba(99,102,241,0.32),rgba(139,92,246,0.24))'; this.style.color='#fff'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(99,102,241,0.3)';"
-                   onmouseout="this.style.background='linear-gradient(135deg,rgba(99,102,241,0.18),rgba(139,92,246,0.12))'; this.style.color='#a5b4fc'; this.style.transform=''; this.style.boxShadow='';">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                    Historial de Movimientos
-                </a>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                    <a id="btn-ver-historial" href="historial.php"
+                       style="
+                           display: inline-flex; align-items: center; gap: 0.45rem;
+                           padding: 0.6rem 1.1rem;
+                           background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12));
+                           border: 1px solid rgba(99,102,241,0.45);
+                           color: #a5b4fc;
+                           border-radius: 10px;
+                           font-size: 0.83rem; font-weight: 700;
+                           text-decoration: none;
+                           white-space: nowrap;
+                           transition: all 0.2s ease;
+                           letter-spacing: 0.02em;
+                       "
+                       onmouseover="this.style.background='linear-gradient(135deg,rgba(99,102,241,0.32),rgba(139,92,246,0.24))'; this.style.color='#fff'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(99,102,241,0.3)';"
+                       onmouseout="this.style.background='linear-gradient(135deg,rgba(99,102,241,0.18),rgba(139,92,246,0.12))'; this.style.color='#a5b4fc'; this.style.transform=''; this.style.boxShadow='';">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        Ver Historial
+                    </a>
+                    <a id="btn-movimientos" href="stock_entradas.php"
+                       style="
+                           display: inline-flex; align-items: center; gap: 0.45rem;
+                           padding: 0.6rem 1.1rem;
+                           background: linear-gradient(135deg, rgba(16,185,129,0.18), rgba(5,150,105,0.12));
+                           border: 1px solid rgba(16,185,129,0.45);
+                           color: #6ee7b7;
+                           border-radius: 10px;
+                           font-size: 0.83rem; font-weight: 700;
+                           text-decoration: none;
+                           white-space: nowrap;
+                           transition: all 0.2s ease;
+                           letter-spacing: 0.02em;
+                       "
+                       onmouseover="this.style.background='linear-gradient(135deg,rgba(16,185,129,0.32),rgba(5,150,105,0.24))'; this.style.color='#fff'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(16,185,129,0.3)';"
+                       onmouseout="this.style.background='linear-gradient(135deg,rgba(16,185,129,0.18),rgba(5,150,105,0.12))'; this.style.color='#6ee7b7'; this.style.transform=''; this.style.boxShadow='';">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="17 1 21 5 17 9"></polyline>
+                            <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                            <polyline points="7 23 3 19 7 15"></polyline>
+                            <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                        </svg>
+                        Movimientos
+                    </a>
+                </div>
                 <button type="button" class="btn-action" style="background: rgba(255,255,255,0.06); color: var(--text-main); padding: 0.6rem 1.25rem;" onclick="cerrarModales()">Cerrar</button>
             </div>
         </div>

@@ -275,7 +275,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         /* Kit add row */
         .kit-add-row {
             display: grid;
-            grid-template-columns: auto 1fr 140px;
+            grid-template-columns: auto 1fr 140px 170px;
             gap: 0.75rem;
             align-items: start;
         }
@@ -524,6 +524,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             </div>
                             <div class="kit-unidad-label" id="kit-unidad-label">—</div>
                         </div>
+
+                        <!-- Selector unidad líquida (solo para insumos líquidos) -->
+                        <div id="kit-grupo-unidad-liquida" style="display:none;">
+                            <label class="form-label" style="font-size:0.78rem; color:#38bdf8;">🧪 Unidad a ingresar</label>
+                            <div class="select-wrapper">
+                                <select id="kit-sel-unidad-liquida" class="form-control" style="font-size:0.85rem;">
+                                    <option value="LITRO">Litros (L)</option>
+                                    <option value="MILILITRO">Mililitros (mL)</option>
+                                </select>
+                                <div class="select-arrow-btn">▼</div>
+                            </div>
+                            <div id="kit-info-conv" style="font-size:0.72rem;color:#94a3b8;margin-top:0.3rem;"></div>
+                        </div>
                     </div>
 
                     <?php if (empty($productosNormales)): ?>
@@ -697,22 +710,43 @@ function onTipoChange(tipo) {
 
 // ── Al seleccionar un producto en el kit, actualizar unidad ───────
 function kitOnSelectProducto(id) {
-    const labelEl = document.getElementById('kit-unidad-label');
+    const labelEl       = document.getElementById('kit-unidad-label');
+    const grupoLiquido  = document.getElementById('kit-grupo-unidad-liquida');
+    const selULiq       = document.getElementById('kit-sel-unidad-liquida');
+    const infoConv      = document.getElementById('kit-info-conv');
+
     if (!id) {
         if (labelEl) labelEl.textContent = '—';
+        if (grupoLiquido) grupoLiquido.style.display = 'none';
         return;
     }
+
     const prod = productosNormales.find(p => p.id === id);
-    if (prod && labelEl) {
-        labelEl.textContent = prod.unidad_medida;
+    const esLiquido = prod && (prod.unidad_medida === 'LITRO' || prod.unidad_medida === 'MILILITRO');
+
+    if (labelEl) {
+        labelEl.textContent = prod ? prod.unidad_medida : '—';
+    }
+
+    if (grupoLiquido) {
+        grupoLiquido.style.display = esLiquido ? 'block' : 'none';
+    }
+    if (esLiquido) {
+        // Resetear a Litros por defecto
+        if (selULiq) selULiq.value = 'LITRO';
+        if (infoConv) infoConv.textContent = '';
     }
 }
+
+// ── Constantes de conversión ──────────────────────────────────────
+const ML_A_LITRO = 0.001;
 
 // ── Agregar insumo al Kit ─────────────────────────────────────────
 function kitAgregar() {
     const sel      = document.getElementById('kit-sel-producto');
     const inpCant  = document.getElementById('kit-inp-cantidad');
     const inpRopa  = document.getElementById('kit-inp-ropa-kg');
+    const selULiq  = document.getElementById('kit-sel-unidad-liquida');
     const id       = sel.value;
     const cantidad = parseFloat(inpCant.value);
     const ropaKg   = parseFloat(inpRopa ? inpRopa.value : 0) || 0;
@@ -733,12 +767,30 @@ function kitAgregar() {
     }
 
     const prod = productosNormales.find(p => p.id === id);
+    const esLiquido = prod && (prod.unidad_medida === 'LITRO' || prod.unidad_medida === 'MILILITRO');
+
+    // Determinar unidad de captura y cantidad en litros
+    let unidadCaptura = prod ? prod.unidad_medida : 'PIEZA';
+    let cantidadEnLitros = cantidad;
+    let cantidadMostrar  = cantidad;
+    let etiquetaMostrar  = unidadCaptura;
+
+    if (esLiquido && selULiq) {
+        unidadCaptura = selULiq.value; // LITRO o MILILITRO (lo que el usuario eligió)
+        etiquetaMostrar = unidadCaptura === 'MILILITRO' ? 'mL' : 'L';
+        cantidadEnLitros = (unidadCaptura === 'MILILITRO') ? cantidad * ML_A_LITRO : cantidad;
+    }
+
     kitInsumos.push({
-        id:       id,
-        nombre:   prod ? prod.descripcion : id,
-        cantidad: cantidad,
-        unidad:   prod ? prod.unidad_medida : '—',
-        ropa_kg:  ropaKg
+        id:                id,
+        nombre:            prod ? prod.descripcion : id,
+        cantidad:          cantidadEnLitros,   // siempre en litros para la BD
+        cantidadCaptura:   cantidad,            // lo que el usuario escribió
+        unidad:            esLiquido ? 'LITRO' : unidadCaptura, // unidad base en BD siempre LITRO
+        unidadCaptura:     unidadCaptura,       // LITRO o MILILITRO (seleccionado)
+        etiquetaMostrar:   etiquetaMostrar,
+        esLiquido:         esLiquido,
+        ropa_kg:           ropaKg
     });
 
     renderChips();
@@ -748,6 +800,8 @@ function kitAgregar() {
     inpCant.value = 1;
     const labelEl = document.getElementById('kit-unidad-label');
     if (labelEl) labelEl.textContent = '—';
+    const grupoLiquido = document.getElementById('kit-grupo-unidad-liquida');
+    if (grupoLiquido) grupoLiquido.style.display = 'none';
 }
 
 // ── Eliminar insumo del Kit ───────────────────────────────────────
@@ -769,9 +823,23 @@ function renderChips() {
     kitInsumos.forEach(ins => {
         const chip = document.createElement('span');
         chip.className = 'kit-chip';
+
+        // Etiqueta de cantidad: mostrar como el usuario lo ingresó
+        let detalleCant = '';
+        if (ins.esLiquido) {
+            const unidadLabel = ins.unidadCaptura === 'MILILITRO' ? 'mL' : 'L';
+            detalleCant = `${ins.cantidadCaptura} ${unidadLabel}`;
+            // Si fue en mL, también mostrar en L para claridad
+            if (ins.unidadCaptura === 'MILILITRO') {
+                detalleCant += ` <span style="color:#38bdf8;font-size:0.7rem;">(= ${ins.cantidad.toFixed(4)} L)</span>`;
+            }
+        } else {
+            detalleCant = `${ins.cantidad} ${ins.unidad}`;
+        }
+
         chip.innerHTML = `
             <span>${escHtml(ins.nombre)}</span>
-            <span style="color:#94a3b8;font-size:0.78rem;">${ins.cantidad} ${ins.unidad}</span>
+            <span style="color:#94a3b8;font-size:0.78rem;">${detalleCant}</span>
             <span class="chip-remove" onclick="kitEliminar('${escHtml(ins.id)}')" title="Eliminar">✕</span>
         `;
         container.appendChild(chip);
@@ -796,10 +864,11 @@ document.getElementById('form-producto').addEventListener('submit', function(e) 
         }
         const ropaKgGlobal = document.getElementById('kit-inp-ropa-kg') ? parseFloat(document.getElementById('kit-inp-ropa-kg').value || 0) : 0;
         kitInsumos.forEach((ins, i) => {
+            // ins.cantidad ya está en LITROS (conversión hecha en kitAgregar)
             hiddenContainer.innerHTML += `
                 <input type="hidden" name="kit_insumo_id[]"       value="${escHtml(ins.id)}">
                 <input type="hidden" name="kit_insumo_cantidad[]"  value="${ins.cantidad}">
-                <input type="hidden" name="kit_insumo_unidad[]"    value="${escHtml(ins.unidad)}">
+                <input type="hidden" name="kit_insumo_unidad[]"    value="LITRO">
                 <input type="hidden" name="kit_insumo_ropa_kg[]"   value="${ropaKgGlobal || ins.ropa_kg || 0}">
             `;
         });
