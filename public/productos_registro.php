@@ -516,7 +516,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <label class="form-label" style="font-size:0.78rem;">Cantidad</label>
                             <div class="number-input-wrapper">
                                 <input type="number" id="kit-inp-cantidad" class="form-control"
-                                       step="0.01" min="0.01" value="1" placeholder="0">
+                                       step="0.01" min="0.01" value="1" placeholder="0" oninput="kitActualizarInfoConv()">
                                 <div class="spin-buttons">
                                     <button type="button" class="spin-btn" onclick="stepNumberInput('kit-inp-cantidad', 1)">▲</button>
                                     <button type="button" class="spin-btn" onclick="stepNumberInput('kit-inp-cantidad', -1)">▼</button>
@@ -529,7 +529,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <div id="kit-grupo-unidad-liquida" style="display:none;">
                             <label class="form-label" style="font-size:0.78rem; color:#38bdf8;">🧪 Unidad a ingresar</label>
                             <div class="select-wrapper">
-                                <select id="kit-sel-unidad-liquida" class="form-control" style="font-size:0.85rem;">
+                                <select id="kit-sel-unidad-liquida" class="form-control" style="font-size:0.85rem;" onchange="kitOnUnidadLiquidaChange()">
                                     <option value="LITRO">Litros (L)</option>
                                     <option value="MILILITRO">Mililitros (mL)</option>
                                 </select>
@@ -716,25 +716,99 @@ function kitOnSelectProducto(id) {
     const infoConv      = document.getElementById('kit-info-conv');
 
     if (!id) {
-        if (labelEl) labelEl.textContent = '—';
+        if (labelEl) {
+            labelEl.textContent = '—';
+            labelEl.style.color = '#94a3b8';
+            labelEl.style.fontWeight = 'normal';
+        }
         if (grupoLiquido) grupoLiquido.style.display = 'none';
+        if (infoConv) infoConv.textContent = '';
         return;
     }
 
     const prod = productosNormales.find(p => p.id === id);
     const esLiquido = prod && (prod.unidad_medida === 'LITRO' || prod.unidad_medida === 'MILILITRO');
 
-    if (labelEl) {
-        labelEl.textContent = prod ? prod.unidad_medida : '—';
-    }
-
     if (grupoLiquido) {
         grupoLiquido.style.display = esLiquido ? 'block' : 'none';
     }
+
     if (esLiquido) {
-        // Resetear a Litros por defecto
-        if (selULiq) selULiq.value = 'LITRO';
+        kitActualizarUnidadLiquida();
+    } else {
+        if (labelEl) {
+            const nombresUnidades = {
+                'PIEZA': 'Pieza',
+                'KG': 'Kilogramo',
+                'GRAMO': 'Gramo',
+                'METRO': 'Metro',
+                'CARGA': 'Carga',
+                'SERVICIO': 'Servicio'
+            };
+            labelEl.textContent = prod ? (nombresUnidades[prod.unidad_medida] || prod.unidad_medida) : '—';
+            labelEl.style.color = '#94a3b8';
+            labelEl.style.fontWeight = 'normal';
+        }
         if (infoConv) infoConv.textContent = '';
+    }
+}
+
+// ── Al cambiar la unidad líquida a ingresar (Litros / Mililitros) ───
+function kitOnUnidadLiquidaChange() {
+    kitActualizarUnidadLiquida();
+}
+
+function kitActualizarUnidadLiquida() {
+    const labelEl   = document.getElementById('kit-unidad-label');
+    const selULiq   = document.getElementById('kit-sel-unidad-liquida');
+    const selProd   = document.getElementById('kit-sel-producto');
+    const id        = selProd ? selProd.value : '';
+    const prod      = productosNormales.find(p => p.id === id);
+    const esLiquido = prod && (prod.unidad_medida === 'LITRO' || prod.unidad_medida === 'MILILITRO');
+
+    if (!esLiquido || !labelEl || !selULiq) return;
+
+    if (selULiq.value === 'MILILITRO') {
+        labelEl.textContent = 'Mililitros';
+        labelEl.style.color = '#38bdf8';
+        labelEl.style.fontWeight = '600';
+    } else {
+        labelEl.textContent = 'Litros';
+        labelEl.style.color = '#94a3b8';
+        labelEl.style.fontWeight = 'normal';
+    }
+
+    kitActualizarInfoConv();
+}
+
+function kitActualizarInfoConv() {
+    const infoConv  = document.getElementById('kit-info-conv');
+    const selULiq   = document.getElementById('kit-sel-unidad-liquida');
+    const inpCant   = document.getElementById('kit-inp-cantidad');
+    const selProd   = document.getElementById('kit-sel-producto');
+    const id        = selProd ? selProd.value : '';
+    const prod      = productosNormales.find(p => p.id === id);
+    const esLiquido = prod && (prod.unidad_medida === 'LITRO' || prod.unidad_medida === 'MILILITRO');
+
+    if (!infoConv || !esLiquido || !selULiq) {
+        if (infoConv) infoConv.textContent = '';
+        return;
+    }
+
+    const cant = parseFloat(inpCant ? inpCant.value : 0) || 0;
+    if (selULiq.value === 'MILILITRO') {
+        if (cant > 0) {
+            const enLitros = cant * 0.001;
+            infoConv.innerHTML = `🔄 <strong>${cant} mL</strong> = <strong>${enLitros.toFixed(4).replace(/\.?0+$/, '')} L</strong> en inventario`;
+        } else {
+            infoConv.innerHTML = '💡 1,000 mL = 1 Litro';
+        }
+    } else {
+        if (cant > 0) {
+            infoConv.innerHTML = `🔄 <strong>${cant} L</strong> = <strong>${(cant * 1000).toLocaleString('es-MX')} mL</strong>`;
+        } else {
+            infoConv.textContent = '';
+        }
     }
 }
 
@@ -799,9 +873,15 @@ function kitAgregar() {
     sel.value = '';
     inpCant.value = 1;
     const labelEl = document.getElementById('kit-unidad-label');
-    if (labelEl) labelEl.textContent = '—';
+    if (labelEl) {
+        labelEl.textContent = '—';
+        labelEl.style.color = '#94a3b8';
+        labelEl.style.fontWeight = 'normal';
+    }
     const grupoLiquido = document.getElementById('kit-grupo-unidad-liquida');
     if (grupoLiquido) grupoLiquido.style.display = 'none';
+    const infoConv = document.getElementById('kit-info-conv');
+    if (infoConv) infoConv.textContent = '';
 }
 
 // ── Eliminar insumo del Kit ───────────────────────────────────────

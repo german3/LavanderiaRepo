@@ -1223,6 +1223,12 @@ $productosJson = json_encode($productos);
             if (btnHistorial) {
                 btnHistorial.href = `historial.php?sku=${encodeURIComponent(prod.codigo_interno_sku || '')}`;
             }
+
+            // Actualizar enlace a movimientos de este producto
+            const btnMovimientos = document.getElementById('btn-movimientos');
+            if (btnMovimientos) {
+                btnMovimientos.href = `stock_entradas.php?producto_id=${encodeURIComponent(prod.id)}`;
+            }
         }
 
         function cerrarModales(e) {
