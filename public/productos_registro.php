@@ -23,6 +23,7 @@ header("Pragma: no-cache");
 
 $mensaje = "";
 $error   = "";
+$kitGuardadoExitoso = false;
 
 // Check si es edición vía GET o POST id
 $editId = $_GET['id'] ?? $_POST['id'] ?? null;
@@ -52,6 +53,10 @@ $insumosKitExistentesJson = json_encode($insumosKitExistentes);
 // Productos NORMAL disponibles para armar Kits (se pasan a JS)
 $productosNormales = $productoModel->obtenerProductosNormales();
 $productosNormalesJson = json_encode($productosNormales);
+                    if ($tipo === 'KIT') {
+                        $kitGuardadoExitoso = true;
+                        $_POST = [];
+                    }
 
 // Siguiente SKU a mostrar (o el SKU actual si es edición)
 $siguienteSku = $esEdicion ? ($productoEditar['codigo_interno_sku'] ?? '') : $productoModel->obtenerSiguienteSku();
@@ -196,6 +201,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $siguienteSku = $productoModel->obtenerSiguienteSku();
                     $productosNormales = $productoModel->obtenerProductosNormales();
                     $productosNormalesJson = json_encode($productosNormales);
+                    if ($tipo === 'KIT') {
+                        $kitGuardadoExitoso = true;
+                        $_POST = [];
+                    }
                 } else {
                     $error = "Error al crear el producto. Revisa los datos.";
                 }
@@ -982,6 +991,34 @@ function escHtml(str) {
 // Inicializar estado y chips
 onTipoChange(document.getElementById('sel-tipo').value);
 renderChips();
+
+<?php if ($kitGuardadoExitoso): ?>
+// Resetear UI al estado inicial limpio tras guardar Kit exitosamente
+const formProd = document.getElementById('form-producto');
+if (formProd) {
+    const inpDesc = document.getElementById('inp-descripcion');
+    if (inpDesc) inpDesc.value = '';
+    const inpCb = document.querySelector('input[name="codigo_barras"]');
+    if (inpCb) inpCb.value = '';
+    const selT = document.getElementById('sel-tipo');
+    if (selT) {
+        selT.value = 'NORMAL';
+        onTipoChange('NORMAL');
+    }
+    const selU = document.getElementById('sel-unidad');
+    if (selU) selU.value = 'PIEZA';
+    const inpSM = document.getElementById('inp-stock-minimo');
+    if (inpSM) inpSM.value = '0';
+    const inpC = document.getElementById('inp-costo');
+    if (inpC) inpC.value = '0.00';
+    const inpP = document.getElementById('inp-precio');
+    if (inpP) inpP.value = '0.00';
+    const inpRopa = document.getElementById('kit-inp-ropa-kg');
+    if (inpRopa) inpRopa.value = '1.00';
+    kitInsumos = [];
+    renderChips();
+}
+<?php endif; ?>
 </script>
 <script src="js/sidebar.js"></script>
 </body>

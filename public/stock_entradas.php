@@ -541,7 +541,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 
                 <!-- Grid de Presentación, Cantidad y Costo Total -->
                 <div class="row-grid-3" id="grid-captura-cantidades">
-                    <div class="form-group" style="margin-bottom:0;">
+                    <div class="form-group" id="grupo-captura-presentacion" style="margin-bottom:0; display:none;">
                         <label class="form-label" id="lbl-captura-presentacion" style="font-size:0.82rem;">Presentación *</label>
                         <div class="number-input-wrapper">
                             <input type="number" step="0.01" min="0.01" id="captura-presentacion" class="form-control" placeholder="0.00" oninput="calcularCaptura()">
@@ -552,10 +552,10 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                         </div>
                         <div id="captura-ayuda-galon" style="display:none; font-size:0.75rem; color:#38bdf8; margin-top:0.35rem; font-weight:500;"></div>
                     </div>
-                    <div class="form-group" id="grupo-captura-cantidad" style="margin-bottom:0; display:none;">
-                        <label class="form-label" style="font-size:0.82rem;">Cantidad *</label>
+                    <div class="form-group" id="grupo-captura-cantidad" style="margin-bottom:0;">
+                        <label class="form-label" id="lbl-captura-cantidad" style="font-size:0.82rem;">Cantidad *</label>
                         <div class="number-input-wrapper">
-                            <input type="number" step="0.01" min="0.01" id="captura-cantidad" class="form-control" value="1.00" placeholder="1.00" oninput="calcularCaptura()">
+                            <input type="number" step="0.01" min="0.01" id="captura-cantidad" class="form-control" placeholder="0.00" oninput="calcularCaptura()">
                             <div class="spin-buttons">
                                 <button type="button" class="spin-btn" onclick="stepCapturaInput('cantidad', 1)">▲</button>
                                 <button type="button" class="spin-btn" onclick="stepCapturaInput('cantidad', -1)">▼</button>
@@ -670,6 +670,12 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         if (u === 'MILILITRO') return FACTOR_ML_A_LITRO;
         if (u === 'GALON')     return FACTOR_GAL_A_LITRO;
         return 1.0;
+    }
+
+    // Detecta si la unidad base del producto es Litros o Mililitros
+    function esLiquidoBase(unidad) {
+        if (!unidad) return false;
+        return (unidad === 'LITRO' || unidad === 'MILILITRO');
     }
 
     // Datos de productos inyectados desde PHP
@@ -845,8 +851,14 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         cerrarDropdownProductos();
         actualizarEstadoProductoSeleccionado(prod);
 
-        var inpPres = document.getElementById('captura-presentacion');
-        if (inpPres) inpPres.focus();
+        // Enfocar el campo activo según el tipo de unidad
+        if (esLiquidoBase(prod.unidad)) {
+            var inpPres = document.getElementById('captura-presentacion');
+            if (inpPres) inpPres.focus();
+        } else {
+            var inpCant = document.getElementById('captura-cantidad');
+            if (inpCant) inpCant.focus();
+        }
     }
 
     function limpiarSeleccionProducto(e) {
@@ -906,60 +918,44 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
     function actualizarVisibilidadCantidad() {
         var prod = getProductoCapturaSeleccionado();
         var unidadProd = prod ? prod.unidad : '';
-        var esLiquidoProd = (unidadProd === 'LITRO' || unidadProd === 'MILILITRO');
+        var esLiq = esLiquidoBase(unidadProd);
 
-        var unidadActiva = unidadProd;
-        if (esLiquidoProd) {
-            var selULiq = document.getElementById('captura-unidad-liquido');
-            unidadActiva = (selULiq && selULiq.value) ? selULiq.value : 'LITRO';
-        }
-
-        var esGalon = (esLiquidoProd && unidadActiva === 'GALON');
-        // El campo secundario Cantidad solo debe estar disponible cuando la unidad sea LITRO o MILILITRO (no Galones ni otras unidades).
-        var disponible = (unidadActiva === 'LITRO' || unidadActiva === 'MILILITRO');
-
+        var grupoPres = document.getElementById('grupo-captura-presentacion');
         var grupoCant = document.getElementById('grupo-captura-cantidad');
+        var inpPres   = document.getElementById('captura-presentacion');
         var inpCant   = document.getElementById('captura-cantidad');
         var gridCant  = document.getElementById('grid-captura-cantidades');
         var tipo      = (document.getElementById('entrada-tipo-movimiento') || {}).value || 'ENTRADA';
         var esSalida  = (tipo === 'SALIDA');
 
-        var lblPres   = document.getElementById('lbl-captura-presentacion');
-        var inpPres   = document.getElementById('captura-presentacion');
+        var lblPres = document.getElementById('lbl-captura-presentacion');
+        var lblCant = document.getElementById('lbl-captura-cantidad');
 
-        // Cuando la unidad sea galones y solo en galones, el campo presentación debe cambiar por Cantidad
-        if (lblPres) {
-            if (esGalon) {
-                lblPres.textContent = esSalida ? 'Cantidad a Retirar *' : 'Cantidad *';
-            } else {
-                lblPres.textContent = esSalida ? 'Presentación a Retirar *' : 'Presentación *';
-            }
-        }
-
-        if (inpPres) {
-            if (esGalon) {
-                inpPres.placeholder = 'Cantidad de galones (ej: 1)';
-            } else {
-                inpPres.placeholder = '0.00';
-            }
-        }
-
-        if (grupoCant) {
-            if (disponible) {
-                grupoCant.style.display = 'block';
-            } else {
+        if (esLiq) {
+            // Producto líquido (Litros/Mililitros): mostrar solo Presentación
+            if (grupoPres) grupoPres.style.display = 'block';
+            if (grupoCant) {
                 grupoCant.style.display = 'none';
-                if (inpCant) inpCant.value = '1.00';
+                if (inpCant) inpCant.value = '';
             }
+            if (lblPres) lblPres.textContent = esSalida ? 'Presentación a Retirar *' : 'Presentación *';
+        } else {
+            // Producto no líquido: ocultar Presentación, mostrar solo Cantidad
+            if (grupoPres) {
+                grupoPres.style.display = 'none';
+                if (inpPres) { inpPres.value = ''; }
+            }
+            if (grupoCant) grupoCant.style.display = 'block';
+            if (lblCant) lblCant.textContent = esSalida ? 'Cantidad a Retirar *' : 'Cantidad *';
         }
 
         if (gridCant) {
-            var cols = 1; // Presentación / Cantidad
-            if (disponible) cols++;
-            if (!esSalida) cols++; // Costo Total en Entrada
-            if (cols === 3) gridCant.style.gridTemplateColumns = '1fr 1fr 1fr';
-            else if (cols === 2) gridCant.style.gridTemplateColumns = '1fr 1fr';
-            else gridCant.style.gridTemplateColumns = '1fr';
+            // Solo 1 campo de captura + Costo Total en Entrada
+            if (!esSalida) {
+                gridCant.style.gridTemplateColumns = '1fr 1fr';
+            } else {
+                gridCant.style.gridTemplateColumns = '1fr';
+            }
         }
     }
 
@@ -1002,17 +998,16 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         var unidad = prod ? prod.unidad : '';
         var costoBase = prod ? prod.costo : 0;
 
-        var grupoCant = document.getElementById('grupo-captura-cantidad');
-        var cantDisponible = (grupoCant && grupoCant.style.display !== 'none');
-
-        var pres = parseFloat(document.getElementById('captura-presentacion').value || 0) || 0;
-        var cant = cantDisponible ? (parseFloat(document.getElementById('captura-cantidad').value || 0) || 0) : 1.0;
-        var totalCant = pres * cant;
-
-        var esLiquido = (unidad === 'LITRO' || unidad === 'MILILITRO');
+        var esLiquido = esLiquidoBase(unidad);
         var selULiq = document.getElementById('captura-unidad-liquido');
         var uLiq = (esLiquido && selULiq) ? selULiq.value : 'LITRO';
         var factor = esLiquido ? getFactorLitros(uLiq) : 1.0;
+
+        // Leer el campo activo según unidad
+        var pres = parseFloat((document.getElementById('captura-presentacion') || {}).value || 0) || 0;
+        var cant = parseFloat((document.getElementById('captura-cantidad') || {}).value || 0) || 0;
+        var valorActivo = esLiquido ? pres : cant;
+        var totalCant = valorActivo; // No hay multiplicador ahora
         var cantL = totalCant * factor;
         var cantML = cantL * 1000;
 
@@ -1023,18 +1018,16 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             if (esLiquido) {
                 if (uLiq === 'GALON') {
                     if (totalCant > 0) {
-                        lblConv.innerHTML = '🔄 <strong>' + pres.toFixed(2) + ' Gal = ' + cantL.toFixed(2) + ' Litros</strong> <span style="font-size:0.75rem; opacity:0.9;">(' + cantML.toLocaleString('es-MX', {minimumFractionDigits: 1, maximumFractionDigits: 2}) + ' mL)</span>';
+                        lblConv.innerHTML = '🔄 <strong>' + totalCant.toFixed(2) + ' Gal = ' + cantL.toFixed(2) + ' Litros</strong> <span style="font-size:0.75rem; opacity:0.9;">(' + cantML.toLocaleString('es-MX', {minimumFractionDigits: 1, maximumFractionDigits: 2}) + ' mL)</span>';
                     } else {
                         lblConv.innerHTML = '💡 <strong>1 Galón ≈ 3.7854 Litros (3,785.41 mL)</strong>';
                     }
                     lblConv.style.display = 'block';
                 } else if (uLiq === 'MILILITRO' && totalCant > 0) {
-                    var detalleCantStr = cantDisponible && cant > 1 ? (cant.toFixed(2) + ' × ') : '';
-                    lblConv.innerHTML = '🔄 <strong>' + detalleCantStr + pres.toLocaleString() + ' mL = ' + totalCant.toLocaleString() + ' mL</strong> = <strong>' + cantL.toFixed(2) + ' L</strong>';
+                    lblConv.innerHTML = '🔄 <strong>' + totalCant.toLocaleString() + ' mL</strong> = <strong>' + cantL.toFixed(2) + ' L</strong>';
                     lblConv.style.display = 'block';
                 } else if (uLiq === 'LITRO' && totalCant > 0) {
-                    var detalleCantStr = cantDisponible && cant > 1 ? (cant.toFixed(2) + ' × ') : '';
-                    lblConv.innerHTML = '🔄 <strong>' + detalleCantStr + pres.toFixed(2) + ' L = ' + cantL.toFixed(2) + ' Litros</strong> <span style="font-size:0.75rem; opacity:0.9;">(' + (cantL * 1000).toLocaleString('es-MX', {minimumFractionDigits: 0, maximumFractionDigits: 1}) + ' mL)</span>';
+                    lblConv.innerHTML = '🔄 <strong>' + totalCant.toFixed(2) + ' L</strong> <span style="font-size:0.75rem; opacity:0.9;">(' + (cantL * 1000).toLocaleString('es-MX', {minimumFractionDigits: 0, maximumFractionDigits: 1}) + ' mL)</span>';
                     lblConv.style.display = 'block';
                 } else {
                     lblConv.style.display = 'none';
@@ -1046,7 +1039,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 
         if (ayudaGalon) {
             if (esLiquido && uLiq === 'GALON') {
-                if (pres > 0) {
+                if (totalCant > 0) {
                     ayudaGalon.innerHTML = '💧 Equivalente: <strong>' + cantL.toFixed(2) + ' L</strong> <span style="opacity:0.85;">(' + cantML.toLocaleString('es-MX', {maximumFractionDigits:1}) + ' mL)</span>';
                 } else {
                     ayudaGalon.innerHTML = '💧 1 Gal = 3.7854 L (3,785.41 mL)';
@@ -1058,14 +1051,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         }
 
         var resumen = document.getElementById('captura-resumen-fila');
-        if (resumen) {
-            if (!esLiquido && totalCant > 0 && cantDisponible && cant > 1) {
-                resumen.innerHTML = '📦 Total: <strong>' + cant.toFixed(2) + ' × ' + pres.toFixed(2) + ' = ' + totalCant.toFixed(2) + ' ' + (unidad || 'uds.') + '</strong>';
-                resumen.style.display = 'block';
-            } else {
-                resumen.style.display = 'none';
-            }
-        }
+        if (resumen) resumen.style.display = 'none';
 
         var tipo = document.getElementById('entrada-tipo-movimiento').value;
         var chk = document.getElementById('captura-chk-editar-costo');
@@ -1109,36 +1095,40 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             return false;
         }
 
-        var selULiqCheck = document.getElementById('captura-unidad-liquido');
-        var esGalonActivo = (prod && (prod.unidad === 'LITRO' || prod.unidad === 'MILILITRO') && selULiqCheck && selULiqCheck.value === 'GALON');
+        var unidad = prod.unidad || '';
+        var esLiquido = esLiquidoBase(unidad);
+        var selULiq = document.getElementById('captura-unidad-liquido');
+        var uLiq = (esLiquido && selULiq) ? selULiq.value : 'LITRO';
 
-        var inpPres = document.getElementById('captura-presentacion');
-        var pres = parseFloat((inpPres && inpPres.value) || 0) || 0;
-        if (pres <= 0) {
-            mostrarAlertaCaptura(esGalonActivo ? 'Ingresa una cantidad de galones válida mayor a 0.' : 'Ingresa una presentación válida mayor a 0.');
-            if (inpPres) inpPres.focus();
-            return false;
-        }
+        var pres = 0;
+        var cant = 1.0;
 
-        var grupoCant = document.getElementById('grupo-captura-cantidad');
-        var cantDisponible = (grupoCant && grupoCant.style.display !== 'none');
-        var inpCant = document.getElementById('captura-cantidad');
-        var cant = cantDisponible ? (parseFloat((inpCant && inpCant.value) || 0) || 0) : 1.0;
-
-        if (cantDisponible && cant <= 0) {
-            mostrarAlertaCaptura('Ingresa una cantidad válida mayor a 0.');
-            if (inpCant) inpCant.focus();
-            return false;
+        if (esLiquido) {
+            // Modo líquido: leer Presentación
+            var inpPres = document.getElementById('captura-presentacion');
+            pres = parseFloat((inpPres && inpPres.value) || 0) || 0;
+            if (pres <= 0) {
+                mostrarAlertaCaptura('Ingresa una presentación válida mayor a 0.');
+                if (inpPres) inpPres.focus();
+                return false;
+            }
+            cant = 1.0; // No hay multiplicador para líquidos
+        } else {
+            // Modo normal: leer Cantidad
+            var inpCant = document.getElementById('captura-cantidad');
+            cant = parseFloat((inpCant && inpCant.value) || 0) || 0;
+            if (cant <= 0) {
+                mostrarAlertaCaptura('Ingresa una cantidad válida mayor a 0.');
+                if (inpCant) inpCant.focus();
+                return false;
+            }
+            pres = cant; // PHP procesa presentacion * factorCantidad
         }
 
         var productoId = prod.id;
         var nombreProducto = prod.label;
-        var unidad = prod.unidad || '';
         var costoBase = prod.costo;
 
-        var esLiquido = (unidad === 'LITRO' || unidad === 'MILILITRO');
-        var selULiq = document.getElementById('captura-unidad-liquido');
-        var uLiq = (esLiquido && selULiq) ? selULiq.value : 'LITRO';
         var factor = esLiquido ? getFactorLitros(uLiq) : 1.0;
         var totalCant = pres * cant;
         var totalEnUnidadBase = esLiquido ? (totalCant * factor) : totalCant;
@@ -1172,7 +1162,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             costo_total: costoTotal,
             motivo: motivoItem,
             tipo_movimiento: tipo,
-            cantidad_visible: cantDisponible
+            cantidad_visible: !esLiquido
         });
 
         // Limpiar campos del formulario de captura para la siguiente entrada
@@ -1207,7 +1197,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         var inpPres = document.getElementById('captura-presentacion');
         if (inpPres) { inpPres.value = ''; inpPres.placeholder = '0.00'; }
         var inpCant = document.getElementById('captura-cantidad');
-        if (inpCant) inpCant.value = '1.00';
+        if (inpCant) { inpCant.value = ''; inpCant.placeholder = '0.00'; }
         var inpCT = document.getElementById('captura-costo-total');
         if (inpCT) inpCT.value = '';
 
@@ -1343,7 +1333,8 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         var pres = parseFloat((document.getElementById('captura-presentacion') || {}).value || 0) || 0;
         var cant = parseFloat((document.getElementById('captura-cantidad') || {}).value || 0) || 0;
 
-        if (prod && pres > 0 && cant > 0) {
+        var esLiq8 = prod && esLiquidoBase(prod.unidad);
+        if (prod && ((esLiq8 && pres > 0) || (!esLiq8 && cant > 0))) {
             agregarEntradaALista();
         }
 

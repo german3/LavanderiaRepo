@@ -6,11 +6,13 @@ require_once __DIR__ . '/../src/modules/catalog/Historial.php';
 
 use App\Config\Database;
 use App\Modules\Auth\AuthService;
+use App\Modules\Auth\Usuario;
 use App\Modules\Catalog\Historial;
 
 $db = (new Database())->getConnection();
 $auth = new AuthService($db);
 $historialModel = new Historial($db);
+$usuarioModel = new Usuario($db);
 
 // Middleware
 if (!$auth->checkAuth()) {
@@ -24,6 +26,12 @@ header("Pragma: no-cache");
 
 $movimientos = $historialModel->obtenerTodos();
 $movimientosJson = json_encode($movimientos);
+
+// Obtener lista de usuarios dados de alta
+$usuarios = $usuarioModel->obtenerTodos();
+usort($usuarios, function($a, $b) {
+    return strcasecmp($a['nombre'] ?? '', $b['nombre'] ?? '');
+});
 
 // Filtro por producto vía GET
 $filtroSku = trim($_GET['sku'] ?? '');
@@ -265,6 +273,27 @@ $filtroSkuJs = json_encode($filtroSku);
                             onmouseout="this.style.background='rgba(239,68,68,0.1)'; this.style.color='#fca5a5';"
                     >✕ Limpiar fechas</button>
 
+                    <!-- Divisor visual -->
+                    <div style="height: 24px; width: 1px; background: var(--border); margin: 0 0.25rem;" class="no-print"></div>
+
+                    <!-- Filtro por Usuario (al lado derecho del rango de fechas) -->
+                    <div style="display: flex; align-items: center; gap: 0.45rem;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <label for="usuarioFilter" style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600; white-space: nowrap;">Usuario:</label>
+                        <div class="select-wrapper" style="width: 210px;">
+                            <select id="usuarioFilter" class="form-control" onchange="filterData()" style="width: 100%; padding: 0.35rem 2.2rem 0.35rem 0.75rem; height: 36px; background: #1e293b; color: #f1f5f9; border: 1px solid var(--border); border-radius: 8px; font-size: 0.83rem; line-height: 1.2; cursor: pointer; box-sizing: border-box;">
+                                <option value="" style="background:#1e293b; color:#f1f5f9;">Todos los usuarios</option>
+                                <?php foreach ($usuarios as $u): ?>
+                                    <option value="<?= htmlspecialchars($u['nombre']) ?>" style="background:#1e293b; color:#f1f5f9;"><?= htmlspecialchars($u['nombre']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="select-arrow-btn">▼</div>
+                        </div>
+                    </div>
+
                     <!-- Indicador de registros en rango -->
                     <span id="fecha-rango-info" style="margin-left: auto; font-size: 0.78rem; color: var(--text-muted);"></span>
                 </div>
@@ -361,6 +390,7 @@ $filtroSkuJs = json_encode($filtroSku);
         function filterData() {
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
             const tipoFilter = document.getElementById('tipoFilter').value;
+            const usuarioFilter = (document.getElementById('usuarioFilter')?.value || '').trim().toLowerCase();
 
             // Rango de fechas: fecha inicio = 00:00:00 del día, fecha fin = 23:59:59 del día
             const fechaInicioVal = document.getElementById('fechaInicio').value;
@@ -414,16 +444,28 @@ $filtroSkuJs = json_encode($filtroSku);
                     }
                 }
 
-                return matchTipoFilter && matchQuery && matchFecha;
+                const itemUsuario = (item.usuario_nombre || '').trim().toLowerCase();
+                const matchUsuarioFilter = !usuarioFilter || (itemUsuario === usuarioFilter);
+
+                return matchTipoFilter && matchUsuarioFilter && matchQuery && matchFecha;
             });
 
-            // Actualizar indicador de rango
+            // Actualizar indicador de rango y usuario
             const infoRango = document.getElementById('fecha-rango-info');
             if (infoRango) {
+                const detalles = [];
                 if (fechaInicioVal || fechaFinVal) {
                     const desde = fechaInicioVal ? fechaInicioVal.split('-').reverse().join('/') : '…';
                     const hasta = fechaFinVal    ? fechaFinVal.split('-').reverse().join('/')    : 'hoy';
-                    infoRango.textContent = `${filteredData.length} registro(s) entre ${desde} y ${hasta}`;
+                    detalles.push(`entre ${desde} y ${hasta}`);
+                }
+                if (usuarioFilter) {
+                    const userSelect = document.getElementById('usuarioFilter');
+                    const userText = userSelect && userSelect.selectedIndex >= 0 ? userSelect.options[userSelect.selectedIndex].text : usuarioFilter;
+                    detalles.push(`usuario: ${userText}`);
+                }
+                if (detalles.length > 0) {
+                    infoRango.textContent = `${filteredData.length} registro(s) (${detalles.join(', ')})`;
                     infoRango.style.color = '#a5b4fc';
                 } else {
                     infoRango.textContent = '';
@@ -588,6 +630,7 @@ $filtroSkuJs = json_encode($filtroSku);
 
         document.getElementById('searchInput').addEventListener('input', filterData);
         document.getElementById('tipoFilter').addEventListener('change', filterData);
+        document.getElementById('usuarioFilter')?.addEventListener('change', filterData);
         document.getElementById('pageSizeSelect').addEventListener('change', (e) => {
             pageSize = parseInt(e.target.value) || 10;
             currentPage = 1;
