@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../src/config/Database.php';
 require_once __DIR__ . '/../../src/modules/auth/Usuario.php';
 require_once __DIR__ . '/../../src/modules/auth/AuthService.php';
 require_once __DIR__ . '/../../src/modules/catalog/Producto.php';
+require_once __DIR__ . '/../../src/modules/catalog/Historial.php';
 require_once __DIR__ . '/../../src/modules/customers/Cliente.php';
 require_once __DIR__ . '/../../src/modules/inventory/MovimientoInventario.php';
 require_once __DIR__ . '/../../src/modules/laundry/Carga.php';
@@ -72,8 +73,8 @@ try {
             );
             $productos = $stmtProd->fetchAll(PDO::FETCH_ASSOC);
 
-            // Obtener lista inicial de clientes (top 50)
-            $stmtCli = $db->query("SELECT id, nombre, telefono, whatsapp_disponible, direccion FROM clientes WHERE estado = 'ACTIVO' ORDER BY nombre ASC LIMIT 50");
+            // Obtener lista completa de clientes registrados activos
+            $stmtCli = $db->query("SELECT id, nombre, telefono, whatsapp_disponible, direccion FROM clientes WHERE estado = 'ACTIVO' ORDER BY nombre ASC");
             $clientes = $stmtCli->fetchAll(PDO::FETCH_ASSOC);
 
             // Ventas recientes del día
@@ -92,7 +93,9 @@ try {
                 ],
                 'caja_abierta'      => $cajaAbierta,
                 'productos'         => $productos,
+                'products'          => $productos,
                 'clientes'          => $clientes,
+                'clients'           => $clientes,
                 'ventas_recientes'  => $ventasRecientes,
                 'total_pendientes'  => count($pendientes)
             ]);
@@ -230,6 +233,7 @@ try {
 
             $datosVenta = [
                 'usuario_id'     => $currentUserId,
+                'usuario_nombre' => $currentUserName,
                 'cliente_id'     => !empty($_POST['cliente_id']) ? $_POST['cliente_id'] : null,
                 'caja_id'        => $cajaId,
                 'items'          => $items,

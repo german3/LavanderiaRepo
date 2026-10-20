@@ -56,6 +56,7 @@ $filtroSkuJs = json_encode($filtroSku);
         .badge-salida     { background: rgba(244, 63, 94, 0.2); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.3); }
         .badge-eliminacion{ background: rgba(245, 158, 11, 0.2); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.3); }
         .badge-edicion    { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); }
+        .badge-venta      { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.45); }
 
         .sort-header {
             cursor: pointer;
@@ -171,6 +172,7 @@ $filtroSkuJs = json_encode($filtroSku);
                         <div class="select-wrapper" style="width: 210px;">
                             <select id="tipoFilter" class="form-control" style="width: 100%; padding: 0.4rem 2.2rem 0.4rem 0.75rem; height: 38px; background: #1e293b; color: #f1f5f9; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; line-height: 1.2; cursor: pointer; box-sizing: border-box;">
                                 <option value="" style="background:#1e293b; color:#f1f5f9;">Todos los movimientos</option>
+                                <option value="VENTA POS" style="background:#1e293b; color:#f1f5f9;">Ventas POS / Cobro</option>
                                 <option value="ALTA PRODUCTO" style="background:#1e293b; color:#f1f5f9;">Alta de Producto</option>
                                 <option value="ENTRADA STOCK" style="background:#1e293b; color:#f1f5f9;">Entrada de Stock</option>
                                 <option value="SALIDA STOCK" style="background:#1e293b; color:#f1f5f9;">Salida de Stock</option>
@@ -363,6 +365,7 @@ $filtroSkuJs = json_encode($filtroSku);
 
         function getBadgeClass(tipo) {
             switch (tipo) {
+                case 'VENTA POS': return 'badge-venta';
                 case 'ALTA PRODUCTO': return 'badge-alta';
                 case 'ENTRADA STOCK': return 'badge-entrada';
                 case 'SALIDA STOCK': return 'badge-salida';
@@ -567,12 +570,14 @@ $filtroSkuJs = json_encode($filtroSku);
                             ${item.producto_sku ? `<span class="sku-tag">SKU: ${item.producto_sku}</span>` : ''}
                         </td>
                         <td style="text-align: right; font-weight: 600;">
-                            ${item.tipo_movimiento === 'SALIDA STOCK' ? `<span style="color:#fda4af;">-${cantidadFormatted}</span>` : `<span style="color:#6ee7b7;">+${cantidadFormatted}</span>`}
+                            ${item.tipo_movimiento === 'SALIDA STOCK' ? `<span style="color:#fda4af;">-${cantidadFormatted}</span>` : 
+                              item.tipo_movimiento === 'VENTA POS' ? `<span style="color:#38bdf8; font-weight:700;">${cantidadFormatted}</span>` : 
+                              `<span style="color:#6ee7b7;">+${cantidadFormatted}</span>`}
                         </td>
                         <td style="text-align: center; font-size: 0.85rem; color: var(--text-muted);">
-                            <span>${stockAntesFormatted}</span>
-                            <span style="margin: 0 0.3rem; opacity: 0.5;">→</span>
-                            <strong style="color: #fff;">${stockDespuesFormatted}</strong>
+                            ${(item.tipo_producto === 'SERVICIO' && stockAntesFormatted == '0.00' && stockDespuesFormatted == '0.00') ? 
+                              `<span style="font-size:0.75rem; color:#94a3b8; font-style:italic;">Servicio (N/A)</span>` : 
+                              `<span>${stockAntesFormatted}</span><span style="margin: 0 0.3rem; opacity: 0.5;">→</span><strong style="color: #fff;">${stockDespuesFormatted}</strong>`}
                         </td>
                         <td style="text-align: right; font-size: 0.85rem;">
                             ${costoFormatted}

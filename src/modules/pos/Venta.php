@@ -2,10 +2,15 @@
 
 namespace App\Modules\Pos;
 
+require_once __DIR__ . '/../inventory/MovimientoInventario.php';
+require_once __DIR__ . '/../laundry/Carga.php';
+require_once __DIR__ . '/../catalog/Historial.php';
+
 use PDO;
 use Exception;
 use App\Modules\Inventory\MovimientoInventario;
 use App\Modules\Laundry\Carga;
+use App\Modules\Catalog\Historial;
 
 /**
  * Modelo Venta — Spec 05-punto-venta-caja.md & 06-cargas-lavanderia.md
@@ -20,6 +25,7 @@ class Venta
     private $conn;
     private $movimientoModel;
     private $cargaModel;
+    private $historialModel;
 
     public function __construct($db)
     {
@@ -27,6 +33,7 @@ class Venta
         $this->asegurarTablas();
         $this->movimientoModel = new MovimientoInventario($db);
         $this->cargaModel = new Carga($db);
+        $this->historialModel = new Historial($db);
     }
 
     private function asegurarTablas(): void
@@ -142,6 +149,29 @@ class Venta
             $ropaKgTotal = 0.0;
             $tieneServicioLavanderia = false;
 
+            // Obtener nombre del cliente principal si existe
+            $clienteNombreGlobal = 'Público General';
+            if (!empty($clienteId)) {
+                $stmtC = $this->conn->prepare("SELECT nombre, telefono FROM clientes WHERE id = :cid");
+                $stmtC->execute([':cid' => $clienteId]);
+                if ($cRow = $stmtC->fetch(PDO::FETCH_ASSOC)) {
+                    $clienteNombreGlobal = $cRow['nombre'];
+                }
+            }
+
+            // Obtener nombre del usuario que realiza el cobro
+            $usuarioNombre = $datos['usuario_nombre'] ?? null;
+            if (empty($usuarioNombre) && !empty($usuarioId)) {
+                $stmtU = $this->conn->prepare("SELECT nombre FROM usuarios WHERE id = :uid");
+                $stmtU->execute([':uid' => $usuarioId]);
+                if ($uRow = $stmtU->fetch(PDO::FETCH_ASSOC)) {
+                    $usuarioNombre = $uRow['nombre'];
+                }
+            }
+            if (empty($usuarioNombre)) {
+                $usuarioNombre = 'Cajero';
+            }
+
             // Validar y procesar cada ítem
             $detallesParaInsertar = [];
             foreach ($items as $item) {
@@ -150,13 +180,17 @@ class Venta
                 $precio = floatval($item['precio_unitario'] ?? 0);
                 $subtotal = round($cantidad * $precio, 2);
                 $ropaKg = floatval($item['ropa_kg'] ?? 0);
-                $notas = $item['notas'] ?? null;
+                $cliItemNombre = !empty($item['cliente_nombre']) ? $item['cliente_nombre'] : $clienteNombreGlobal;
+                $cliItemId = !empty($item['cliente_id']) ? $item['cliente_id'] : $clienteId;
+                
+                $notasRaw = trim($item['notas'] ?? '');
+                $notas = "Cliente: " . $cliItemNombre . ($notasRaw !== '' ? " | " . $notasRaw : "");
 
                 $totalVenta += $subtotal;
                 $ropaKgTotal += ($ropaKg * $cantidad);
 
                 // Obtener datos del producto para inventario y tipo
-                $stmtP = $this->conn->prepare("SELECT id, descripcion, tipo, stock_cantidad, costo FROM productos WHERE id = :id FOR UPDATE");
+                $stmtP = $this->conn->prepare("SELECT id, descripcion, tipo, stock_cantidad, costo, codigo_barras, codigo_interno_sku, unidad_medida FROM productos WHERE id = :id FOR UPDATE");
                 $stmtP->execute([':id' => $productoId]);
                 $productoInfo = $stmtP->fetch(PDO::FETCH_ASSOC);
 
@@ -177,6 +211,8 @@ class Venta
                     'subtotal'        => $subtotal,
                     'ropa_kg'         => $ropaKg,
                     'notas'           => $notas,
+                    'cliente_id'      => $cliItemId,
+                    'cliente_nombre'  => $cliItemNombre,
                     'producto_info'   => $productoInfo
                 ];
             }
@@ -248,10 +284,11 @@ class Venta
 
                 $pInfo = $det['producto_info'];
                 $cant = $det['cantidad'];
+                $stockAntes = floatval($pInfo['stock_cantidad']);
+                $stockDespues = $stockAntes;
 
                 // Regla Spec 05 §3: Si tipo = NORMAL, descontar y registrar MovimientoInventario VENTA
                 if ($pInfo['tipo'] === 'NORMAL') {
-                    $stockAntes = floatval($pInfo['stock_cantidad']);
                     $stockDespues = $stockAntes - $cant;
 
                     $stmtUpd = $this->conn->prepare("UPDATE productos SET stock_cantidad = :nuevo_stock WHERE id = :id");
@@ -261,7 +298,7 @@ class Venta
                         'producto_id'     => $pInfo['id'],
                         'cantidad'        => $cant,
                         'tipo_movimiento' => 'VENTA',
-                        'motivo'          => "Venta en mostrador Folio: {$folio}",
+                        'motivo'          => "Venta en mostrador Folio: {$folio} - Cliente: {$det['cliente_nombre']}",
                         'usuario_id'      => $usuarioId,
                         'referencia_id'   => $ventaId,
                         'costo_unitario'  => floatval($pInfo['costo']),
@@ -293,7 +330,7 @@ class Venta
                             'producto_id'     => $insumo['insumo_id'],
                             'cantidad'        => $cantConsumidaTotal,
                             'tipo_movimiento' => 'KIT_CONSUMO',
-                            'motivo'          => "Consumo por Kit {$pInfo['descripcion']} en Venta {$folio}",
+                            'motivo'          => "Consumo por Kit {$pInfo['descripcion']} en Venta {$folio} - Cliente: {$det['cliente_nombre']}",
                             'usuario_id'      => $usuarioId,
                             'referencia_id'   => $ventaId,
                             'costo_unitario'  => floatval($insumo['costo']),
@@ -302,6 +339,28 @@ class Venta
                         ]);
                     }
                 }
+
+                // ═════════════════════════════════════════════════════════════
+                // REGISTRO GLOBAL EN HISTORIAL DE MOVIMIENTOS (Spec FrontOffice)
+                // ═════════════════════════════════════════════════════════════
+                $cantHistorial = $det['ropa_kg'] > 0 ? $det['ropa_kg'] : $cant;
+                $unidadHistorial = $det['ropa_kg'] > 0 ? "kg" : ($pInfo['unidad_medida'] ?? 'pza');
+                $motivoHistorial = "Cobro Venta Folio: {$folio} - Cliente: {$det['cliente_nombre']} ({$cantHistorial} {$unidadHistorial})";
+
+                $this->historialModel->registrar([
+                    'tipo_movimiento'      => 'VENTA POS',
+                    'producto_id'          => $pInfo['id'],
+                    'producto_sku'         => $pInfo['codigo_interno_sku'] ?: ($pInfo['codigo_barras'] ?: 'S/C'),
+                    'producto_descripcion' => $pInfo['descripcion'],
+                    'tipo_producto'        => $pInfo['tipo'],
+                    'cantidad'             => $cantHistorial,
+                    'costo_unitario'       => $det['precio_unitario'],
+                    'stock_antes'          => $stockAntes,
+                    'stock_despues'        => $stockDespues,
+                    'motivo'               => $motivoHistorial,
+                    'usuario_id'           => null,
+                    'usuario_nombre'       => $usuarioNombre
+                ]);
             }
 
             // Regla Spec 05 §3 & 06 §3: Generar Carga automáticamente para servicios de lavandería
