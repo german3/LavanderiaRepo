@@ -14,11 +14,21 @@ class Database {
     public $conn;
 
     public function __construct() {
-        $this->host = getenv('DB_HOST') ?: "localhost";
-        $this->db_name = getenv('DB_NAME') ?: "lavanderia_db";
-        $this->username = getenv('DB_USER') ?: "root";
-        $this->password = getenv('DB_PASS') !== false ? getenv('DB_PASS') : "";
-        $this->port = getenv('DB_PORT') ?: "3306";
+        $get = function($key, $default = null) {
+            $val = getenv($key);
+            if ($val !== false && $val !== '') return $val;
+            if (isset($_ENV[$key]) && $_ENV[$key] !== '') return $_ENV[$key];
+            if (isset($_SERVER[$key]) && $_SERVER[$key] !== '') return $_SERVER[$key];
+            return $default;
+        };
+
+        // En local conecta a localhost por defecto.
+        // En Render u otro servidor en la nube, lee las variables de entorno (DB_HOST, DB_USER, DB_PASS, etc.)
+        $this->host     = $get('DB_HOST', "localhost");
+        $this->port     = $get('DB_PORT', "3306");
+        $this->username = $get('DB_USER', "root");
+        $this->password = $get('DB_PASS', "");
+        $this->db_name  = $get('DB_NAME', "lavanderia_db");
     }
 
     public function getConnection() {
@@ -26,13 +36,18 @@ class Database {
 
         try {
             $dsn = "mysql:host=" . $this->host . ";port=" . $this->port . ";dbname=" . $this->db_name . ";charset=utf8mb4";
-            $this->conn = new PDO($dsn, $this->username, $this->password);
-            
-            // Configurar PDO para que lance excepciones en caso de error
-            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            
-            // Configurar el modo de obtención de datos por defecto a un array asociativo
-            $this->conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            $options = [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ];
+
+            // Si es conexión a la nube (como Aiven), requerir SSL
+            if ($this->host !== 'localhost' && $this->host !== '127.0.0.1') {
+                $options[PDO::MYSQL_ATTR_SSL_CA] = true;
+                $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
+            }
+
+            $this->conn = new PDO($dsn, $this->username, $this->password, $options);
             
         } catch(PDOException $exception) {
             error_log("Error de conexión BD: " . $exception->getMessage());

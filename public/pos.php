@@ -81,16 +81,16 @@ $isAdmin  = $auth->isPosAdmin();
             </div>
 
             <!-- Botón Cerrar Sesión POS -->
-            <a href="pos_logout.php" class="pos-btn-head" style="background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.3); color:#fca5a5;" title="Cerrar sesión de este cajero en el POS">
+            <a href="javascript:void(0)" onclick="confirmarCerrarSesionPos()" class="pos-btn-head" style="background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.3); color:#fca5a5;" title="Cerrar sesión de este cajero en el POS">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                 <span>Salir POS</span>
             </a>
 
-            <!-- Botón Volver al Backoffice -->
-            <a href="dashboard.php" class="pos-btn-head" style="background:rgba(59,130,246,0.15); border-color:rgba(59,130,246,0.3); color:#93c5fd;" title="Volver a la administración (Backoffice)">
+            <!-- Botón Acceder al Backoffice (Confirmación previa) -->
+            <button type="button" class="pos-btn-head" onclick="confirmarIngresoBackoffice()" style="background:rgba(59,130,246,0.15); border-color:rgba(59,130,246,0.3); color:#93c5fd;" title="Acceder al Backoffice (requiere confirmación e inicio de sesión)">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                 <span>Backoffice</span>
-            </a>
+            </button>
         </div>
     </header>
 
@@ -593,6 +593,137 @@ $isAdmin  = $auth->isPosAdmin();
             </form>
         </div>
     </div>
+
+    <!-- Modal de confirmación de cierre de sesión POS (Idéntico a BackOffice) -->
+    <div id="modal-logout-pos" style="display:none; position:fixed; inset:0; z-index:99999; align-items:center; justify-content:center;">
+        <div id="modal-logout-pos-backdrop" onclick="cancelarCerrarSesionPos()" style="position:absolute; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px);"></div>
+        <div style="position:relative; background:#1e1e2e; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:2rem 2.5rem; width:100%; max-width:380px; box-shadow:0 25px 60px rgba(0,0,0,0.5); text-align:center; animation:modalInPos .25s ease;">
+            <div style="width:56px; height:56px; border-radius:50%; background:rgba(239,68,68,0.15); display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </div>
+            <h3 style="font-size:1.15rem; font-weight:600; color:#e2e8f0; margin-bottom:.5rem;">¿Cerrar sesión?</h3>
+            <p style="font-size:.875rem; color:#94a3b8; margin-bottom:1.75rem; line-height:1.4;">Se cerrará tu sesión actual y tendrás que volver a iniciar sesión para acceder al sistema.</p>
+            <div style="display:flex; gap:.75rem; justify-content:center;">
+                <button type="button" id="btn-logout-pos-cancel" onclick="cancelarCerrarSesionPos()" style="flex:1; padding:.65rem 1rem; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:#94a3b8; font-size:.875rem; cursor:pointer; transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">Cancelar</button>
+                <a id="btn-logout-pos-confirm" href="pos_logout.php" style="flex:1; padding:.65rem 1rem; border-radius:8px; border:none; background:#ef4444; color:#fff; font-size:.875rem; font-weight:600; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:all .2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Sí, cerrar sesión</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación de acceso al BackOffice -->
+    <div id="modal-backoffice-confirm" style="display:none; position:fixed; inset:0; z-index:99999; align-items:center; justify-content:center;">
+        <div id="modal-backoffice-backdrop" onclick="cancelarIngresoBackoffice()" style="position:absolute; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px);"></div>
+        <div style="position:relative; background:#1e1e2e; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:2rem 2.5rem; width:100%; max-width:390px; box-shadow:0 25px 60px rgba(0,0,0,0.5); text-align:center; animation:modalInPos .25s ease;">
+            <div style="width:56px; height:56px; border-radius:50%; background:rgba(59,130,246,0.15); display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            </div>
+            <h3 style="font-size:1.15rem; font-weight:600; color:#e2e8f0; margin-bottom:.5rem;">¿Ingresar al BackOffice?</h3>
+            <p style="font-size:.875rem; color:#94a3b8; margin-bottom:1.75rem; line-height:1.4;">Accederás al panel de administración. Por seguridad se abrirá en una pestaña dedicada y se requerirá iniciar sesión con una cuenta de <strong>Administrador</strong>.</p>
+            <div style="display:flex; gap:.75rem; justify-content:center;">
+                <button type="button" onclick="cancelarIngresoBackoffice()" style="flex:1; padding:.65rem 1rem; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:#94a3b8; font-size:.875rem; cursor:pointer; transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">Cancelar</button>
+                <a href="login.php?from=pos" target="_blank" rel="noopener noreferrer" onclick="cancelarIngresoBackoffice()" style="flex:1; padding:.65rem 1rem; border-radius:8px; border:none; background:#3b82f6; color:#fff; font-size:.875rem; font-weight:600; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:all .2s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">Sí, ingresar</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Moderno de Notificación / Alerta POS -->
+    <div id="modal-notificacion-pos" style="display:none; position:fixed; inset:0; z-index:999999; align-items:center; justify-content:center;">
+        <div id="modal-notificacion-pos-backdrop" onclick="POS.cerrarMensaje()" style="position:absolute; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px);"></div>
+        <div style="position:relative; background:#1e1e2e; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:2rem 2.25rem; width:100%; max-width:390px; box-shadow:0 25px 60px rgba(0,0,0,0.5); text-align:center; animation:modalInPos .25s ease;">
+            <div id="notif-pos-icon-wrap" style="width:58px; height:58px; border-radius:50%; background:rgba(16,185,129,0.15); display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem;">
+                <svg id="notif-pos-icon-svg" xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+            </div>
+            <h3 id="notif-pos-titulo" style="font-size:1.2rem; font-weight:700; color:#f9fafb; margin-bottom:.5rem;">¡Caja Abierta con Éxito!</h3>
+            <p id="notif-pos-mensaje" style="font-size:.92rem; color:#94a3b8; margin-bottom:1.75rem; line-height:1.5; white-space:pre-line;">Caja abierta correctamente.</p>
+            <div style="display:flex; justify-content:center;">
+                <button type="button" id="notif-pos-btn" onclick="POS.cerrarMensaje()" style="width:100%; padding:.75rem 1.5rem; border-radius:8px; border:none; background:#10b981; color:#fff; font-size:.95rem; font-weight:700; cursor:pointer; transition:all .2s; box-shadow:0 4px 12px rgba(16,185,129,0.25);" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Moderno de Confirmación POS -->
+    <div id="modal-confirmacion-pos" style="display:none; position:fixed; inset:0; z-index:999999; align-items:center; justify-content:center;">
+        <div id="modal-confirmacion-pos-backdrop" onclick="POS.cancelarConfirmacion()" style="position:absolute; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px);"></div>
+        <div style="position:relative; background:#1e1e2e; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:2rem 2.25rem; width:100%; max-width:400px; box-shadow:0 25px 60px rgba(0,0,0,0.5); text-align:center; animation:modalInPos .25s ease;">
+            <div id="confirm-pos-icon-wrap" style="width:58px; height:58px; border-radius:50%; background:rgba(239,68,68,0.15); display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem;">
+                <svg id="confirm-pos-icon-svg" xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </div>
+            <h3 id="confirm-pos-titulo" style="font-size:1.2rem; font-weight:700; color:#f9fafb; margin-bottom:.5rem;">¿Cerrar Turno de Caja?</h3>
+            <p id="confirm-pos-mensaje" style="font-size:.92rem; color:#94a3b8; margin-bottom:1.75rem; line-height:1.5;">¿Estás seguro de que deseas cerrar el turno de caja actual? Se generará el corte y no se podrán registrar más ventas en este turno.</p>
+            <div style="display:flex; gap:.75rem; justify-content:center;">
+                <button type="button" id="confirm-pos-btn-no" onclick="POS.cancelarConfirmacion()" style="flex:1; padding:.65rem 1rem; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:#94a3b8; font-size:.875rem; cursor:pointer; transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">Cancelar</button>
+                <button type="button" id="confirm-pos-btn-si" onclick="POS.ejecutarConfirmacion()" style="flex:1; padding:.65rem 1rem; border-radius:8px; border:none; background:#ef4444; color:#fff; font-size:.875rem; font-weight:600; cursor:pointer; transition:all .2s; box-shadow:0 4px 12px rgba(239,68,68,0.25);" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Sí, cerrar caja</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+    @keyframes modalInPos {
+        from { opacity:0; transform:scale(.92) translateY(12px); }
+        to   { opacity:1; transform:scale(1)  translateY(0); }
+    }
+    </style>
+
+    <script>
+    function confirmarCerrarSesionPos() {
+        const modal = document.getElementById('modal-logout-pos');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+    }
+    function cancelarCerrarSesionPos() {
+        const modal = document.getElementById('modal-logout-pos');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    }
+
+    function confirmarIngresoBackoffice() {
+        const modal = document.getElementById('modal-backoffice-confirm');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+    }
+    function cancelarIngresoBackoffice() {
+        const modal = document.getElementById('modal-backoffice-confirm');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            cancelarCerrarSesionPos();
+            cancelarIngresoBackoffice();
+            if (window.POS && typeof POS.cerrarMensaje === 'function') {
+                POS.cerrarMensaje();
+            }
+            if (window.POS && typeof POS.cancelarConfirmacion === 'function') {
+                POS.cancelarConfirmacion();
+            }
+        }
+    });
+
+    // Evitar que el botón ATRAS del navegador vuelva a la pantalla de login del POS
+    if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, document.title, window.location.href);
+    }
+    history.pushState(null, document.title, location.href);
+    window.addEventListener('popstate', function () {
+        history.pushState(null, document.title, location.href);
+    });
+    </script>
 
     <!-- Scripts -->
     <script src="js/pos.js"></script>

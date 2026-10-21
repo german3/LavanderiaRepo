@@ -9,7 +9,7 @@ use App\Modules\Auth\AuthService;
 $db = (new Database())->getConnection();
 $auth = new AuthService($db);
 
-if (!$auth->checkAuth()) {
+if (!$auth->canAccessBackoffice()) {
     header("Location: login.php");
     exit;
 }
@@ -49,5 +49,15 @@ if (isset($_GET['logout'])) {
         </main>
     </div>
     <script src="js/sidebar.js"></script>
+    <script>
+        // Evitar que el historial regrese a la pantalla de login o al POS
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, document.title, window.location.href);
+        }
+        history.pushState(null, document.title, location.href);
+        window.addEventListener('popstate', function () {
+            history.pushState(null, document.title, location.href);
+        });
+    </script>
 </body>
 </html>

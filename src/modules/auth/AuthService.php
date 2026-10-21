@@ -17,36 +17,64 @@ class AuthService {
         }
     }
 
-    // Caso de uso: AutenticarUsuario
-    public function login($correo, $password) {
+    // Caso de uso: AutenticarUsuario en BackOffice (Requiere rol ADMINISTRADOR)
+    public function loginBackoffice($correo, $password) {
         $userData = $this->usuarioModel->buscarPorCorreo($correo);
 
-        if ($userData && password_verify($password, $userData['password_hash'])) {
-            
-            // Generar sesión en Base de Datos
-            $token = bin2hex(random_bytes(32));
-            $sessionId = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x', mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000, mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff));
-            
-            $query = "INSERT INTO sesiones (id, usuario_id, token) VALUES (:id, :usuario_id, :token)";
-            $stmt = $this->conn->prepare($query);
-            $stmt->execute([
-                ':id' => $sessionId,
-                ':usuario_id' => $userData['id'],
-                ':token' => $token
-            ]);
-
-            // Actualizar última actividad
-            $this->usuarioModel->registrarActividad($userData['id']);
-
-            // Guardar en sesión PHP
-            $_SESSION['usuario_id'] = $userData['id'];
-            $_SESSION['rol'] = $userData['rol'];
-            $_SESSION['nombre'] = $userData['nombre'];
-            $_SESSION['token'] = $token;
-
-            return true;
+        if (!$userData || !password_verify($password, $userData['password_hash'])) {
+            return [
+                'success' => false,
+                'error'   => 'Credenciales incorrectas o usuario no encontrado.'
+            ];
         }
-        return false;
+
+        if ($userData['estado'] !== 'ACTIVO') {
+            return [
+                'success' => false,
+                'error'   => 'Tu cuenta se encuentra inactiva. Contacta al administrador.'
+            ];
+        }
+
+        // Validación de permisos por rol: Solo ADMINISTRADOR puede acceder al BackOffice
+        if ($userData['rol'] !== 'ADMINISTRADOR') {
+            return [
+                'success' => false,
+                'error'   => 'Acceso denegado: El usuario "' . htmlspecialchars($userData['nombre']) . '" tiene rol ' . 
+                             ($userData['rol'] === 'EMPLEADO_CAJERO' ? 'Empleado / Cajero' : $userData['rol']) . 
+                             ' y solo tiene permisos para acceder al FrontOffice (Punto de Venta).'
+            ];
+        }
+
+        // Generar sesión en Base de Datos
+        $token = bin2hex(random_bytes(32));
+        $sessionId = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x', mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000, mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff));
+        
+        $query = "INSERT INTO sesiones (id, usuario_id, token) VALUES (:id, :usuario_id, :token)";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([
+            ':id' => $sessionId,
+            ':usuario_id' => $userData['id'],
+            ':token' => $token
+        ]);
+
+        // Actualizar última actividad
+        $this->usuarioModel->registrarActividad($userData['id']);
+
+        // Guardar en sesión PHP
+        $_SESSION['usuario_id'] = $userData['id'];
+        $_SESSION['rol']        = $userData['rol'];
+        $_SESSION['nombre']     = $userData['nombre'];
+        $_SESSION['token']      = $token;
+
+        return [
+            'success' => true,
+            'usuario' => $userData
+        ];
+    }
+
+    public function login($correo, $password) {
+        $res = $this->loginBackoffice($correo, $password);
+        return $res['success'];
     }
 
     public function logout() {
@@ -86,6 +114,10 @@ class AuthService {
 
     public function isAdmin() {
         return isset($_SESSION['rol']) && $_SESSION['rol'] === 'ADMINISTRADOR';
+    }
+
+    public function canAccessBackoffice() {
+        return $this->checkAuth() && $this->isAdmin();
     }
 
     // ─────────────────────────────────────────────────────────────

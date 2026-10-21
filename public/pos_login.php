@@ -13,9 +13,9 @@ header("Pragma: no-cache");
 $db   = (new Database())->getConnection();
 $auth = new AuthService($db);
 
-// Si ya tiene sesión activa en POS y no solicitó cambio, redirigir a pos.php
+// Si ya tiene sesión activa en POS y no solicitó cambio, redirigir a pos.php sin guardar historial
 if ($auth->checkAuthPos() && empty($_GET['cambiar'])) {
-    header("Location: pos.php");
+    echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><script>window.location.replace("pos.php");</script></head><body></body></html>';
     exit;
 }
 
@@ -40,7 +40,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if ($correo === '' || $password === '') {
         $error = "Por favor ingresa usuario/correo y contraseña.";
     } elseif ($auth->loginPos($correo, $password)) {
-        header("Location: pos.php");
+        // Reemplazar historial para que el botón atrás del navegador no regrese al inicio de sesión
+        echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><script>window.location.replace("pos.php");</script></head><body></body></html>';
         exit;
     } else {
         $error = "Credenciales incorrectas o usuario inactivo.";

@@ -1385,14 +1385,26 @@ const POS = {
             });
             const data = await res.json();
             if (data.success) {
-                alert(data.message);
                 this.closeModal('modal-apertura-caja');
                 await this.loadInitialData();
+                this.mostrarMensaje({
+                    tipo: 'success',
+                    titulo: '¡Caja Abierta con Éxito!',
+                    mensaje: data.message
+                });
             } else {
-                alert(data.message);
+                this.mostrarMensaje({
+                    tipo: 'error',
+                    titulo: 'No se pudo abrir la caja',
+                    mensaje: data.message || 'Error al abrir caja'
+                });
             }
         } catch (e) {
-            alert('Error al abrir caja');
+            this.mostrarMensaje({
+                tipo: 'error',
+                titulo: 'Error de Conexión',
+                mensaje: 'Error de conexión al abrir caja'
+            });
         }
     },
 
@@ -1458,11 +1470,20 @@ const POS = {
         }
     },
 
-    async cerrarCajaConfirm() {
-        if (!confirm('¿Estás seguro de que deseas cerrar el turno de caja actual? Se generará el corte y no se podrán registrar más ventas en este turno.')) {
-            return;
-        }
+    cerrarCajaConfirm() {
+        this.mostrarConfirmacion({
+            tipo: 'danger',
+            titulo: '¿Cerrar Turno de Caja?',
+            mensaje: '¿Estás seguro de que deseas cerrar el turno de caja actual? Se generará el corte y no se podrán registrar más ventas en este turno.',
+            btnConfirmar: 'Sí, cerrar caja',
+            colorConfirmar: '#ef4444',
+            onConfirm: async () => {
+                await this.procesarCierreCaja();
+            }
+        });
+    },
 
+    async procesarCierreCaja() {
         const declarado = parseFloat(document.getElementById('corte-efectivo-declarado').value) || 0;
         const obs = document.getElementById('corte-observaciones').value;
 
@@ -1479,14 +1500,26 @@ const POS = {
             });
             const data = await res.json();
             if (data.success) {
-                alert(`Caja cerrada exitosamente.\nDiferencia final: $${data.diferencia.toFixed(2)}`);
                 this.closeModal('modal-corte-caja');
                 await this.loadInitialData();
+                this.mostrarMensaje({
+                    tipo: 'success',
+                    titulo: '¡Caja Cerrada con Éxito!',
+                    mensaje: `Caja cerrada exitosamente.\nDiferencia final: $${data.diferencia.toFixed(2)}`
+                });
             } else {
-                alert(data.message || 'Error al cerrar caja');
+                this.mostrarMensaje({
+                    tipo: 'error',
+                    titulo: 'Error al Cerrar Caja',
+                    mensaje: data.message || 'Error al cerrar caja'
+                });
             }
         } catch (e) {
-            alert('Error de conexión al cerrar caja');
+            this.mostrarMensaje({
+                tipo: 'error',
+                titulo: 'Error de Conexión',
+                mensaje: 'Error de conexión al cerrar caja'
+            });
         }
     },
 
@@ -1646,6 +1679,152 @@ const POS = {
     closeAllModals() {
         document.querySelectorAll('.pos-modal-overlay').forEach(m => m.classList.remove('active'));
         this.activeModal = null;
+    },
+
+    notifCallback: null,
+
+    mostrarMensaje({ tipo = 'success', titulo = 'Aviso', mensaje = '', onConfirm = null }) {
+        this.notifCallback = onConfirm;
+        const modal = document.getElementById('modal-notificacion-pos');
+        const iconWrap = document.getElementById('notif-pos-icon-wrap');
+        const iconSvg = document.getElementById('notif-pos-icon-svg');
+        const titleEl = document.getElementById('notif-pos-titulo');
+        const msgEl = document.getElementById('notif-pos-mensaje');
+        const btn = document.getElementById('notif-pos-btn');
+
+        if (!modal) {
+            alert(mensaje);
+            return;
+        }
+
+        if (titleEl) titleEl.textContent = titulo;
+        if (msgEl) msgEl.textContent = mensaje;
+
+        if (tipo === 'success') {
+            if (iconWrap) iconWrap.style.background = 'rgba(16, 185, 129, 0.15)';
+            if (iconSvg) {
+                iconSvg.setAttribute('stroke', '#10b981');
+                iconSvg.innerHTML = '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>';
+            }
+            if (btn) {
+                btn.style.background = '#10b981';
+                btn.onmouseover = () => btn.style.background = '#059669';
+                btn.onmouseout = () => btn.style.background = '#10b981';
+            }
+        } else if (tipo === 'error') {
+            if (iconWrap) iconWrap.style.background = 'rgba(239, 68, 68, 0.15)';
+            if (iconSvg) {
+                iconSvg.setAttribute('stroke', '#ef4444');
+                iconSvg.innerHTML = '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>';
+            }
+            if (btn) {
+                btn.style.background = '#ef4444';
+                btn.onmouseover = () => btn.style.background = '#dc2626';
+                btn.onmouseout = () => btn.style.background = '#ef4444';
+            }
+        } else {
+            if (iconWrap) iconWrap.style.background = 'rgba(59, 130, 246, 0.15)';
+            if (iconSvg) {
+                iconSvg.setAttribute('stroke', '#3b82f6');
+                iconSvg.innerHTML = '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>';
+            }
+            if (btn) {
+                btn.style.background = '#3b82f6';
+                btn.onmouseover = () => btn.style.background = '#2563eb';
+                btn.onmouseout = () => btn.style.background = '#3b82f6';
+            }
+        }
+
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    },
+
+    cerrarMensaje() {
+        const modal = document.getElementById('modal-notificacion-pos');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        if (typeof this.notifCallback === 'function') {
+            const cb = this.notifCallback;
+            this.notifCallback = null;
+            cb();
+        }
+    },
+
+    confirmCallback: null,
+
+    mostrarConfirmacion({
+        tipo = 'warning',
+        titulo = '¿Confirmar acción?',
+        mensaje = '',
+        btnConfirmar = 'Sí, continuar',
+        colorConfirmar = '#ef4444',
+        onConfirm = null
+    }) {
+        this.confirmCallback = onConfirm;
+        const modal = document.getElementById('modal-confirmacion-pos');
+        const iconWrap = document.getElementById('confirm-pos-icon-wrap');
+        const iconSvg = document.getElementById('confirm-pos-icon-svg');
+        const titleEl = document.getElementById('confirm-pos-titulo');
+        const msgEl = document.getElementById('confirm-pos-mensaje');
+        const btnConf = document.getElementById('confirm-pos-btn-si');
+
+        if (!modal) {
+            if (confirm(mensaje)) {
+                if (typeof onConfirm === 'function') onConfirm();
+            }
+            return;
+        }
+
+        if (titleEl) titleEl.textContent = titulo;
+        if (msgEl) msgEl.textContent = mensaje;
+
+        if (tipo === 'warning' || tipo === 'danger') {
+            if (iconWrap) iconWrap.style.background = 'rgba(239, 68, 68, 0.15)';
+            if (iconSvg) {
+                iconSvg.setAttribute('stroke', '#ef4444');
+                iconSvg.innerHTML = '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>';
+            }
+            if (btnConf) {
+                btnConf.textContent = btnConfirmar;
+                btnConf.style.background = colorConfirmar || '#ef4444';
+                btnConf.onmouseover = () => btnConf.style.background = '#dc2626';
+                btnConf.onmouseout = () => btnConf.style.background = colorConfirmar || '#ef4444';
+            }
+        } else {
+            if (iconWrap) iconWrap.style.background = 'rgba(59, 130, 246, 0.15)';
+            if (iconSvg) {
+                iconSvg.setAttribute('stroke', '#3b82f6');
+                iconSvg.innerHTML = '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>';
+            }
+            if (btnConf) {
+                btnConf.textContent = btnConfirmar;
+                btnConf.style.background = colorConfirmar || '#3b82f6';
+                btnConf.onmouseover = () => btnConf.style.background = '#2563eb';
+                btnConf.onmouseout = () => btnConf.style.background = colorConfirmar || '#3b82f6';
+            }
+        }
+
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    },
+
+    cancelarConfirmacion() {
+        const modal = document.getElementById('modal-confirmacion-pos');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        this.confirmCallback = null;
+    },
+
+    ejecutarConfirmacion() {
+        const cb = this.confirmCallback;
+        this.cancelarConfirmacion();
+        if (typeof cb === 'function') {
+            cb();
+        }
     },
 
     // ─────────────────────────────────────────────────────────────
