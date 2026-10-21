@@ -57,16 +57,63 @@ $filtroSkuJs = json_encode($filtroSku);
         .badge-eliminacion{ background: rgba(245, 158, 11, 0.2); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.3); }
         .badge-edicion    { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); }
         .badge-venta      { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.45); }
-        .badge-kit        { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3); }
+        .badge-kit        { background: rgba(139, 92, 246, 0.25); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.4); }
 
-        .kit-insumos-toggle { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.73rem; color: #a78bfa; font-weight: 600; margin-top: 0.35rem; transition: color 0.2s; }
-        .kit-insumos-toggle:hover { color: #c4b5fd; }
-        .kit-insumos-panel { display: none; margin-top: 0.55rem; padding: 0.6rem 0.8rem; background: rgba(139,92,246,0.07); border: 1px solid rgba(139,92,246,0.25); border-radius: 8px; }
-        .kit-insumos-panel.open { display: block; }
-        .kit-insumo-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.78rem; color: var(--text-muted); border-bottom: 1px solid rgba(139,92,246,0.1); }
-        .kit-insumo-row:last-child { border-bottom: none; }
-        .kit-insumo-row .insumo-qty { font-weight: 700; color: #c4b5fd; min-width: 60px; }
-        .kit-insumo-row .insumo-name { color: #e2e8f0; }
+        .kit-inline-box {
+            margin-top: 0.55rem;
+            padding: 0.6rem 0.75rem;
+            background: rgba(139, 92, 246, 0.08);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 8px;
+            font-size: 0.78rem;
+            max-width: 420px;
+        }
+        .kit-inline-header {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.72rem;
+            color: #c4b5fd;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+        }
+        .kit-insumo-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 6px;
+            padding: 0.25rem 0.5rem;
+            margin-top: 0.25rem;
+            font-size: 0.77rem;
+            transition: all 0.15s;
+        }
+        .kit-insumo-pill:hover {
+            border-color: rgba(139, 92, 246, 0.45);
+            background: rgba(15, 23, 42, 0.85);
+        }
+        .kit-insumo-qty {
+            font-weight: 700;
+            color: #c4b5fd;
+            background: rgba(139, 92, 246, 0.25);
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            white-space: nowrap;
+        }
+        .kit-insumo-name {
+            color: #f1f5f9;
+            font-weight: 500;
+        }
+        .kit-insumo-sku {
+            color: #94a3b8;
+            font-size: 0.7rem;
+            font-family: monospace;
+            margin-left: auto;
+        }
 
         .sort-header {
             cursor: pointer;
@@ -109,6 +156,11 @@ $filtroSkuJs = json_encode($filtroSku);
             .table th, .table td { border: 1px solid #cbd5e1 !important; color: #000 !important; padding: 6px 8px !important; font-size: 9pt !important; }
             .badge { border: 1px solid #94a3b8 !important; color: #000 !important; background: #f1f5f9 !important; }
             .sku-tag { border: 1px solid #cbd5e1 !important; color: #334155 !important; background: #f8fafc !important; }
+            .kit-inline-box { background: #f8fafc !important; border: 1px solid #cbd5e1 !important; color: #000 !important; }
+            .kit-insumo-pill { background: #fff !important; border: 1px solid #e2e8f0 !important; color: #000 !important; }
+            .kit-insumo-qty { background: #f1f5f9 !important; color: #000 !important; }
+            .kit-insumo-name { color: #000 !important; }
+            .kit-insumo-sku { color: #64748b !important; }
             h1 { color: #000 !important; font-size: 1.4rem !important; }
             p { color: #475569 !important; }
             input, select { border: none !important; background: none !important; color: #000 !important; }
@@ -182,6 +234,7 @@ $filtroSkuJs = json_encode($filtroSku);
                         <div class="select-wrapper" style="width: 210px;">
                             <select id="tipoFilter" class="form-control" style="width: 100%; padding: 0.4rem 2.2rem 0.4rem 0.75rem; height: 38px; background: #1e293b; color: #f1f5f9; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; line-height: 1.2; cursor: pointer; box-sizing: border-box;">
                                 <option value="" style="background:#1e293b; color:#f1f5f9;">Todos los movimientos</option>
+                                <option value="KIT" style="background:#1e293b; color:#c4b5fd; font-weight:600;">📦 Solo Kits / Paquetes</option>
                                 <option value="VENTA POS" style="background:#1e293b; color:#f1f5f9;">Ventas POS / Cobro</option>
                                 <option value="ALTA PRODUCTO" style="background:#1e293b; color:#f1f5f9;">Alta de Producto</option>
                                 <option value="ENTRADA STOCK" style="background:#1e293b; color:#f1f5f9;">Entrada de Stock</option>
@@ -331,7 +384,7 @@ $filtroSkuJs = json_encode($filtroSku);
                                 <th class="sort-header" onclick="sortData('costo_unitario')" style="text-align: right;">
                                     Costo Unit. <span class="sort-icon" id="sort-costo_unitario">⇅</span>
                                 </th>
-                                <th>Motivo / Notas</th>
+                                <th style="text-align: center;">Notas</th>
                                 <th class="sort-header" onclick="sortData('usuario_nombre')">
                                     Usuario <span class="sort-icon" id="sort-usuario_nombre">⇅</span>
                                 </th>
@@ -385,14 +438,6 @@ $filtroSkuJs = json_encode($filtroSku);
             }
         }
 
-        function toggleKitInsumos(id) {
-            const panel = document.getElementById('kit-panel-' + id);
-            const icon  = document.getElementById('kit-icon-' + id);
-            if (!panel) return;
-            const isOpen = panel.classList.toggle('open');
-            if (icon) icon.textContent = isOpen ? '▾' : '▸';
-        }
-
         function renderKitDetalle(item, rowId) {
             let kitDetalle = null;
             try {
@@ -401,23 +446,50 @@ $filtroSkuJs = json_encode($filtroSku);
 
             if (!kitDetalle || !Array.isArray(kitDetalle) || kitDetalle.length === 0) return '';
 
-            const rowsHtml = kitDetalle.map(ins => {
+            const isVenta = (item.tipo_movimiento === 'VENTA POS');
+            const tituloSeccion = isVenta ? 'Insumos consumidos en el Kit' : 'Insumos que contiene el Kit';
+
+            const pillsHtml = kitDetalle.map(ins => {
                 const qty = parseFloat(ins.cantidad_total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                return `<div class="kit-insumo-row">
-                    <span class="insumo-qty">🧪 ${qty}</span>
-                    <span style="font-size:0.72rem;color:#94a3b8;">${(ins.unidad || '').toUpperCase()}</span>
-                    <span class="insumo-name">${ins.insumo_nombre}</span>
-                </div>`;
+                const unidad = (ins.unidad || '').toUpperCase();
+                const skuHtml = ins.insumo_sku ? `<span class="kit-insumo-sku">SKU: ${ins.insumo_sku}</span>` : '';
+                return `
+                    <div class="kit-insumo-pill" title="${ins.insumo_nombre}">
+                        <span style="color:#a78bfa;font-weight:bold;font-size:0.75rem;">↳</span>
+                        <span class="kit-insumo-qty">🧪 ${qty} ${unidad}</span>
+                        <span class="kit-insumo-name">${ins.insumo_nombre}</span>
+                        ${skuHtml}
+                    </div>`;
             }).join('');
 
-            return `<div class="kit-insumos-toggle" onclick="toggleKitInsumos('${rowId}')">
-                        <span id="kit-icon-${rowId}">▸</span>
-                        Ver insumos del Kit (${kitDetalle.length})
+            return `
+                <div class="kit-inline-box">
+                    <div class="kit-inline-header">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg>
+                        <span>${tituloSeccion}</span>
+                        <span style="opacity:0.75;font-size:0.7rem;font-weight:700;">(${kitDetalle.length})</span>
                     </div>
-                    <div id="kit-panel-${rowId}" class="kit-insumos-panel">
-                        <div style="font-size:0.72rem;color:#a78bfa;font-weight:700;margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em;">Insumos consumidos</div>
-                        ${rowsHtml}
-                    </div>`;
+                    ${pillsHtml}
+                </div>`;
+        }
+
+        function formatNotasFolio(motivo) {
+            if (!motivo) return '-';
+            const text = String(motivo).trim();
+
+            // 1. Extraer Folio de textos tipo "Cobro Venta Folio: VTA-000003 - Cliente: ..." o "Folio: XXX"
+            const match = text.match(/Folio:\s*([A-Za-z0-9\-_]+)/i) || 
+                          text.match(/Folio\s*[:#]?\s*([A-Za-z0-9\-_]+)/i);
+            if (match && match[1]) {
+                return match[1];
+            }
+
+            // 2. Si el texto en sí es directamente un folio (ej. "VTA-000003", "COM-00001", etc.)
+            if (/^[A-Za-z0-9]{2,10}-[A-Za-z0-9\-]+$/i.test(text)) {
+                return text;
+            }
+
+            return '-';
         }
 
         function formatFecha(fechaStr) {
@@ -465,20 +537,24 @@ $filtroSkuJs = json_encode($filtroSku);
             }
 
             filteredData = rawData.filter(item => {
-                const matchTipoFilter = !tipoFilter || item.tipo_movimiento === tipoFilter;
+                const esKitItem = (item.tipo_producto === 'KIT' || (item.kit_detalle && item.kit_detalle !== 'null' && item.kit_detalle !== '[]'));
+                const matchTipoFilter = !tipoFilter ? true : 
+                    (tipoFilter === 'KIT' ? esKitItem : item.tipo_movimiento === tipoFilter);
 
                 const sku     = (item.producto_sku         || '').toLowerCase();
                 const desc    = (item.producto_descripcion || '').toLowerCase();
                 const tipoMov = (item.tipo_movimiento      || '').toLowerCase();
                 const usuario = (item.usuario_nombre       || '').toLowerCase();
                 const motivo  = (item.motivo               || '').toLowerCase();
+                const kitStr  = (item.kit_detalle ? (typeof item.kit_detalle === 'string' ? item.kit_detalle : JSON.stringify(item.kit_detalle)) : '').toLowerCase();
 
                 const matchQuery = !query ||
                     sku.includes(query)     ||
                     desc.includes(query)    ||
                     tipoMov.includes(query) ||
                     usuario.includes(query) ||
-                    motivo.includes(query);
+                    motivo.includes(query)  ||
+                    kitStr.includes(query);
 
                 // Filtro de rango de fechas
                 let matchFecha = true;
@@ -599,12 +675,13 @@ $filtroSkuJs = json_encode($filtroSku);
                     const stockAntesFormatted = parseFloat(item.stock_antes || 0).toFixed(2);
                     const stockDespuesFormatted = parseFloat(item.stock_despues || 0).toFixed(2);
                     
-                    const isCambioPrecio = (item.tipo_movimiento && item.tipo_movimiento.toUpperCase().includes('PRECIO')) ||
-                                           (item.motivo && item.motivo.toLowerCase().includes('precio'));
-                    const motivoDisplay = isCambioPrecio ? 'Cambio de Precio' : (item.motivo || '-');
+                    const folioVal = formatNotasFolio(item.motivo);
+                    const folioHtml = (folioVal !== '-') 
+                        ? `<span style="font-family: monospace; font-weight: 700; color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.25); white-space: nowrap;">${folioVal}</span>`
+                        : `<span style="color: var(--text-muted); opacity: 0.4;">-</span>`;
 
-                    const isKit = (item.tipo_producto === 'KIT' && item.tipo_movimiento === 'VENTA POS');
-                    const kitBadgeExtra = isKit ? ` <span class="badge badge-kit" style="font-size:0.65rem;padding:0.2rem 0.5rem;margin-left:0.3rem;">Kit/Paquete</span>` : '';
+                    const isKit = (item.tipo_producto === 'KIT' || (item.kit_detalle && item.kit_detalle !== 'null' && item.kit_detalle !== '[]'));
+                    const kitBadgeExtra = isKit ? ` <span class="badge badge-kit" style="font-size:0.65rem;padding:0.2rem 0.5rem;margin-left:0.3rem;">📦 Kit</span>` : '';
                     const kitDetalleHtml = isKit ? renderKitDetalle(item, rowId) : '';
 
                     const tr = document.createElement('tr');
@@ -633,8 +710,8 @@ $filtroSkuJs = json_encode($filtroSku);
                         <td style="text-align: right; font-size: 0.85rem;">
                             ${costoFormatted}
                         </td>
-                        <td style="font-size: 0.85rem; color: var(--text-muted); max-width: 200px;">
-                            ${motivoDisplay}
+                        <td style="font-size: 0.85rem; text-align: center; white-space: nowrap;">
+                            ${folioHtml}
                         </td>
                         <td style="font-size: 0.85rem; font-weight: 500;">
                             ${item.usuario_nombre || 'Sistema'}
@@ -709,7 +786,7 @@ $filtroSkuJs = json_encode($filtroSku);
                 'Stock Antes',
                 'Stock Después',
                 'Costo Unitario ($)',
-                'Motivo / Notas',
+                'Notas',
                 'Usuario'
             ];
 
@@ -717,20 +794,28 @@ $filtroSkuJs = json_encode($filtroSku);
             csvContent += headers.map(h => `"${h}"`).join(',') + '\n';
 
             filteredData.forEach(item => {
-                const isCambioPrecio = (item.tipo_movimiento && item.tipo_movimiento.toUpperCase().includes('PRECIO')) ||
-                                       (item.motivo && item.motivo.toLowerCase().includes('precio'));
-                const motivoDisplay = isCambioPrecio ? 'Cambio de Precio' : (item.motivo || '');
+                const folioDisplay = formatNotasFolio(item.motivo);
+
+                let descProductoExport = item.producto_descripcion || '';
+                let kitDetalleArr = null;
+                try {
+                    kitDetalleArr = typeof item.kit_detalle === 'string' ? JSON.parse(item.kit_detalle) : item.kit_detalle;
+                } catch(e){}
+                if (Array.isArray(kitDetalleArr) && kitDetalleArr.length > 0) {
+                    const insumosTxt = kitDetalleArr.map(ins => `${ins.cantidad_total} ${ins.unidad} de ${ins.insumo_nombre}`).join('; ');
+                    descProductoExport += ` [Kit contiene: ${insumosTxt}]`;
+                }
 
                 const row = [
                     formatFecha(item.fecha_hora),
                     item.tipo_movimiento || '',
                     item.producto_sku || '',
-                    item.producto_descripcion || '',
+                    descProductoExport,
                     parseFloat(item.cantidad || 0).toFixed(2),
                     parseFloat(item.stock_antes || 0).toFixed(2),
                     parseFloat(item.stock_despues || 0).toFixed(2),
                     parseFloat(item.costo_unitario || 0).toFixed(2),
-                    motivoDisplay,
+                    folioDisplay,
                     item.usuario_nombre || 'Sistema'
                 ];
 

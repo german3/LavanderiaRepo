@@ -354,7 +354,7 @@ class Venta
                 // ═════════════════════════════════════════════════════════════
                 $cantHistorial = $det['ropa_kg'] > 0 ? $det['ropa_kg'] : $cant;
                 $unidadHistorial = $det['ropa_kg'] > 0 ? "kg" : ($pInfo['unidad_medida'] ?? 'pza');
-                $motivoHistorial = "Cobro Venta Folio: {$folio} - Cliente: {$det['cliente_nombre']} ({$cantHistorial} {$unidadHistorial})";
+                $motivoHistorial = $folio;
 
                 $this->historialModel->registrar([
                     'tipo_movimiento'      => 'VENTA POS',

@@ -92,6 +92,81 @@ class Historial {
         $query = "SELECT * FROM " . $this->table_name . " ORDER BY fecha_hora DESC, id DESC";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $movimientos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Identificar movimientos de tipo KIT que necesiten sus insumos
+        $kitIdsToFetch = [];
+        foreach ($movimientos as $m) {
+            $esKit = (strtoupper($m['tipo_producto'] ?? '') === 'KIT');
+            if ($esKit && empty($m['kit_detalle']) && !empty($m['producto_id'])) {
+                $kitIdsToFetch[$m['producto_id']] = true;
+            }
+        }
+
+        // También verificar si algún producto_id en el historial corresponde a un KIT en la tabla productos
+        if (!empty($movimientos)) {
+            $prodIdsToCheck = [];
+            foreach ($movimientos as $m) {
+                if (empty($m['kit_detalle']) && !empty($m['producto_id']) && !isset($kitIdsToFetch[$m['producto_id']])) {
+                    $prodIdsToCheck[$m['producto_id']] = true;
+                }
+            }
+            if (!empty($prodIdsToCheck)) {
+                $checkList = array_slice(array_keys($prodIdsToCheck), 0, 100);
+                $ph = implode(',', array_fill(0, count($checkList), '?'));
+                try {
+                    $stCheck = $this->conn->prepare("SELECT id FROM productos WHERE id IN ($ph) AND tipo = 'KIT'");
+                    $stCheck->execute($checkList);
+                    $kitsEncontrados = $stCheck->fetchAll(PDO::FETCH_COLUMN);
+                    foreach ($kitsEncontrados as $kId) {
+                        $kitIdsToFetch[$kId] = true;
+                    }
+                } catch (\Exception $e) {}
+            }
+        }
+
+        // Cargar insumos de los kits encontrados
+        $kitsInsumosMap = [];
+        if (!empty($kitIdsToFetch)) {
+            $idsList = array_keys($kitIdsToFetch);
+            $placeholders = implode(',', array_fill(0, count($idsList), '?'));
+            $sqlKits = "SELECT pk.kit_id, pk.insumo_id, pk.cantidad_consumida, pk.unidad, pk.ropa_kg, 
+                               p.descripcion as insumo_nombre, p.codigo_interno_sku as insumo_sku
+                        FROM productos_kits pk
+                        JOIN productos p ON pk.insumo_id = p.id
+                        WHERE pk.kit_id IN ($placeholders)
+                        ORDER BY pk.kit_id, p.descripcion ASC";
+            try {
+                $stmtK = $this->conn->prepare($sqlKits);
+                $stmtK->execute($idsList);
+                $insumosDb = $stmtK->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($insumosDb as $ins) {
+                    $kitsInsumosMap[$ins['kit_id']][] = [
+                        'insumo_id'      => $ins['insumo_id'],
+                        'insumo_nombre'  => $ins['insumo_nombre'],
+                        'insumo_sku'     => $ins['insumo_sku'] ?? '',
+                        'cantidad_total' => floatval($ins['cantidad_consumida']),
+                        'unidad'         => $ins['unidad'] ?? 'PIEZA',
+                        'ropa_kg'        => floatval($ins['ropa_kg'] ?? 0)
+                    ];
+                }
+            } catch (\Exception $e) {
+                error_log("Error cargando insumos de kits en Historial: " . $e->getMessage());
+            }
+        }
+
+        // Asignar los insumos a cada movimiento correspondiente
+        foreach ($movimientos as &$mov) {
+            $prodId = $mov['producto_id'] ?? null;
+            if (!empty($prodId) && isset($kitsInsumosMap[$prodId])) {
+                $mov['tipo_producto'] = 'KIT';
+                if (empty($mov['kit_detalle'])) {
+                    $mov['kit_detalle'] = json_encode($kitsInsumosMap[$prodId], JSON_UNESCAPED_UNICODE);
+                }
+            }
+        }
+        unset($mov);
+
+        return $movimientos;
     }
 }

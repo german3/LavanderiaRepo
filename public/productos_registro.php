@@ -88,6 +88,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             try {
                 if ($productoModel->actualizar($idTarget, $datosUpdate)) {
+                    $kitDetalleRegistro = null;
                     if ($tipo === 'KIT') {
                         $insumos = [];
                         $insumosIds      = $_POST['kit_insumo_id']       ?? [];
@@ -106,6 +107,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             }
                         }
                         $productoModel->guardarInsumosKit($idTarget, $insumos);
+
+                        if (!empty($insumos)) {
+                            $kitDetalleRegistro = [];
+                            foreach ($insumos as $ins) {
+                                $insInfo = $productoModel->obtenerPorId($ins['id']);
+                                $kitDetalleRegistro[] = [
+                                    'insumo_id'      => $ins['id'],
+                                    'insumo_nombre'  => $insInfo['descripcion'] ?? 'Insumo',
+                                    'insumo_sku'     => $insInfo['codigo_interno_sku'] ?? '',
+                                    'cantidad_total' => floatval($ins['cantidad']),
+                                    'unidad'         => $ins['unidad'] ?? 'PIEZA',
+                                    'ropa_kg'        => floatval($ins['ropa_kg'] ?? 0)
+                                ];
+                            }
+                        }
                     }
 
                     $prodActual = $productoModel->obtenerPorId($idTarget);
@@ -128,6 +144,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         'stock_antes'          => floatval($prodActual['stock_cantidad'] ?? 0),
                         'stock_despues'        => floatval($prodActual['stock_cantidad'] ?? 0),
                         'motivo'               => $motivoRegistro,
+                        'kit_detalle'          => $kitDetalleRegistro,
                         'usuario_id'           => $_SESSION['usuario_id'] ?? null,
                         'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
                     ]);
@@ -156,6 +173,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             try {
                 if ($productoModel->crear()) {
+                    $kitDetalleRegistro = null;
                     if ($tipo === 'KIT') {
                         $insumos = [];
                         $insumosIds      = $_POST['kit_insumo_id']       ?? [];
@@ -175,6 +193,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         }
                         if (!empty($insumos)) {
                             $productoModel->guardarInsumosKit($productoModel->id, $insumos);
+                            $kitDetalleRegistro = [];
+                            foreach ($insumos as $ins) {
+                                $insInfo = $productoModel->obtenerPorId($ins['id']);
+                                $kitDetalleRegistro[] = [
+                                    'insumo_id'      => $ins['id'],
+                                    'insumo_nombre'  => $insInfo['descripcion'] ?? 'Insumo',
+                                    'insumo_sku'     => $insInfo['codigo_interno_sku'] ?? '',
+                                    'cantidad_total' => floatval($ins['cantidad']),
+                                    'unidad'         => $ins['unidad'] ?? 'PIEZA',
+                                    'ropa_kg'        => floatval($ins['ropa_kg'] ?? 0)
+                                ];
+                            }
                         }
                     }
 
@@ -189,6 +219,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         'stock_antes'          => 0,
                         'stock_despues'        => $productoModel->stock_cantidad,
                         'motivo'               => 'Registro de producto nuevo en catálogo',
+                        'kit_detalle'          => $kitDetalleRegistro,
                         'usuario_id'           => $_SESSION['usuario_id'] ?? null,
                         'usuario_nombre'       => $_SESSION['nombre'] ?? 'Usuario'
                     ]);
