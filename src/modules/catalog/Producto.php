@@ -47,11 +47,22 @@ class Producto {
         return '100000';
     }
 
-    // Obtener todos los productos de tipo NORMAL (para selector de insumos en Kit y movimientos)
+    // Obtener todos los productos de tipo INSUMO y NORMAL (para selector en movimientos y compras)
     public function obtenerProductosNormales() {
-        $query = "SELECT id, descripcion, unidad_medida, costo, precio_venta
+        $query = "SELECT id, codigo_barras, codigo_interno_sku, descripcion, tipo, unidad_medida, costo, precio_venta
                   FROM " . $this->table_name . "
-                  WHERE tipo = 'NORMAL' AND estado = 'ACTIVO'
+                  WHERE tipo IN ('INSUMO', 'NORMAL') AND estado = 'ACTIVO'
+                  ORDER BY tipo = 'INSUMO' DESC, descripcion ASC";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Obtener exclusivamente productos de tipo INSUMO (para armar Kits)
+    public function obtenerInsumos() {
+        $query = "SELECT id, descripcion, tipo, unidad_medida, costo, precio_venta
+                  FROM " . $this->table_name . "
+                  WHERE tipo = 'INSUMO' AND estado = 'ACTIVO'
                   ORDER BY descripcion ASC";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();

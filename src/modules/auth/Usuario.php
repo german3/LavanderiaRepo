@@ -53,11 +53,12 @@ class Usuario {
         return false;
     }
 
-    // Buscar usuario por correo para Login
+    // Buscar usuario por correo o nombre para Login
     public function buscarPorCorreo($correo) {
-        $query = "SELECT * FROM " . $this->table_name . " WHERE correo = :correo AND estado = 'ACTIVO' LIMIT 0,1";
+        $query = "SELECT * FROM " . $this->table_name . " WHERE (correo = :correo OR nombre = :nombre) AND estado = 'ACTIVO' LIMIT 0,1";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":correo", $correo);
+        $stmt->bindParam(":nombre", $correo);
         $stmt->execute();
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }

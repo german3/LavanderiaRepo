@@ -159,8 +159,8 @@ $productosJson = json_encode($productos);
         .table th { padding: 0.75rem 1rem; text-align: left; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); border-bottom: 2px solid var(--border); }
         .table td { padding: 1rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
         .table tr:hover td { background: rgba(255,255,255,0.02); }
-        .badge { padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; }
         .badge-normal   { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .badge-insumo   { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); }
         .badge-kit      { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3); }
         .badge-servicio { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
 
@@ -324,6 +324,7 @@ $productosJson = json_encode($productos);
                                 onchange="aplicarFiltros()">
                             <option value="">Todos los tipos</option>
                             <option value="normal">Normal</option>
+                            <option value="insumo">Insumo</option>
                             <option value="servicio">Servicio</option>
                             <option value="kit">Kit / Paquete</option>
                         </select>
@@ -428,6 +429,7 @@ $productosJson = json_encode($productos);
                             <td>
                                 <?php
                                     $badgeClass = 'badge-normal';
+                                    if ($p['tipo'] == 'INSUMO')   $badgeClass = 'badge-insumo';
                                     if ($p['tipo'] == 'KIT')      $badgeClass = 'badge-kit';
                                     if ($p['tipo'] == 'SERVICIO') $badgeClass = 'badge-servicio';
                                 ?>
@@ -436,7 +438,7 @@ $productosJson = json_encode($productos);
                             <td style="font-weight: 600; color: <?= (in_array($p['tipo'], ['KIT', 'SERVICIO'])) ? 'var(--text-muted)' : (($p['stock_cantidad'] <= 0) ? '#f87171' : 'var(--text-main)') ?>">
                                 <?php if (in_array($p['tipo'], ['KIT', 'SERVICIO'])): ?>
                                     <span style="color: var(--text-muted); font-size: 0.85rem; font-weight: 500;">N/A</span>
-                                <?php elseif ($p['tipo'] === 'NORMAL' && ($p['unidad_medida'] === 'LITRO' || $p['unidad_medida'] === 'MILILITRO')): 
+                                <?php elseif (($p['tipo'] === 'NORMAL' || $p['tipo'] === 'INSUMO') && ($p['unidad_medida'] === 'LITRO' || $p['unidad_medida'] === 'MILILITRO')): 
                                     $stkL = floatval($p['stock_cantidad']);
                                 ?>
                                     <?= number_format($stkL, 2) ?> L
@@ -445,7 +447,7 @@ $productosJson = json_encode($productos);
                                     <?php endif; ?>
                                 <?php else: ?>
                                     <?= number_format($p['stock_cantidad'], 2) ?>
-                                    <?php if ($p['tipo'] === 'NORMAL' && isset($p['stock_minimo'])): ?>
+                                    <?php if (($p['tipo'] === 'NORMAL' || $p['tipo'] === 'INSUMO') && isset($p['stock_minimo'])): ?>
                                         <small style="display:block;font-size:0.75rem;color:var(--text-muted);font-weight:normal;">Mín: <?= number_format($p['stock_minimo'], 2) ?></small>
                                     <?php endif; ?>
                                 <?php endif; ?>

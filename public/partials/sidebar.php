@@ -48,12 +48,7 @@ $userInitial = mb_substr(mb_strtoupper($userName), 0, 1);
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <nav>
-        <!-- Punto de Venta (FrontOffice) - Siempre en ventana nueva -->
-        <a href="pos.php" target="_blank" class="nav-link nav-link-pos" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15)); border: 1px solid rgba(16, 185, 129, 0.35); color: #34d399; margin-bottom: 0.5rem; transition: all 0.2s;" title="Abrir Punto de Venta en una ventana nueva">
-            <svg class="nav-icon" style="color: #34d399;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-            <span class="nav-text" style="font-weight: 700;">Punto de Venta</span>
-            <span style="font-size: 0.65rem; font-weight: 800; background: #10b981; color: #042f2e; padding: 0.15rem 0.45rem; border-radius: 4px; margin-left: auto; letter-spacing: 0.04em;">POS ↗</span>
-        </a>
+
 
         <!-- Dashboard -->
         <a href="dashboard.php" class="nav-link<?= isActive('dashboard', $activePage) ?>">

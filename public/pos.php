@@ -9,8 +9,8 @@ use App\Modules\Auth\AuthService;
 $db = (new Database())->getConnection();
 $auth = new AuthService($db);
 
-if (!$auth->checkAuth()) {
-    header("Location: login.php");
+if (!$auth->checkAuthPos()) {
+    header("Location: pos_login.php");
     exit;
 }
 
@@ -18,9 +18,9 @@ header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 
-$userName = $_SESSION['nombre'] ?? 'Cajero';
-$userRole = $_SESSION['rol'] ?? 'EMPLEADO_CAJERO';
-$isAdmin  = $auth->isAdmin();
+$userName = $_SESSION['pos_nombre'] ?? 'Cajero';
+$userRole = $_SESSION['pos_rol'] ?? 'EMPLEADO_CAJERO';
+$isAdmin  = $auth->isPosAdmin();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -74,6 +74,18 @@ $isAdmin  = $auth->isAdmin();
             <!-- Reloj Digital -->
             <div id="pos-clock" class="pos-clock">--:--:--</div>
 
+            <!-- Cajero en turno -->
+            <div class="pos-btn-head" style="cursor:default; background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#f3f4f6;" title="Cajero autenticado en el POS">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                <span><strong><?= htmlspecialchars($userName) ?></strong></span>
+            </div>
+
+            <!-- Botón Cerrar Sesión POS -->
+            <a href="pos_logout.php" class="pos-btn-head" style="background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.3); color:#fca5a5;" title="Cerrar sesión de este cajero en el POS">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                <span>Salir POS</span>
+            </a>
+
             <!-- Botón Volver al Backoffice -->
             <a href="dashboard.php" class="pos-btn-head" style="background:rgba(59,130,246,0.15); border-color:rgba(59,130,246,0.3); color:#93c5fd;" title="Volver a la administración (Backoffice)">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
@@ -95,12 +107,12 @@ $isAdmin  = $auth->isAdmin();
                 <div class="pos-entry-header">
                     <div class="pos-entry-title">
                         <svg style="width:18px;height:18px;color:#38bdf8;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        <span>Registro de Servicio / Venta por Kilos</span>
+                        <span id="pos-entry-title-text">Registro de Servicio / Venta por Kilos</span>
                     </div>
                     <span id="pos-entry-preview" class="pos-entry-preview-badge">Subtotal: $0.00</span>
                 </div>
 
-                <div class="pos-entry-grid">
+                <div id="pos-entry-grid" class="pos-entry-grid">
                     <!-- 1. Elegir Cliente de los Registrados -->
                     <div class="pos-entry-field">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -112,10 +124,11 @@ $isAdmin  = $auth->isAdmin();
                         <select id="pos-select-cliente" class="pos-form-select" onchange="POS.onClienteSelectChange(this.value)">
                             <option value="">-- Seleccionar Cliente Registrado --</option>
                         </select>
+                        <div id="pos-selected-client-hint" style="font-size:0.75rem; color:#60a5fa; font-weight:600; margin-top:0.3rem;"></div>
                     </div>
 
                     <!-- 2. Buscar Producto o Servicio por Nombre o Código de Barras -->
-                    <div class="pos-entry-field pos-prod-search-col">
+                    <div id="pos-field-producto-col" class="pos-entry-field pos-prod-search-col">
                         <label class="pos-entry-label" for="pos-search-producto-input">2. Producto o Servicio (*)</label>
                         <div class="pos-search-prod-wrapper">
                             <svg class="pos-search-prod-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -131,10 +144,10 @@ $isAdmin  = $auth->isAdmin();
                     </div>
 
                     <!-- 3. Campo de Cantidad de Kilos -->
-                    <div class="pos-entry-field">
+                    <div id="pos-field-kilos-col" class="pos-entry-field">
                         <label class="pos-entry-label" for="pos-input-kilos">3. Cantidad de Kilos</label>
                         <div class="number-input-wrapper">
-                            <input type="number" step="0.05" min="0.05" id="pos-input-kilos" class="pos-form-input" style="font-family:'JetBrains Mono',monospace; font-weight:700;" placeholder="Ej. 4.5" value="1.0" oninput="POS.calcPreviewCosto()">
+                            <input type="number" step="0.05" min="0.05" id="pos-input-kilos" class="pos-form-input" style="font-family:'JetBrains Mono',monospace; font-weight:700;" placeholder="Ej. 4.5" value="1.0" oninput="POS.calcPreviewCosto()" onkeydown="if(event.key==='Enter'){event.preventDefault(); POS.agregarRegistroFormulario();}">
                             <div class="spin-buttons">
                                 <button type="button" class="spin-btn" onclick="POS.stepKilos(0.5)" title="Aumentar">▲</button>
                                 <button type="button" class="spin-btn" onclick="POS.stepKilos(-0.5)" title="Disminuir">▼</button>
@@ -143,26 +156,15 @@ $isAdmin  = $auth->isAdmin();
                     </div>
 
                     <!-- 4. Botón Agregar a la Lista -->
-                    <div class="pos-entry-field">
+                    <div id="pos-field-btn-col" class="pos-entry-field">
                         <button type="button" id="pos-btn-add-reg" class="pos-btn-add-reg" onclick="POS.agregarRegistroFormulario()">
                             <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                             <span>Agregar a Lista</span>
                         </button>
                     </div>
                 </div>
-
-                <!-- Chips rápidos para kilos y pista de cliente -->
-                <div style="display:flex; align-items:center; gap:0.4rem; font-size:0.72rem; color:var(--pos-text-muted); flex-wrap:wrap;">
-                    <span style="font-weight:600;">Kilos rápidos:</span>
-                    <button type="button" class="pos-btn-head" style="padding:0.15rem 0.5rem; font-size:0.72rem;" onclick="POS.setKilosInput(1)">1 kg</button>
-                    <button type="button" class="pos-btn-head" style="padding:0.15rem 0.5rem; font-size:0.72rem;" onclick="POS.setKilosInput(3)">3 kg</button>
-                    <button type="button" class="pos-btn-head" style="padding:0.15rem 0.5rem; font-size:0.72rem;" onclick="POS.setKilosInput(4.5)">4.5 kg</button>
-                    <button type="button" class="pos-btn-head" style="padding:0.15rem 0.5rem; font-size:0.72rem;" onclick="POS.setKilosInput(6)">6 kg</button>
-                    <button type="button" class="pos-btn-head" style="padding:0.15rem 0.5rem; font-size:0.72rem;" onclick="POS.setKilosInput(8)">8 kg</button>
-                    <button type="button" class="pos-btn-head" style="padding:0.15rem 0.5rem; font-size:0.72rem;" onclick="POS.setKilosInput(10)">10 kg</button>
-                    <div id="pos-selected-client-hint" style="margin-left:auto; font-size:0.75rem; color:#60a5fa; font-weight:600;"></div>
-                </div>
             </div>
+
 
             <div class="pos-catalog-controls" style="padding: 0.65rem 1.25rem;">
                 <div class="pos-filter-tabs">
@@ -173,7 +175,10 @@ $isAdmin  = $auth->isAdmin();
                         <span>🧺 Servicios de Lavandería</span>
                     </button>
                     <button class="pos-tab" onclick="POS.setCategory('NORMAL', this)">
-                        <span>📦 Productos / Insumos</span>
+                        <span>📦 Productos</span>
+                    </button>
+                    <button class="pos-tab" onclick="POS.setCategory('INSUMO', this)">
+                        <span>🧴 Insumos</span>
                     </button>
                     <button class="pos-tab" onclick="POS.setCategory('KIT', this)">
                         <span>🎁 Kits y Paquetes</span>

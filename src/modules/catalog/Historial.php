@@ -28,6 +28,7 @@ class Historial {
             stock_antes DECIMAL(10,2) DEFAULT 0.00,
             stock_despues DECIMAL(10,2) DEFAULT 0.00,
             motivo TEXT NULL,
+            kit_detalle TEXT NULL,
             usuario_id INT NULL,
             usuario_nombre VARCHAR(255) NULL,
             INDEX (fecha_hora),
@@ -40,12 +41,19 @@ class Historial {
         } catch (Exception $e) {
             error_log("Error asegurando tabla historial_movimientos: " . $e->getMessage());
         }
+
+        // Agregar columna kit_detalle si aún no existe (migracion en caliente)
+        try {
+            $this->conn->exec("ALTER TABLE " . $this->table_name . " ADD COLUMN kit_detalle TEXT NULL AFTER motivo");
+        } catch (Exception $e) {
+            // Ya existe, ignorar
+        }
     }
 
     public function registrar($datos) {
         $query = "INSERT INTO " . $this->table_name . " 
-            (tipo_movimiento, producto_id, producto_sku, producto_descripcion, tipo_producto, cantidad, costo_unitario, stock_antes, stock_despues, motivo, usuario_id, usuario_nombre) 
-            VALUES (:tipo_movimiento, :producto_id, :producto_sku, :producto_descripcion, :tipo_producto, :cantidad, :costo_unitario, :stock_antes, :stock_despues, :motivo, :usuario_id, :usuario_nombre)";
+            (tipo_movimiento, producto_id, producto_sku, producto_descripcion, tipo_producto, cantidad, costo_unitario, stock_antes, stock_despues, motivo, kit_detalle, usuario_id, usuario_nombre) 
+            VALUES (:tipo_movimiento, :producto_id, :producto_sku, :producto_descripcion, :tipo_producto, :cantidad, :costo_unitario, :stock_antes, :stock_despues, :motivo, :kit_detalle, :usuario_id, :usuario_nombre)";
 
         $stmt = $this->conn->prepare($query);
 
@@ -59,6 +67,7 @@ class Historial {
         $stockAntes         = floatval($datos['stock_antes'] ?? 0);
         $stockDespues       = floatval($datos['stock_despues'] ?? 0);
         $motivo             = $datos['motivo'] ?? '';
+        $kitDetalle         = isset($datos['kit_detalle']) ? json_encode($datos['kit_detalle'], JSON_UNESCAPED_UNICODE) : null;
         $usuarioId          = isset($datos['usuario_id']) ? intval($datos['usuario_id']) : null;
         $usuarioNombre      = $datos['usuario_nombre'] ?? 'Sistema';
 
@@ -72,6 +81,7 @@ class Historial {
         $stmt->bindParam(':stock_antes',          $stockAntes);
         $stmt->bindParam(':stock_despues',        $stockDespues);
         $stmt->bindParam(':motivo',               $motivo);
+        $stmt->bindParam(':kit_detalle',          $kitDetalle);
         $stmt->bindParam(':usuario_id',           $usuarioId);
         $stmt->bindParam(':usuario_nombre',       $usuarioNombre);
 

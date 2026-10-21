@@ -167,7 +167,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
 // Obtener inventario actual de todos los productos
 $queryStock = "SELECT id, codigo_barras, codigo_interno_sku, descripcion, tipo, unidad_medida, stock_cantidad, costo, precio_venta 
                FROM productos 
-               WHERE tipo = 'NORMAL' AND estado = 'ACTIVO' 
+               WHERE tipo IN ('NORMAL', 'INSUMO') AND estado = 'ACTIVO' 
                ORDER BY descripcion ASC";
 $stmtStock = $db->query($queryStock);
 $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
@@ -309,8 +309,19 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         <div class="auth-card" style="width: 100%; max-width: 100%; padding: 2rem; overflow-x: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
                 <h3 style="margin: 0;">Existencias Actuales</h3>
-                <!-- Buscador -->
-                <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 0.45rem 0.85rem; min-width: 260px;">
+                <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                    <!-- Filtro por Tipo -->
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <label for="filtro-tipo-inv" style="font-size: 0.85rem; color: var(--text-muted); margin: 0; white-space: nowrap;">Tipo:</label>
+                        <select id="filtro-tipo-inv" onchange="filtrarInventario()"
+                            style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 0.45rem 0.85rem; color: var(--text-main); font-size: 0.85rem; outline: none; cursor: pointer;">
+                            <option value="" style="background: var(--bg-card); color: var(--text-main);">Todos los tipos</option>
+                            <option value="insumo" style="background: var(--bg-card); color: var(--text-main);">Insumos</option>
+                            <option value="normal" style="background: var(--bg-card); color: var(--text-main);">Productos</option>
+                        </select>
+                    </div>
+                    <!-- Buscador -->
+                    <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 0.45rem 0.85rem; min-width: 260px;">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted); flex-shrink:0;">
                         <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                     </svg>
@@ -320,12 +331,14 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                         autocomplete="off">
                     <button id="btn-limpiar-inv" onclick="limpiarBusquedaInv()" title="Limpiar búsqueda"
                         style="display:none; background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:1rem; padding:0; line-height:1;">✕</button>
+                    </div>
                 </div>
             </div>
             <table class="table" id="tabla-inventario">
                 <thead>
                     <tr>
                         <th>Cód / SKU</th>
+                        <th>Tipo</th>
                         <th>Descripción</th>
                         <th>Unidad</th>
                         <th id="th-inv-stock" onclick="sortInv('stock')" style="cursor:pointer; user-select:none; transition:all 0.2s;" title="Ordenar por Stock Actual">
@@ -358,13 +371,14 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                 <tbody>
                     <?php if (empty($inventario)): ?>
                     <tr>
-                        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2.5rem 1rem;">
-                            No hay insumos registrados. <a href="productos_registro.php" style="color:var(--primary);text-decoration:none;">Registrar producto →</a>
+                        <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem 1rem;">
+                            No hay productos o insumos registrados. <a href="productos_registro.php" style="color:var(--primary);text-decoration:none;">Registrar producto →</a>
                         </td>
                     </tr>
                     <?php else: ?>
                     <?php foreach($inventario as $inv): ?>
                     <tr class="fila-inv"
+                        data-tipo="<?= strtolower(htmlspecialchars($inv['tipo'] ?? 'normal')) ?>"
                         data-sku="<?= strtolower(htmlspecialchars($inv['codigo_interno_sku'] ?? '')) ?>"
                         data-descripcion="<?= strtolower(htmlspecialchars($inv['descripcion'] ?? '')) ?>"
                         data-stock="<?= floatval($inv['stock_cantidad'] ?? 0) ?>"
@@ -374,6 +388,17 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                         <td style="font-size: 0.85rem; color: var(--text-muted);">
                             <?= htmlspecialchars($inv['codigo_barras'] ?? '') ?><br>
                             <small><?= htmlspecialchars($inv['codigo_interno_sku'] ?? '') ?></small>
+                        </td>
+                        <td>
+                            <?php if (($inv['tipo'] ?? '') === 'INSUMO'): ?>
+                                <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 0.78rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 6px;">
+                                    🧴 Insumo
+                                </span>
+                            <?php else: ?>
+                                <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); font-size: 0.78rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 6px;">
+                                    📦 Producto
+                                </span>
+                            <?php endif; ?>
                         </td>
                         <td style="font-weight: 500;"><?= htmlspecialchars($inv['descripcion']) ?></td>
                         <td>
@@ -687,7 +712,8 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                 'sku'   => $p['codigo_interno_sku'] ?? '',
                 'label' => $p['descripcion'] . ' (' . (($p['unidad_medida'] === 'LITRO') ? 'Litros' : $p['unidad_medida']) . ')',
                 'costo' => floatval($p['costo'] ?? 0),
-                'unidad'=> $p['unidad_medida'] ?? ''
+                'unidad'=> $p['unidad_medida'] ?? '',
+                'tipo'  => $p['tipo'] ?? 'NORMAL'
             ];
         }
         echo json_encode($pdata);
@@ -1502,20 +1528,31 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 
     // BUSQUEDA, ORDENAMIENTO Y PAGINACION
     function filtrarInventario(termino) {
-        var q = (termino || '').trim().toLowerCase();
+        var inputBusqueda = document.getElementById('input-busqueda-inv');
+        var inputTipo = document.getElementById('filtro-tipo-inv');
+        var q = (termino !== undefined ? termino : (inputBusqueda ? inputBusqueda.value : '')).trim().toLowerCase();
+        var tipoSeleccionado = (inputTipo ? inputTipo.value : '').trim().toLowerCase();
+
         var btnLimpiar = document.getElementById('btn-limpiar-inv');
         if (btnLimpiar) btnLimpiar.style.display = q.length > 0 ? 'block' : 'none';
+
         document.querySelectorAll('.fila-inv').forEach(function(f) {
             var sku  = f.dataset.sku || '';
             var desc = f.dataset.descripcion || '';
-            f.dataset.filtrado = (!q || sku.includes(q) || desc.includes(q)) ? '1' : '0';
+            var rowTipo = (f.dataset.tipo || '').toLowerCase();
+
+            var coincideTexto = (!q || sku.includes(q) || desc.includes(q));
+            var coincideTipo = (!tipoSeleccionado || rowTipo === tipoSeleccionado);
+
+            f.dataset.filtrado = (coincideTexto && coincideTipo) ? '1' : '0';
         });
         renderInvPagina(1);
     }
 
     function limpiarBusquedaInv() {
         var input = document.getElementById('input-busqueda-inv');
-        if (input) { input.value = ''; input.focus(); filtrarInventario(''); }
+        if (input) { input.value = ''; input.focus(); }
+        filtrarInventario();
     }
 
     var invSortState  = { stock: 0, costo: 0, precio: 0 };

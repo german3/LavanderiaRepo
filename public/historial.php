@@ -57,6 +57,16 @@ $filtroSkuJs = json_encode($filtroSku);
         .badge-eliminacion{ background: rgba(245, 158, 11, 0.2); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.3); }
         .badge-edicion    { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); }
         .badge-venta      { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.45); }
+        .badge-kit        { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3); }
+
+        .kit-insumos-toggle { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.73rem; color: #a78bfa; font-weight: 600; margin-top: 0.35rem; transition: color 0.2s; }
+        .kit-insumos-toggle:hover { color: #c4b5fd; }
+        .kit-insumos-panel { display: none; margin-top: 0.55rem; padding: 0.6rem 0.8rem; background: rgba(139,92,246,0.07); border: 1px solid rgba(139,92,246,0.25); border-radius: 8px; }
+        .kit-insumos-panel.open { display: block; }
+        .kit-insumo-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.78rem; color: var(--text-muted); border-bottom: 1px solid rgba(139,92,246,0.1); }
+        .kit-insumo-row:last-child { border-bottom: none; }
+        .kit-insumo-row .insumo-qty { font-weight: 700; color: #c4b5fd; min-width: 60px; }
+        .kit-insumo-row .insumo-name { color: #e2e8f0; }
 
         .sort-header {
             cursor: pointer;
@@ -375,6 +385,41 @@ $filtroSkuJs = json_encode($filtroSku);
             }
         }
 
+        function toggleKitInsumos(id) {
+            const panel = document.getElementById('kit-panel-' + id);
+            const icon  = document.getElementById('kit-icon-' + id);
+            if (!panel) return;
+            const isOpen = panel.classList.toggle('open');
+            if (icon) icon.textContent = isOpen ? '▾' : '▸';
+        }
+
+        function renderKitDetalle(item, rowId) {
+            let kitDetalle = null;
+            try {
+                kitDetalle = typeof item.kit_detalle === 'string' ? JSON.parse(item.kit_detalle) : item.kit_detalle;
+            } catch(e) { kitDetalle = null; }
+
+            if (!kitDetalle || !Array.isArray(kitDetalle) || kitDetalle.length === 0) return '';
+
+            const rowsHtml = kitDetalle.map(ins => {
+                const qty = parseFloat(ins.cantidad_total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                return `<div class="kit-insumo-row">
+                    <span class="insumo-qty">🧪 ${qty}</span>
+                    <span style="font-size:0.72rem;color:#94a3b8;">${(ins.unidad || '').toUpperCase()}</span>
+                    <span class="insumo-name">${ins.insumo_nombre}</span>
+                </div>`;
+            }).join('');
+
+            return `<div class="kit-insumos-toggle" onclick="toggleKitInsumos('${rowId}')">
+                        <span id="kit-icon-${rowId}">▸</span>
+                        Ver insumos del Kit (${kitDetalle.length})
+                    </div>
+                    <div id="kit-panel-${rowId}" class="kit-insumos-panel">
+                        <div style="font-size:0.72rem;color:#a78bfa;font-weight:700;margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em;">Insumos consumidos</div>
+                        ${rowsHtml}
+                    </div>`;
+        }
+
         function formatFecha(fechaStr) {
             if (!fechaStr) return '-';
             const d = new Date(fechaStr);
@@ -546,7 +591,8 @@ $filtroSkuJs = json_encode($filtroSku);
             if (pageData.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron movimientos.</td></tr>`;
             } else {
-                pageData.forEach(item => {
+                pageData.forEach((item, idx) => {
+                    const rowId = `row-${item.id || idx}`;
                     const badgeClass = getBadgeClass(item.tipo_movimiento);
                     const cantidadFormatted = parseFloat(item.cantidad || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     const costoFormatted = '$' + parseFloat(item.costo_unitario || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -557,17 +603,22 @@ $filtroSkuJs = json_encode($filtroSku);
                                            (item.motivo && item.motivo.toLowerCase().includes('precio'));
                     const motivoDisplay = isCambioPrecio ? 'Cambio de Precio' : (item.motivo || '-');
 
+                    const isKit = (item.tipo_producto === 'KIT' && item.tipo_movimiento === 'VENTA POS');
+                    const kitBadgeExtra = isKit ? ` <span class="badge badge-kit" style="font-size:0.65rem;padding:0.2rem 0.5rem;margin-left:0.3rem;">Kit/Paquete</span>` : '';
+                    const kitDetalleHtml = isKit ? renderKitDetalle(item, rowId) : '';
+
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td style="white-space: nowrap; font-size: 0.85rem; color: var(--text-muted);">
                             ${formatFecha(item.fecha_hora)}
                         </td>
                         <td>
-                            <span class="badge ${badgeClass}">${item.tipo_movimiento}</span>
+                            <span class="badge ${badgeClass}">${item.tipo_movimiento}</span>${kitBadgeExtra}
                         </td>
                         <td>
                             <div style="font-weight: 600; color: #fff;">${item.producto_descripcion}</div>
                             ${item.producto_sku ? `<span class="sku-tag">SKU: ${item.producto_sku}</span>` : ''}
+                            ${kitDetalleHtml}
                         </td>
                         <td style="text-align: right; font-weight: 600;">
                             ${item.tipo_movimiento === 'SALIDA STOCK' ? `<span style="color:#fda4af;">-${cantidadFormatted}</span>` : 

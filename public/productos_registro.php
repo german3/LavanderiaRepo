@@ -50,13 +50,10 @@ if ($editId) {
 }
 $insumosKitExistentesJson = json_encode($insumosKitExistentes);
 
-// Productos NORMAL disponibles para armar Kits (se pasan a JS)
-$productosNormales = $productoModel->obtenerProductosNormales();
-$productosNormalesJson = json_encode($productosNormales);
-                    if ($tipo === 'KIT') {
-                        $kitGuardadoExitoso = true;
-                        $_POST = [];
-                    }
+// Insumos disponibles exclusivamente de tipo INSUMO para armar Kits (se pasan a JS)
+$insumosDisponibles = $productoModel->obtenerInsumos();
+$insumosDisponiblesJson = json_encode($insumosDisponibles);
+$productosNormalesJson  = $insumosDisponiblesJson;
 
 // Siguiente SKU a mostrar (o el SKU actual si es edición)
 $siguienteSku = $esEdicion ? ($productoEditar['codigo_interno_sku'] ?? '') : $productoModel->obtenerSiguienteSku();
@@ -71,7 +68,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $tipo = $_POST['tipo'] ?? 'NORMAL';
 
         $unidadMedida  = ($tipo === 'KIT') ? 'PIEZA' : (($tipo === 'SERVICIO') ? 'SERVICIO' : ($_POST['unidad_medida'] ?? 'PIEZA'));
-        $stockMinimo   = ($tipo === 'NORMAL') ? floatval($_POST['stock_minimo'] ?? 0) : 0;
+        $stockMinimo   = ($tipo === 'NORMAL' || $tipo === 'INSUMO') ? floatval($_POST['stock_minimo'] ?? 0) : 0;
         $costo         = ($tipo === 'KIT' || $tipo === 'SERVICIO') ? 0 : floatval($_POST['costo'] ?? 0);
         $precioVenta   = floatval($_POST['precio_venta'] ?? 0);
         $ropaKg        = ($tipo === 'KIT') ? floatval($_POST['ropa_kg'] ?? 0)     : 0;
@@ -199,8 +196,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $skuAsignado  = htmlspecialchars($productoModel->codigo_interno_sku);
                     $mensaje = "Producto registrado exitosamente con SKU: <strong>{$skuAsignado}</strong>";
                     $siguienteSku = $productoModel->obtenerSiguienteSku();
-                    $productosNormales = $productoModel->obtenerProductosNormales();
-                    $productosNormalesJson = json_encode($productosNormales);
+                    $insumosDisponibles = $productoModel->obtenerInsumos();
+                    $insumosDisponiblesJson = json_encode($insumosDisponibles);
+                    $productosNormalesJson  = $insumosDisponiblesJson;
                     if ($tipo === 'KIT') {
                         $kitGuardadoExitoso = true;
                         $_POST = [];
@@ -414,6 +412,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     onchange="onTipoChange(this.value)">
                                 <?php $tipoVal = $esEdicion ? $productoEditar['tipo'] : ($_POST['tipo'] ?? 'NORMAL'); ?>
                                 <option value="NORMAL" <?= ($tipoVal === 'NORMAL') ? 'selected' : '' ?>>Normal</option>
+                                <option value="INSUMO" <?= ($tipoVal === 'INSUMO') ? 'selected' : '' ?>>Insumo</option>
                                 <option value="SERVICIO" <?= ($tipoVal === 'SERVICIO') ? 'selected' : '' ?>>Servicio</option>
                                 <option value="KIT" <?= ($tipoVal === 'KIT') ? 'selected' : '' ?>>Kit / Paquete</option>
                             </select>
@@ -501,18 +500,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             + Agregar
                         </button>
 
-                        <!-- Select de productos NORMAL -->
+                        <!-- Select de elementos tipo INSUMO disponibles para el Kit -->
                         <div>
-                            <label class="form-label" style="font-size:0.78rem;">Elemento disponible</label>
+                            <label class="form-label" style="font-size:0.78rem;">Insumo / Elemento disponible</label>
                             <div class="select-wrapper">
                                 <select id="kit-sel-producto" class="form-control"
                                         onchange="kitOnSelectProducto(this.value)">
-                                    <option value="">— Seleccionar producto —</option>
-                                    <?php foreach ($productosNormales as $pn): ?>
-                                        <option value="<?= htmlspecialchars($pn['id']) ?>"
-                                                data-nombre="<?= htmlspecialchars($pn['descripcion']) ?>"
-                                                data-unidad="<?= htmlspecialchars($pn['unidad_medida']) ?>">
-                                            <?= htmlspecialchars($pn['descripcion']) ?>
+                                    <option value="">— Seleccionar insumo —</option>
+                                    <?php foreach ($insumosDisponibles as $ins): ?>
+                                        <option value="<?= htmlspecialchars($ins['id']) ?>"
+                                                data-nombre="<?= htmlspecialchars($ins['descripcion']) ?>"
+                                                data-unidad="<?= htmlspecialchars($ins['unidad_medida']) ?>">
+                                            <?= htmlspecialchars($ins['descripcion']) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -548,12 +547,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         </div>
                     </div>
 
-                    <?php if (empty($productosNormales)): ?>
+                    <?php if (empty($insumosDisponibles)): ?>
                         <p style="color:#f87171;font-size:0.82rem;margin-top:1rem;">
-                            ⚠️ No hay productos de tipo <strong>Normal</strong> registrados aún.
-                            <a href="productos_registro.php" style="color:#93c5fd;">Registra uno primero.</a>
+                            ⚠️ No hay elementos de tipo <strong>Insumo</strong> registrados aún para componer este kit.
+                            <a href="productos_registro.php" style="color:#93c5fd;">Registra uno primero con Tipo "Insumo".</a>
                         </p>
                     <?php endif; ?>
+
                 </div>
                 <!-- ── FIN KIT SECTION ── -->
 

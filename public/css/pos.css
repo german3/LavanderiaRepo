@@ -369,6 +369,12 @@ body {
     border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
+.pos-prod-badge.INSUMO {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
 .pos-prod-badge.KIT {
     background: rgba(139, 92, 246, 0.15);
     color: #a78bfa;
@@ -1077,6 +1083,36 @@ body {
     .pos-entry-grid {
         grid-template-columns: 1fr 1fr;
     }
+}
+
+.pos-prod-search-col.pos-hidden {
+    display: none !important;
+}
+
+.pos-entry-grid.hide-producto {
+    grid-template-columns: 1.8fr 130px auto;
+}
+
+@media (max-width: 1200px) {
+    .pos-entry-grid.hide-producto {
+        grid-template-columns: 1fr auto;
+    }
+}
+
+.pos-prod-card.flash-added {
+    animation: kitPulse 0.35s ease;
+}
+
+.pos-prod-card.pos-kit-selected {
+    border-color: #a855f7 !important;
+    box-shadow: 0 0 16px rgba(168, 85, 247, 0.45) !important;
+    background: rgba(168, 85, 247, 0.12) !important;
+}
+
+@keyframes kitPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.04); box-shadow: 0 0 20px rgba(168, 85, 247, 0.6); }
+    100% { transform: scale(1); }
 }
 
 .pos-entry-field {

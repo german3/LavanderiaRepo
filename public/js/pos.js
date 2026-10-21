@@ -11,6 +11,7 @@ const POS = {
     currentCategory: 'ALL',
     searchQuery: '',
     selectedClient: null,
+    selectedKit: null,
     cart: [],
     selectedPayMethod: 'EFECTIVO',
     activeModal: null,
@@ -39,6 +40,10 @@ const POS = {
     async loadInitialData() {
         try {
             const res = await fetch('api/pos_api.php?action=init_data');
+            if (res.status === 401) {
+                window.location.href = 'pos_login.php';
+                return;
+            }
             const data = await res.json();
 
             if (!data.success) {
@@ -153,9 +158,15 @@ const POS = {
 
             const kgBadge = ropaKg > 0 ? `<span class="pos-prod-kg">⚖️ ${ropaKg} kg</span>` : '';
 
+            const isKitSelected = (this.currentCategory === 'KIT' && this.selectedKit && this.selectedKit.id === p.id);
+            const selectedBadge = isKitSelected ? '<span style="font-size:0.65rem; font-weight:700; color:#c084fc; background:rgba(168,85,247,0.25); padding:0.1rem 0.45rem; border-radius:4px;">✓ SELECCIONADO</span>' : '';
+
             return `
-                <div class="pos-prod-card" onclick="POS.addToCart('${p.id}')" data-id="${p.id}">
-                    <span class="pos-prod-badge ${p.tipo}">${p.tipo === 'NORMAL' ? 'Producto' : p.tipo}</span>
+                <div class="pos-prod-card ${isKitSelected ? 'pos-kit-selected' : ''}" onclick="POS.addToCart('${p.id}')" data-id="${p.id}">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
+                        <span class="pos-prod-badge ${p.tipo}">${p.tipo === 'NORMAL' ? 'Producto' : p.tipo}</span>
+                        ${selectedBadge}
+                    </div>
                     <div class="pos-prod-title">${this.escapeHtml(p.descripcion)}</div>
                     <div class="pos-prod-meta">
                         <div>
@@ -173,7 +184,99 @@ const POS = {
         this.currentCategory = cat;
         document.querySelectorAll('.pos-tab').forEach(b => b.classList.remove('active'));
         if (btn) btn.classList.add('active');
+        this.adaptarBuscadorSegunCategoria(cat);
         this.renderProducts();
+        this.toggleProductoFieldForKits(cat === 'KIT');
+    },
+
+    adaptarBuscadorSegunCategoria(cat) {
+        const label = document.querySelector('label[for="pos-search-producto-input"]');
+        const input = document.getElementById('pos-search-producto-input');
+        const dropdown = document.getElementById('pos-producto-dropdown-results');
+        if (dropdown) dropdown.style.display = 'none';
+
+        if (cat === 'NORMAL') {
+            if (label) label.textContent = '2. Buscar Producto (*)';
+            if (input) input.placeholder = 'Buscar producto por nombre, SKU o código de barras...';
+        } else if (cat === 'INSUMO') {
+            if (label) label.textContent = '2. Buscar Insumo (*)';
+            if (input) input.placeholder = 'Buscar insumo por nombre, SKU o código de barras...';
+        } else if (cat === 'SERVICIO') {
+            if (label) label.textContent = '2. Buscar Servicio de Lavandería (*)';
+            if (input) input.placeholder = 'Buscar servicio por nombre o SKU...';
+        } else {
+            if (label) label.textContent = '2. Producto o Servicio (*)';
+            if (input) input.placeholder = 'Buscar por nombre, SKU o código de barras...';
+        }
+
+        // Si hay un producto seleccionado previamente pero es de otra categoría, limpiarlo
+        const currentProdId = document.getElementById('pos-selected-producto-id')?.value;
+        if (currentProdId && cat !== 'ALL' && cat !== 'KIT') {
+            const currentProd = this.products.find(p => p.id === currentProdId);
+            if (currentProd && currentProd.tipo !== cat) {
+                this.clearProductoSeleccionado(false);
+            }
+        }
+    },
+
+    toggleProductoFieldForKits(isKit) {
+        const prodCol = document.getElementById('pos-field-producto-col') || document.querySelector('.pos-prod-search-col');
+        const entryGrid = document.getElementById('pos-entry-grid') || document.querySelector('.pos-entry-grid');
+        const previewBadge = document.getElementById('pos-entry-preview');
+        const titleText = document.getElementById('pos-entry-title-text');
+        const btnAdd = document.getElementById('pos-btn-add-reg');
+        const inputKg = document.getElementById('pos-input-kilos');
+
+        if (isKit) {
+            // Ocultar campo de 2. PRODUCTOS O SERVICIO
+            if (prodCol) prodCol.classList.add('pos-hidden');
+            if (entryGrid) entryGrid.classList.add('hide-producto');
+
+            // Limpiar cualquier producto que estuviese seleccionado previamente en el buscador
+            this.clearProductoSeleccionado(false);
+
+            // Auto-seleccionar el primer kit si aún no hay uno seleccionado
+            const kits = this.products.filter(p => p.tipo === 'KIT');
+            if (kits.length > 0 && !this.selectedKit) {
+                this.selectedKit = kits[0];
+            }
+
+            if (this.selectedKit && this.selectedKit.ropa_kg > 0 && inputKg) {
+                if (!inputKg.value || parseFloat(inputKg.value) <= 1) {
+                    inputKg.value = parseFloat(this.selectedKit.ropa_kg).toFixed(1);
+                }
+            }
+
+            if (titleText) {
+                titleText.textContent = this.selectedKit 
+                    ? `Kits y Paquetes: ${this.selectedKit.descripcion}`
+                    : 'Selección de Kit / Paquete por Kilos';
+            }
+            if (btnAdd) {
+                btnAdd.setAttribute('title', 'Agregar este paquete según los kilos ingresados');
+            }
+            this.renderProducts();
+            this.calcPreviewCosto();
+        } else {
+            this.selectedKit = null;
+            if (prodCol) prodCol.classList.remove('pos-hidden');
+            if (entryGrid) entryGrid.classList.remove('hide-producto');
+
+            if (titleText) {
+                titleText.textContent = 'Registro de Servicio / Venta por Kilos';
+            }
+            if (previewBadge) {
+                previewBadge.textContent = 'Subtotal: $0.00';
+                previewBadge.style.background = '';
+                previewBadge.style.color = '';
+                previewBadge.style.borderColor = '';
+            }
+            if (btnAdd) {
+                btnAdd.setAttribute('title', 'Agregar a Lista');
+            }
+            this.renderProducts();
+            this.calcPreviewCosto();
+        }
     },
 
     // ─────────────────────────────────────────────────────────────
@@ -206,6 +309,13 @@ const POS = {
     // ─────────────────────────────────────────────────────────────
     // Búsqueda Interactiva de Producto o Servicio (Nombre o Código de Barras)
     // ─────────────────────────────────────────────────────────────
+    getSearchPool() {
+        if (this.currentCategory && this.currentCategory !== 'ALL') {
+            return this.products.filter(p => p.tipo === this.currentCategory);
+        }
+        return this.products;
+    },
+
     onSearchProductoInput(query) {
         const dropdown = document.getElementById('pos-producto-dropdown-results');
         const clearBtn = document.getElementById('pos-btn-clear-prod');
@@ -229,8 +339,10 @@ const POS = {
         this.searchQuery = q;
         this.renderProducts();
 
-        // Detección automática de escaneo de código de barras exacto
-        const exactBarcode = this.products.find(p => 
+        const pool = this.getSearchPool();
+
+        // Detección automática de escaneo de código de barras exacto dentro de la categoría activa
+        const exactBarcode = pool.find(p => 
             p.codigo_barras && p.codigo_barras.toLowerCase() === q
         );
         if (exactBarcode && q.length >= 3) {
@@ -238,8 +350,8 @@ const POS = {
             return;
         }
 
-        // Filtrar productos por nombre, SKU o código de barras
-        const matches = this.products.filter(p => 
+        // Filtrar productos por nombre, SKU o código de barras según la categoría activa
+        const matches = pool.filter(p => 
             (p.descripcion && p.descripcion.toLowerCase().includes(q)) ||
             (p.codigo_barras && p.codigo_barras.toLowerCase().includes(q)) ||
             (p.codigo_interno_sku && p.codigo_interno_sku.toLowerCase().includes(q))
@@ -251,13 +363,18 @@ const POS = {
     onSearchProductoFocus() {
         const input = document.getElementById('pos-search-producto-input');
         const currentProdId = document.getElementById('pos-selected-producto-id')?.value;
-        const query = (input?.value || '').trim();
+        const query = (input?.value || '').trim().toLowerCase();
 
         // Si no hay un producto seleccionado o si el usuario enfoca para buscar
         if (!currentProdId) {
+            const pool = this.getSearchPool();
             const matches = query !== '' 
-                ? this.products.filter(p => p.descripcion.toLowerCase().includes(query.toLowerCase())).slice(0, 20)
-                : this.products.slice(0, 15); // Mostrar principales sugerencias
+                ? pool.filter(p => 
+                    (p.descripcion && p.descripcion.toLowerCase().includes(query)) ||
+                    (p.codigo_barras && p.codigo_barras.toLowerCase().includes(query)) ||
+                    (p.codigo_interno_sku && p.codigo_interno_sku.toLowerCase().includes(query))
+                  ).slice(0, 20)
+                : pool.slice(0, 15); // Mostrar sugerencias de la categoría activa
             this.renderProductoDropdownResults(matches);
         }
     },
@@ -313,9 +430,14 @@ const POS = {
         if (!dropdown) return;
 
         if (matches.length === 0) {
+            let catName = 'productos ni servicios';
+            if (this.currentCategory === 'NORMAL') catName = 'productos';
+            else if (this.currentCategory === 'INSUMO') catName = 'insumos';
+            else if (this.currentCategory === 'SERVICIO') catName = 'servicios';
+
             dropdown.innerHTML = `
                 <div style="padding:1rem; text-align:center; color:var(--pos-text-muted); font-size:0.82rem;">
-                    🔍 No se encontraron productos ni servicios con ese término o código.
+                    🔍 No se encontraron ${catName} con ese término o código.
                 </div>
             `;
             dropdown.style.display = 'block';
@@ -328,7 +450,7 @@ const POS = {
             const typeBadge = p.tipo === 'SERVICIO' 
                 ? '<span style="font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(56,189,248,0.2); color:#38bdf8; font-weight:700;">SERVICIO</span>'
                 : (p.tipo === 'KIT' ? '<span style="font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(168,85,247,0.2); color:#c084fc; font-weight:700;">KIT</span>' 
-                                   : '<span style="font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(16,185,129,0.2); color:#34d399; font-weight:700;">PRODUCTO</span>');
+                                   : (p.tipo === 'INSUMO' ? '<span style="font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(245,158,11,0.2); color:#fbbf24; font-weight:700;">INSUMO</span>' : '<span style="font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(16,185,129,0.2); color:#34d399; font-weight:700;">PRODUCTO</span>'));
             const codeInfo = p.codigo_barras ? ` | 🏷️ ${this.escapeHtml(p.codigo_barras)}` : (p.codigo_interno_sku ? ` | SKU: ${this.escapeHtml(p.codigo_interno_sku)}` : '');
 
             return `
@@ -444,35 +566,88 @@ const POS = {
     },
 
     calcPreviewCosto() {
-        const inputHidden = document.getElementById('pos-selected-producto-id');
         const inputKg = document.getElementById('pos-input-kilos');
         const previewEl = document.getElementById('pos-entry-preview');
         if (!previewEl) return;
 
-        const prodId = inputHidden ? inputHidden.value : '';
         const kilos = inputKg ? (parseFloat(inputKg.value) || 0) : 0;
+
+        if (this.currentCategory === 'KIT') {
+            const kit = this.selectedKit || this.products.find(p => p.tipo === 'KIT');
+            if (!kit) {
+                previewEl.textContent = '🎁 Modo Kits: Selecciona un kit del catálogo';
+                return;
+            }
+            const kitKilos = parseFloat(kit.ropa_kg) || 0;
+            const precioUnit = parseFloat(kit.precio_venta) || 0;
+
+            // Regla de Kilos:
+            // <= kitKilos: x1
+            // > kitKilos y <= 2*kitKilos: x2
+            // > 2*kitKilos y <= 3*kitKilos: x3 ...
+            let multiplicador = 1;
+            if (kitKilos > 0 && kilos > 0) {
+                multiplicador = Math.ceil(kilos / kitKilos);
+                if (multiplicador < 1) multiplicador = 1;
+            }
+
+            const subtotal = +(multiplicador * precioUnit).toFixed(2);
+            previewEl.textContent = `🎁 Subtotal: $${subtotal.toFixed(2)} (${multiplicador} paquete${multiplicador > 1 ? 's' : ''} ${kit.descripcion} para ${kilos.toFixed(1)} kg)`;
+            previewEl.style.background = 'rgba(168, 85, 247, 0.2)';
+            previewEl.style.color = '#c084fc';
+            previewEl.style.borderColor = 'rgba(168, 85, 247, 0.4)';
+            return;
+        }
+
+        const inputHidden = document.getElementById('pos-selected-producto-id');
+        const prodId = inputHidden ? inputHidden.value : '';
 
         if (!prodId) {
             previewEl.textContent = 'Subtotal: $0.00';
+            previewEl.style.background = '';
+            previewEl.style.color = '';
+            previewEl.style.borderColor = '';
             return;
         }
 
         const prod = this.products.find(p => p.id === prodId);
         if (!prod) {
             previewEl.textContent = 'Subtotal: $0.00';
+            previewEl.style.background = '';
+            previewEl.style.color = '';
+            previewEl.style.borderColor = '';
             return;
         }
 
         const precio = parseFloat(prod.precio_venta) || 0;
         const subtotal = (kilos > 0 ? kilos : 1) * precio;
         previewEl.textContent = `Subtotal: $${subtotal.toFixed(2)} (${kilos.toFixed(2)} kg x $${precio.toFixed(2)})`;
+        previewEl.style.background = '';
+        previewEl.style.color = '';
+        previewEl.style.borderColor = '';
     },
 
     agregarRegistroFormulario() {
         const selectCli = document.getElementById('pos-select-cliente');
-        const inputProdId = document.getElementById('pos-selected-producto-id');
-        const inputSearch = document.getElementById('pos-search-producto-input');
         const inputKg = document.getElementById('pos-input-kilos');
+        const kilos = parseFloat(inputKg ? inputKg.value : 0);
+
+        if (isNaN(kilos) || kilos <= 0) {
+            alert('Por favor ingresa una cantidad de kilos válida mayor a 0 en el campo "3. Cantidad de Kilos".');
+            inputKg?.focus();
+            return;
+        }
+
+        // Manejo especial cuando estamos en la categoría de Kits y Paquetes
+        if (this.currentCategory === 'KIT') {
+            const kit = this.selectedKit || this.products.find(p => p.tipo === 'KIT');
+            if (!kit) {
+                alert('No hay ningún Kit disponible en el catálogo.');
+                return;
+            }
+            this.agregarKitPorKilos(kit, kilos);
+            return;
+        }
 
         const clienteId = selectCli ? selectCli.value : '';
         if (!clienteId || clienteId === '') {
@@ -481,6 +656,8 @@ const POS = {
             return;
         }
 
+        const inputProdId = document.getElementById('pos-selected-producto-id');
+        const inputSearch = document.getElementById('pos-search-producto-input');
         const prodId = inputProdId ? inputProdId.value : '';
         if (!prodId || prodId === '') {
             alert('Por favor busca y selecciona un producto o servicio por su nombre o código de barras.');
@@ -491,13 +668,6 @@ const POS = {
         const prod = this.products.find(p => p.id === prodId);
         if (!prod) {
             alert('Producto o servicio no encontrado.');
-            return;
-        }
-
-        const kilos = parseFloat(inputKg ? inputKg.value : 1);
-        if (isNaN(kilos) || kilos <= 0) {
-            alert('Por favor ingresa una cantidad de kilos válida mayor a 0.');
-            inputKg?.focus();
             return;
         }
 
@@ -538,23 +708,119 @@ const POS = {
         inputSearch?.focus();
     },
 
+    agregarKitPorKilos(kit, kilos) {
+        const selectCli = document.getElementById('pos-select-cliente');
+        const clienteId = selectCli ? selectCli.value : '';
+
+        let clienteObj = null;
+        if (clienteId && clienteId !== 'MOSTRADOR') {
+            clienteObj = this.clients.find(c => c.id === clienteId);
+        } else if (clienteId === 'MOSTRADOR') {
+            clienteObj = { id: null, nombre: 'Público General / Mostrador', telefono: '' };
+        } else if (this.selectedClient) {
+            clienteObj = this.selectedClient;
+        }
+
+        const kitKilos = parseFloat(kit.ropa_kg) || 0;
+        const precioUnitario = parseFloat(kit.precio_venta) || 0;
+
+        // Regla solicitada:
+        // Si cantidad de kilos <= cantidad de kilos asignada al paquete (ej. 5 kg) -> x1
+        // Si cantidad de kilos > paquete pero <= doble (ej. >5 y <=10 kg) -> x2
+        // Si cantidad de kilos > doble pero <= triple (ej. >10 y <=15 kg) -> x3
+        // y así sucesivamente: Math.ceil(kilos / kitKilos)
+        let multiplicador = 1;
+        if (kitKilos > 0 && kilos > 0) {
+            multiplicador = Math.ceil(kilos / kitKilos);
+            if (multiplicador < 1) multiplicador = 1;
+        }
+
+        const subtotalCalculado = +(multiplicador * precioUnitario).toFixed(2);
+
+        const nuevoRegistro = {
+            id_registro: Date.now() + Math.random().toString(36).substr(2, 5),
+            producto_id: kit.id,
+            descripcion: multiplicador > 1 
+                ? `${kit.descripcion} (x${multiplicador} paquetes)` 
+                : `${kit.descripcion} (1 paquete)`,
+            tipo: 'KIT',
+            unidad_medida: 'PAQ',
+            precio_unitario: precioUnitario,
+            cantidad: multiplicador,
+            ropa_kg: kilos,
+            subtotal: subtotalCalculado,
+            cliente_id: clienteObj ? clienteObj.id : null,
+            cliente_nombre: clienteObj ? clienteObj.nombre : (clienteId === 'MOSTRADOR' ? 'Público General / Mostrador' : 'Público General'),
+            cliente_telefono: clienteObj ? (clienteObj.telefono || '') : '',
+            notas: `${kilos.toFixed(2)} kg de ropa (${multiplicador} carga(s) de ${kitKilos} kg)`
+        };
+
+        this.cart.push(nuevoRegistro);
+        this.renderCart();
+        this.playBeep();
+
+        // Destello visual en la tarjeta
+        const card = document.querySelector(`.pos-prod-card[data-id="${kit.id}"]`);
+        if (card) {
+            card.classList.add('flash-added');
+            setTimeout(() => card.classList.remove('flash-added'), 350);
+        }
+    },
+
     // ─────────────────────────────────────────────────────────────
     // Carrito de Compras / Lista de Registros
     // ─────────────────────────────────────────────────────────────
     addToCart(productId, qty = 1) {
-        // Al hacer clic en una tarjeta de producto del catálogo, seleccionarlo en el buscador superior
+        const prod = this.products.find(p => p.id === productId);
+        if (!prod) return;
+
+        // Si es un KIT o estamos en la pestaña Kits y Paquetes
+        if (prod.tipo === 'KIT' || this.currentCategory === 'KIT') {
+            this.selectedKit = prod;
+            this.renderProducts();
+
+            const titleText = document.getElementById('pos-entry-title-text');
+            if (titleText) {
+                titleText.textContent = `Kits y Paquetes: ${prod.descripcion}`;
+            }
+
+            const inputKg = document.getElementById('pos-input-kilos');
+            if (inputKg) {
+                // Sugerir los kilos base del paquete si el input está en 1 o vacío
+                if (!inputKg.value || parseFloat(inputKg.value) <= 1) {
+                    if (prod.ropa_kg > 0) inputKg.value = parseFloat(prod.ropa_kg).toFixed(1);
+                }
+                inputKg.focus();
+                inputKg.select();
+            }
+            this.calcPreviewCosto();
+            return;
+        }
+
+        // Para servicios o productos normales, seleccionarlo en el buscador superior para capturar kilos
         this.seleccionarProducto(productId);
     },
 
     updateQty(index, delta) {
         if (!this.cart[index]) return;
-        this.cart[index].cantidad += delta;
-        if (this.cart[index].cantidad <= 0) {
-            this.removeFromCart(index);
-            return;
+        const it = this.cart[index];
+        if (it.tipo === 'KIT') {
+            const step = delta > 0 ? 1 : -1;
+            it.cantidad += step;
+            if (it.cantidad <= 0) {
+                this.removeFromCart(index);
+                return;
+            }
+            it.subtotal = +(it.cantidad * it.precio_unitario).toFixed(2);
+        } else {
+            it.cantidad += delta;
+            if (it.cantidad <= 0) {
+                this.removeFromCart(index);
+                return;
+            }
+            it.ropa_kg = it.cantidad;
+            it.subtotal = +(it.cantidad * it.precio_unitario).toFixed(2);
         }
-        this.cart[index].ropa_kg = this.cart[index].cantidad;
-        this.cart[index].subtotal = +(this.cart[index].cantidad * this.cart[index].precio_unitario).toFixed(2);
         this.renderCart();
     },
 
@@ -564,9 +830,12 @@ const POS = {
             this.removeFromCart(index);
             return;
         }
-        this.cart[index].cantidad = val;
-        this.cart[index].ropa_kg = val;
-        this.cart[index].subtotal = +(this.cart[index].cantidad * this.cart[index].precio_unitario).toFixed(2);
+        const it = this.cart[index];
+        it.cantidad = val;
+        if (it.tipo !== 'KIT') {
+            it.ropa_kg = val;
+        }
+        it.subtotal = +(val * it.precio_unitario).toFixed(2);
         this.renderCart();
     },
 
@@ -617,7 +886,16 @@ const POS = {
         }
 
         container.innerHTML = this.cart.map((item, idx) => {
+            const isKit = item.tipo === 'KIT';
             const kilosVal = parseFloat(item.ropa_kg || item.cantidad || 0);
+            const displayQty = isKit ? item.cantidad : kilosVal;
+            const unitLabel = isKit ? 'paq' : 'kg';
+            const stepVal = isKit ? '1' : '0.1';
+            const deltaVal = isKit ? 1 : 0.5;
+            const unitPricing = isKit 
+                ? `$${item.precio_unitario.toFixed(2)} / paq <span style="font-size:0.65rem; color:#a5b4fc;">(${item.ropa_kg} kg)</span>` 
+                : `$${item.precio_unitario.toFixed(2)} / kg`;
+
             return `
                 <div class="pos-cart-item">
                     <div class="pos-item-header">
@@ -634,13 +912,13 @@ const POS = {
                     </div>
                     <div class="pos-item-controls">
                         <div class="pos-qty-stepper">
-                            <button class="pos-qty-btn" onclick="POS.updateQty(${idx}, -0.5)">-</button>
-                            <input type="number" step="0.1" min="0.1" class="pos-qty-input" style="width:58px;" value="${kilosVal.toFixed(2)}" onchange="POS.setQty(${idx}, this.value)">
-                            <button class="pos-qty-btn" onclick="POS.updateQty(${idx}, 0.5)">+</button>
-                            <span style="font-size:0.72rem; color:var(--pos-text-muted); padding-right:0.4rem; font-weight:700;">kg</span>
+                            <button class="pos-qty-btn" onclick="POS.updateQty(${idx}, -${deltaVal})">-</button>
+                            <input type="number" step="${stepVal}" min="${isKit ? '1' : '0.1'}" class="pos-qty-input" style="width:58px;" value="${isKit ? displayQty : displayQty.toFixed(2)}" onchange="POS.setQty(${idx}, this.value)">
+                            <button class="pos-qty-btn" onclick="POS.updateQty(${idx}, ${deltaVal})">+</button>
+                            <span style="font-size:0.72rem; color:var(--pos-text-muted); padding-right:0.4rem; font-weight:700;">${unitLabel}</span>
                         </div>
                         <div class="pos-item-pricing">
-                            <div class="pos-item-unit">$${item.precio_unitario.toFixed(2)} / kg</div>
+                            <div class="pos-item-unit">${unitPricing}</div>
                             <div class="pos-item-subtotal">$${item.subtotal.toFixed(2)}</div>
                         </div>
                     </div>

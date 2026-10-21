@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS productos (
     codigo_barras VARCHAR(50) UNIQUE,
     codigo_interno_sku VARCHAR(50),
     descripcion VARCHAR(255) NOT NULL,
-    tipo ENUM('NORMAL', 'SERVICIO', 'KIT') NOT NULL,
+    tipo ENUM('NORMAL', 'SERVICIO', 'KIT', 'INSUMO') NOT NULL,
     unidad_medida ENUM('PIEZA', 'KG', 'GRAMO', 'LITRO', 'MILILITRO', 'METRO', 'SERVICIO', 'CARGA') NOT NULL,
     stock_cantidad DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     stock_minimo DECIMAL(10,2) NOT NULL DEFAULT 0.00,

@@ -308,9 +308,10 @@ class Venta
                 }
 
                 // Regla Spec 05 §3: Si tipo = KIT, descontar insumos del Kit y registrar KIT_CONSUMO
+                $kitDetalleParaHistorial = null;
                 if ($pInfo['tipo'] === 'KIT') {
                     $stmtKits = $this->conn->prepare(
-                        "SELECT pk.insumo_id, pk.cantidad_consumida, p.stock_cantidad, p.costo, p.descripcion 
+                        "SELECT pk.insumo_id, pk.cantidad_consumida, pk.unidad, p.stock_cantidad, p.costo, p.descripcion, p.unidad_medida
                          FROM productos_kits pk
                          JOIN productos p ON pk.insumo_id = p.id
                          WHERE pk.kit_id = :kit_id"
@@ -318,6 +319,7 @@ class Venta
                     $stmtKits->execute([':kit_id' => $pInfo['id']]);
                     $insumos = $stmtKits->fetchAll(PDO::FETCH_ASSOC);
 
+                    $kitDetalleParaHistorial = [];
                     foreach ($insumos as $insumo) {
                         $cantConsumidaTotal = floatval($insumo['cantidad_consumida']) * $cant;
                         $stockInsumoAntes = floatval($insumo['stock_cantidad']);
@@ -337,6 +339,13 @@ class Venta
                             'stock_antes'     => $stockInsumoAntes,
                             'stock_despues'   => $stockInsumoDespues
                         ]);
+
+                        // Acumular detalle para historial
+                        $kitDetalleParaHistorial[] = [
+                            'insumo_nombre'   => $insumo['descripcion'],
+                            'cantidad_total'  => $cantConsumidaTotal,
+                            'unidad'          => $insumo['unidad'] ?: $insumo['unidad_medida'],
+                        ];
                     }
                 }
 
@@ -358,9 +367,11 @@ class Venta
                     'stock_antes'          => $stockAntes,
                     'stock_despues'        => $stockDespues,
                     'motivo'               => $motivoHistorial,
+                    'kit_detalle'          => $kitDetalleParaHistorial,
                     'usuario_id'           => null,
                     'usuario_nombre'       => $usuarioNombre
                 ]);
+
             }
 
             // Regla Spec 05 §3 & 06 §3: Generar Carga automáticamente para servicios de lavandería
