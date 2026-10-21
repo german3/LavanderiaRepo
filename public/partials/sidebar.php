@@ -50,11 +50,31 @@ $userInitial = mb_substr(mb_strtoupper($userName), 0, 1);
     <nav>
 
 
+        <!-- POS (Punto de Venta) — siempre abre en ventana nueva y pide login -->
+        <a href="pos_login.php?cambiar=1" target="_blank" rel="noopener noreferrer"
+           class="nav-link"
+           style="margin: 0 0.5rem 0.35rem; border-radius: 10px;
+                  background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(5,150,105,0.14));
+                  border: 1px solid rgba(16,185,129,0.4);
+                  color: #34d399;
+                  transition: background 0.2s, box-shadow 0.2s;"
+           onmouseover="this.style.background='linear-gradient(135deg,rgba(16,185,129,0.35),rgba(5,150,105,0.25))'; this.style.boxShadow='0 0 16px rgba(16,185,129,0.28)';"
+           onmouseout="this.style.background='linear-gradient(135deg,rgba(16,185,129,0.2),rgba(5,150,105,0.14))'; this.style.boxShadow='';">
+            <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <path d="M8 4v4"/><path d="M16 4v4"/>
+                <path d="M2 12h20"/>
+                <path d="M7 16h.01"/><path d="M12 16h.01"/><path d="M17 16h.01"/>
+            </svg>
+            <span class="nav-text" style="font-weight: 700; letter-spacing: 0.02em;">POS &mdash; Cobrar</span>
+        </a>
+
         <!-- Dashboard -->
         <a href="dashboard.php" class="nav-link<?= isActive('dashboard', $activePage) ?>">
             <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             <span class="nav-text">Dashboard</span>
         </a>
+
         <!-- Productos -->
         <div class="menu-dropdown">
             <a href="javascript:void(0)" class="nav-link<?= isMenuActive(['productos_registro','productos'], $activePage) ?><?= isMenuOpen(['productos_registro','productos'], $activePage) ?>" onclick="toggleSubmenu('submenu-productos', this)">
