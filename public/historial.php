@@ -58,6 +58,10 @@ $filtroSkuJs = json_encode($filtroSku);
         .badge-edicion    { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); }
         .badge-venta      { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.45); }
         .badge-kit        { background: rgba(139, 92, 246, 0.25); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.4); }
+        .badge-tipo-normal   { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.35); }
+        .badge-tipo-insumo   { background: rgba(234, 179, 8, 0.18); color: #fde68a; border: 1px solid rgba(234, 179, 8, 0.3); }
+        .badge-tipo-servicio { background: rgba(14, 165, 233, 0.18); color: #7dd3fc; border: 1px solid rgba(14, 165, 233, 0.3); }
+        .badge-tipo-kit      { background: rgba(139, 92, 246, 0.22); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.38); }
 
         .kit-inline-box {
             margin-top: 0.55rem;
@@ -215,7 +219,7 @@ $filtroSkuJs = json_encode($filtroSku);
                 <div style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 0.75rem;">
                     <div style="display: flex; gap: 0.75rem; flex: 1; min-width: 300px; flex-wrap: wrap; align-items: center;">
                         <div style="position: relative; flex: 1; min-width: 200px;">
-                            <input type="text" id="searchInput" class="form-control" placeholder="Buscar por SKU, producto, tipo o usuario..." style="width: 100%; padding: 0.4rem 0.75rem 0.4rem 2.2rem; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; height: 38px; font-size: 0.85rem; line-height: 1.2; box-sizing: border-box;">
+                            <input type="text" id="searchInput" class="form-control" placeholder="Buscar por SKU, producto, movimiento o usuario..." style="width: 100%; padding: 0.4rem 0.75rem 0.4rem 2.2rem; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; height: 38px; font-size: 0.85rem; line-height: 1.2; box-sizing: border-box;">
                             <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); opacity: 0.5;">🔍</span>
                         </div>
 
@@ -372,7 +376,10 @@ $filtroSkuJs = json_encode($filtroSku);
                                     Fecha / Hora <span class="sort-icon" id="sort-fecha_hora">▼</span>
                                 </th>
                                 <th class="sort-header" onclick="sortData('tipo_movimiento')">
-                                    Tipo <span class="sort-icon" id="sort-tipo_movimiento">⇅</span>
+                                    Movimiento <span class="sort-icon" id="sort-tipo_movimiento">⇅</span>
+                                </th>
+                                <th class="sort-header" onclick="sortData('tipo_producto')">
+                                    Tipo <span class="sort-icon" id="sort-tipo_producto">⇅</span>
                                 </th>
                                 <th class="sort-header" onclick="sortData('producto_descripcion')">
                                     Producto / SKU <span class="sort-icon" id="sort-producto_descripcion">⇅</span>
@@ -435,6 +442,23 @@ $filtroSkuJs = json_encode($filtroSku);
                 case 'ELIMINACION PRODUCTO': return 'badge-eliminacion';
                 case 'EDICION PRODUCTO': return 'badge-edicion';
                 default: return 'badge-alta';
+            }
+        }
+
+        function getTipoBadge(tipo) {
+            const t = (tipo || '').toUpperCase();
+            switch (t) {
+                case 'NORMAL':
+                    return `<span class="badge badge-tipo-normal">Normal</span>`;
+                case 'INSUMO':
+                    return `<span class="badge badge-tipo-insumo">Insumo</span>`;
+                case 'SERVICIO':
+                    return `<span class="badge badge-tipo-servicio">Servicio</span>`;
+                case 'KIT':
+                case 'KIT_PAQUETE':
+                    return `<span class="badge badge-tipo-kit">Kit / Paquete</span>`;
+                default:
+                    return `<span style="color: var(--text-muted); font-size: 0.8rem;">—</span>`;
             }
         }
 
@@ -639,7 +663,7 @@ $filtroSkuJs = json_encode($filtroSku);
         }
 
         function updateSortIcons() {
-            ['fecha_hora', 'tipo_movimiento', 'producto_descripcion', 'cantidad', 'costo_unitario', 'usuario_nombre'].forEach(col => {
+            ['fecha_hora', 'tipo_movimiento', 'tipo_producto', 'producto_descripcion', 'cantidad', 'costo_unitario', 'usuario_nombre'].forEach(col => {
                 const icon = document.getElementById(`sort-${col}`);
                 if (icon) {
                     if (sortColumn === col) {
@@ -665,7 +689,7 @@ $filtroSkuJs = json_encode($filtroSku);
             const pageData = filteredData.slice(startIdx, startIdx + pageSize);
 
             if (pageData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron movimientos.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron movimientos.</td></tr>`;
             } else {
                 pageData.forEach((item, idx) => {
                     const rowId = `row-${item.id || idx}`;
@@ -674,16 +698,25 @@ $filtroSkuJs = json_encode($filtroSku);
                     const costoFormatted = '$' + parseFloat(item.costo_unitario || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     const stockAntesFormatted = parseFloat(item.stock_antes || 0).toFixed(2);
                     const stockDespuesFormatted = parseFloat(item.stock_despues || 0).toFixed(2);
-                    
+
                     const folioVal = formatNotasFolio(item.motivo);
-                    const folioHtml = (folioVal !== '-') 
+                    const folioHtml = (folioVal !== '-')
                         ? `<span style="font-family: monospace; font-weight: 700; color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.25); white-space: nowrap;">${folioVal}</span>`
                         : `<span style="color: var(--text-muted); opacity: 0.4;">-</span>`;
 
+                    // ── Detectar y parsear insumos del Kit ──────────────────────
                     const isKit = (item.tipo_producto === 'KIT' || (item.kit_detalle && item.kit_detalle !== 'null' && item.kit_detalle !== '[]'));
                     const kitBadgeExtra = isKit ? ` <span class="badge badge-kit" style="font-size:0.65rem;padding:0.2rem 0.5rem;margin-left:0.3rem;">📦 Kit</span>` : '';
-                    const kitDetalleHtml = isKit ? renderKitDetalle(item, rowId) : '';
 
+                    let kitDetalleArr = null;
+                    if (isKit && item.kit_detalle) {
+                        try {
+                            kitDetalleArr = typeof item.kit_detalle === 'string' ? JSON.parse(item.kit_detalle) : item.kit_detalle;
+                            if (!Array.isArray(kitDetalleArr) || kitDetalleArr.length === 0) kitDetalleArr = null;
+                        } catch(e) { kitDetalleArr = null; }
+                    }
+
+                    // ── Fila principal del Kit (sin expansión inline) ────────────
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td style="white-space: nowrap; font-size: 0.85rem; color: var(--text-muted);">
@@ -692,32 +725,66 @@ $filtroSkuJs = json_encode($filtroSku);
                         <td>
                             <span class="badge ${badgeClass}">${item.tipo_movimiento}</span>${kitBadgeExtra}
                         </td>
+                        <td>${getTipoBadge(item.tipo_producto)}</td>
                         <td>
                             <div style="font-weight: 600; color: #fff;">${item.producto_descripcion}</div>
                             ${item.producto_sku ? `<span class="sku-tag">SKU: ${item.producto_sku}</span>` : ''}
-                            ${kitDetalleHtml}
                         </td>
                         <td style="text-align: right; font-weight: 600;">
-                            ${item.tipo_movimiento === 'SALIDA STOCK' ? `<span style="color:#fda4af;">-${cantidadFormatted}</span>` : 
-                              item.tipo_movimiento === 'VENTA POS' ? `<span style="color:#38bdf8; font-weight:700;">${cantidadFormatted}</span>` : 
+                            ${item.tipo_movimiento === 'SALIDA STOCK' ? `<span style="color:#fda4af;">-${cantidadFormatted}</span>` :
+                              item.tipo_movimiento === 'VENTA POS'   ? `<span style="color:#38bdf8; font-weight:700;">${cantidadFormatted}</span>` :
                               `<span style="color:#6ee7b7;">+${cantidadFormatted}</span>`}
                         </td>
                         <td style="text-align: center; font-size: 0.85rem; color: var(--text-muted);">
-                            ${(item.tipo_producto === 'SERVICIO' && stockAntesFormatted == '0.00' && stockDespuesFormatted == '0.00') ? 
-                              `<span style="font-size:0.75rem; color:#94a3b8; font-style:italic;">Servicio (N/A)</span>` : 
+                            ${(item.tipo_producto === 'SERVICIO' && stockAntesFormatted == '0.00' && stockDespuesFormatted == '0.00') ?
+                              `<span style="font-size:0.75rem; color:#94a3b8; font-style:italic;">Servicio (N/A)</span>` :
                               `<span>${stockAntesFormatted}</span><span style="margin: 0 0.3rem; opacity: 0.5;">→</span><strong style="color: #fff;">${stockDespuesFormatted}</strong>`}
                         </td>
-                        <td style="text-align: right; font-size: 0.85rem;">
-                            ${costoFormatted}
-                        </td>
-                        <td style="font-size: 0.85rem; text-align: center; white-space: nowrap;">
-                            ${folioHtml}
-                        </td>
-                        <td style="font-size: 0.85rem; font-weight: 500;">
-                            ${item.usuario_nombre || 'Sistema'}
-                        </td>
+                        <td style="text-align: right; font-size: 0.85rem;">${costoFormatted}</td>
+                        <td style="font-size: 0.85rem; text-align: center; white-space: nowrap;">${folioHtml}</td>
+                        <td style="font-size: 0.85rem; font-weight: 500;">${item.usuario_nombre || 'Sistema'}</td>
                     `;
                     tbody.appendChild(tr);
+
+                    // ── Filas separadas por cada insumo del Kit ─────────────────
+                    if (kitDetalleArr) {
+                        kitDetalleArr.forEach(ins => {
+                            const insQty = parseFloat(ins.cantidad_total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            const insUnidad = (ins.unidad || '').toUpperCase();
+
+                            const insTr = document.createElement('tr');
+                            insTr.style.cssText = 'background: rgba(139,92,246,0.04); border-left: 3px solid rgba(139,92,246,0.35);';
+                            insTr.innerHTML = `
+                                <td style="white-space: nowrap; font-size: 0.8rem; color: var(--text-muted); padding-left: 1.8rem;">
+                                    <span style="opacity:0.45;">↳</span>
+                                </td>
+                                <td>
+                                    <span class="badge ${badgeClass}" style="opacity:0.65; font-size:0.7rem; padding:0.25rem 0.55rem;">${item.tipo_movimiento}</span>
+                                </td>
+                                <td>${getTipoBadge('INSUMO')}</td>
+                                <td>
+                                    <div style="font-weight:500; color:#e2e8f0; font-size:0.88rem;">${ins.insumo_nombre}</div>
+                                    ${ins.insumo_sku ? `<span class="sku-tag">SKU: ${ins.insumo_sku}</span>` : ''}
+                                </td>
+                                <td style="text-align:right; font-size:0.85rem; color:#c4b5fd; font-weight:600;">
+                                    ${insQty} <span style="font-size:0.75rem; opacity:0.7;">${insUnidad}</span>
+                                </td>
+                                <td style="text-align:center; font-size:0.8rem; color:var(--text-muted);">
+                                    <span style="font-style:italic; opacity:0.5;">—</span>
+                                </td>
+                                <td style="text-align:right; font-size:0.8rem; color:var(--text-muted);">
+                                    <span style="opacity:0.5;">—</span>
+                                </td>
+                                <td style="font-size:0.82rem; text-align:center;">
+                                    <span style="display:inline-flex; align-items:center; gap:0.3rem; background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.3); border-radius:6px; padding:0.2rem 0.55rem; color:#c4b5fd; white-space:nowrap;">
+                                        📦 Kit: <strong style="color:#e2e8f0;">${item.producto_descripcion}</strong>
+                                    </span>
+                                </td>
+                                <td style="font-size:0.82rem; color:var(--text-muted);">${item.usuario_nombre || 'Sistema'}</td>
+                            `;
+                            tbody.appendChild(insTr);
+                        });
+                    }
                 });
             }
 
