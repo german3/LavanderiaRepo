@@ -88,8 +88,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
 
                 if (!$prodData) { $errores[] = "Fila " . ($i+1) . ": producto no encontrado."; continue; }
 
+                $uMed = strtoupper(trim($prodData['unidad_medida'] ?? ''));
+                $esProdLiquido = in_array($uMed, ['LITRO', 'LITROS', 'MILILITRO', 'MILILITROS', 'GALON', 'GALONES', 'L', 'ML']);
+
                 $cantidad    = $cantidadRaw;
-                if ($prodData['unidad_medida'] === 'LITRO') {
+                if ($esProdLiquido) {
                     $cantidad = convertirALitros($cantidadRaw, $unidadLiquido);
                 }
 
@@ -98,14 +101,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
 
                 if ($tipoMovimiento === 'SALIDA') {
                     if ($stockAntes < $cantidad) {
-                        $etiq = ($prodData['unidad_medida'] === 'LITRO') ? ' L' : '';
+                        $etiq = $esProdLiquido ? ' L' : '';
                         $errores[] = "Fila " . ($i+1) . " ({$prodData['descripcion']}): stock insuficiente. Existencias: " . number_format($stockAntes, 2) . $etiq;
                         continue;
                     }
                     $stmt = $db->prepare("UPDATE productos SET stock_cantidad = stock_cantidad - :cant WHERE id = :id");
                     $stmt->bindParam(':cant', $cantidad); $stmt->bindParam(':id', $productoId);
                     $motivoFila = trim($motivosItem[$i] ?? '') ?: ($motivoGlobal ?: ($tipoMovimiento === 'SALIDA' ? 'Salida de inventario' : 'Entrada de inventario'));
-                    if ($prodData['unidad_medida'] === 'LITRO' && $unidadLiquido === 'GALON') {
+                    if ($esProdLiquido && $unidadLiquido === 'GALON') {
                         $cantMl = $cantidad * 1000;
                         $motivoFila .= " [" . number_format($presentacion, 2) . " Gal = " . number_format($cantidad, 2) . " L / " . number_format($cantMl, 2) . " mL]";
                     }
@@ -113,18 +116,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
                     if ($stmt->execute()) {
                         $stockDespues = $stockAntes - $cantidad;
                         $historialModel->registrar(['tipo_movimiento'=>'SALIDA STOCK','producto_id'=>$prodData['id'],'producto_sku'=>$prodData['codigo_interno_sku'],'producto_descripcion'=>$prodData['descripcion'],'tipo_producto'=>$prodData['tipo'],'cantidad'=>$cantidad,'costo_unitario'=>$costoActual,'stock_antes'=>$stockAntes,'stock_despues'=>$stockDespues,'motivo'=>$motivoFila,'usuario_id'=>$_SESSION['usuario_id']??null,'usuario_nombre'=>$_SESSION['nombre']??'Usuario']);
-                        if ($prodData['unidad_medida'] === 'LITRO' && $unidadLiquido === 'GALON') {
+                        if ($esProdLiquido && $unidadLiquido === 'GALON') {
                             $cantMl = $cantidad * 1000;
                             $detalleMult = " (" . number_format($presentacion, 2) . " Gal = " . number_format($cantidad, 2) . " L / " . number_format($cantMl, 2) . " mL)";
                         } else {
                             $detalleMult = ($factorCantidad > 1) ? " ({$factorCantidad}×" . number_format($presentacion, 2) . ")" : "";
                         }
-                        $mensajes[] = "✔ {$prodData['descripcion']}: -" . number_format($cantidad, 2) . ($prodData['unidad_medida']==='LITRO'?' L':'') . "{$detalleMult}";
+                        $mensajes[] = "✔ {$prodData['descripcion']}: -" . number_format($cantidad, 2) . ($esProdLiquido ? ' L' : '') . "{$detalleMult}";
                     } else { $errores[] = "Fila " . ($i+1) . ": no se pudo registrar la salida."; }
                 } else {
                     $nuevoCosto = ($permitirEditarCosto && $editarCosto >= 0) ? $editarCosto : $costoActual;
                     $motivoFila = trim($motivosItem[$i] ?? '') ?: ($motivoGlobal ?: 'Entrada de inventario');
-                    if ($prodData['unidad_medida'] === 'LITRO' && $unidadLiquido === 'GALON') {
+                    if ($esProdLiquido && $unidadLiquido === 'GALON') {
                         $cantMl = $cantidad * 1000;
                         $motivoFila .= " [" . number_format($presentacion, 2) . " Gal = " . number_format($cantidad, 2) . " L / " . number_format($cantMl, 2) . " mL]";
                     }
@@ -161,6 +164,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && ($_POST['action'] ?? '') == 'registr
         if (!empty($errores)) {
             $error = implode("\n", $errores);
         }
+        $_POST = [];
     }
 }
 
@@ -697,10 +701,11 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         return 1.0;
     }
 
-    // Detecta si la unidad base del producto es Litros o Mililitros
+    // Detecta si la unidad base del producto es Líquido (Litros, Mililitros o Galones)
     function esLiquidoBase(unidad) {
         if (!unidad) return false;
-        return (unidad === 'LITRO' || unidad === 'MILILITRO');
+        var u = (unidad + '').toUpperCase().trim();
+        return (u === 'LITRO' || u === 'LITROS' || u === 'MILILITRO' || u === 'MILILITROS' || u === 'GALON' || u === 'GALONES' || u === 'L' || u === 'ML');
     }
 
     // Datos de productos inyectados desde PHP
@@ -879,8 +884,15 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 
         // Enfocar el campo activo según el tipo de unidad
         if (esLiquidoBase(prod.unidad)) {
-            var inpPres = document.getElementById('captura-presentacion');
-            if (inpPres) inpPres.focus();
+            var selULiq = document.getElementById('captura-unidad-liquido');
+            var uLiq = selULiq ? selULiq.value : 'LITRO';
+            if (uLiq === 'GALON') {
+                var inpCant = document.getElementById('captura-cantidad');
+                if (inpCant) inpCant.focus();
+            } else {
+                var inpPres = document.getElementById('captura-presentacion');
+                if (inpPres) inpPres.focus();
+            }
         } else {
             var inpCant = document.getElementById('captura-cantidad');
             if (inpCant) inpCant.focus();
@@ -908,8 +920,8 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         if (prod) {
             var costo = prod.costo;
             var unidad = prod.unidad || '';
-            var esLiquido = (unidad === 'LITRO' || unidad === 'MILILITRO');
-            var etiquetaUnidad = (unidad === 'LITRO') ? 'L' : ((unidad === 'MILILITRO') ? 'mL' : unidad);
+            var esLiquido = esLiquidoBase(unidad);
+            var etiquetaUnidad = (unidad === 'LITRO') ? 'L' : ((unidad === 'MILILITRO') ? 'mL' : ((unidad === 'GALON' || unidad === 'GALONES') ? 'Gal' : unidad));
 
             if (tag) {
                 tag.textContent = '💵 $' + costo.toFixed(2) + ' / ' + etiquetaUnidad;
@@ -938,6 +950,18 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 
     function onUnidadLiquidoChange() {
         actualizarVisibilidadCantidad();
+        var prod = getProductoCapturaSeleccionado();
+        if (prod && esLiquidoBase(prod.unidad)) {
+            var selULiq = document.getElementById('captura-unidad-liquido');
+            var uLiq = selULiq ? selULiq.value : 'LITRO';
+            if (uLiq === 'GALON') {
+                var inpCant = document.getElementById('captura-cantidad');
+                if (inpCant) inpCant.focus();
+            } else {
+                var inpPres = document.getElementById('captura-presentacion');
+                if (inpPres) inpPres.focus();
+            }
+        }
         calcularCaptura();
     }
 
@@ -958,13 +982,29 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         var lblCant = document.getElementById('lbl-captura-cantidad');
 
         if (esLiq) {
-            // Producto líquido (Litros/Mililitros): mostrar solo Presentación
-            if (grupoPres) grupoPres.style.display = 'block';
-            if (grupoCant) {
-                grupoCant.style.display = 'none';
-                if (inpCant) inpCant.value = '';
+            var selULiq = document.getElementById('captura-unidad-liquido');
+            var uLiq = selULiq ? selULiq.value : 'LITRO';
+
+            if (uLiq === 'GALON') {
+                // Galones: mostrar Cantidad (cuántos galones), ocultar Presentación
+                if (grupoPres) {
+                    grupoPres.style.display = 'none';
+                    if (inpPres) inpPres.value = '';
+                }
+                if (grupoCant) grupoCant.style.display = 'block';
+                if (lblCant) lblCant.textContent = esSalida ? 'Cantidad de Galones a Retirar *' : 'Cantidad de Galones *';
+                if (inpCant) inpCant.placeholder = 'Ej: 1 galón';
+            } else {
+                // Litros o Mililitros: mostrar Presentación (cantidad en L o mL), ocultar Cantidad
+                if (grupoPres) grupoPres.style.display = 'block';
+                if (grupoCant) {
+                    grupoCant.style.display = 'none';
+                    if (inpCant) inpCant.value = '';
+                }
+                var unidadEtiq = (uLiq === 'MILILITRO') ? 'Mililitros' : 'Litros';
+                if (lblPres) lblPres.textContent = esSalida ? 'Presentación a Retirar (' + unidadEtiq + ') *' : 'Presentación (' + unidadEtiq + ') *';
+                if (inpPres) inpPres.placeholder = (uLiq === 'MILILITRO') ? 'Ej: 500 mL' : 'Ej: 1.50 L';
             }
-            if (lblPres) lblPres.textContent = esSalida ? 'Presentación a Retirar *' : 'Presentación *';
         } else {
             // Producto no líquido: ocultar Presentación, mostrar solo Cantidad
             if (grupoPres) {
@@ -973,6 +1013,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             }
             if (grupoCant) grupoCant.style.display = 'block';
             if (lblCant) lblCant.textContent = esSalida ? 'Cantidad a Retirar *' : 'Cantidad *';
+            if (inpCant) inpCant.placeholder = '0.00';
         }
 
         if (gridCant) {
@@ -1032,7 +1073,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         // Leer el campo activo según unidad
         var pres = parseFloat((document.getElementById('captura-presentacion') || {}).value || 0) || 0;
         var cant = parseFloat((document.getElementById('captura-cantidad') || {}).value || 0) || 0;
-        var valorActivo = esLiquido ? pres : cant;
+        var valorActivo = (esLiquido && uLiq !== 'GALON') ? pres : cant;
         var totalCant = valorActivo; // No hay multiplicador ahora
         var cantL = totalCant * factor;
         var cantML = cantL * 1000;
@@ -1130,15 +1171,27 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         var cant = 1.0;
 
         if (esLiquido) {
-            // Modo líquido: leer Presentación
-            var inpPres = document.getElementById('captura-presentacion');
-            pres = parseFloat((inpPres && inpPres.value) || 0) || 0;
-            if (pres <= 0) {
-                mostrarAlertaCaptura('Ingresa una presentación válida mayor a 0.');
-                if (inpPres) inpPres.focus();
-                return false;
+            if (uLiq === 'GALON') {
+                // Galones: leer desde campo Cantidad
+                var inpCant = document.getElementById('captura-cantidad');
+                cant = parseFloat((inpCant && inpCant.value) || 0) || 0;
+                if (cant <= 0) {
+                    mostrarAlertaCaptura('Ingresa una cantidad de galones válida mayor a 0.');
+                    if (inpCant) inpCant.focus();
+                    return false;
+                }
+                pres = cant; // PHP procesa presentacion * factorCantidad
+            } else {
+                // Litros o Mililitros: leer desde campo Presentación
+                var inpPres = document.getElementById('captura-presentacion');
+                pres = parseFloat((inpPres && inpPres.value) || 0) || 0;
+                if (pres <= 0) {
+                    mostrarAlertaCaptura('Ingresa una presentación válida mayor a 0.');
+                    if (inpPres) inpPres.focus();
+                    return false;
+                }
+                cant = 1.0; // No hay multiplicador para líquidos en L/mL
             }
-            cant = 1.0; // No hay multiplicador para líquidos
         } else {
             // Modo normal: leer Cantidad
             var inpCant = document.getElementById('captura-cantidad');
@@ -1269,7 +1322,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 
         var html = '';
         listaEntradas.forEach(function(item, idx) {
-            var esLiq = (item.unidad_medida === 'LITRO' || item.unidad_medida === 'MILILITRO');
+            var esLiq = esLiquidoBase(item.unidad_medida);
             var detalleTexto = '';
             var etiquetaULiq = item.unidad_liquido === 'MILILITRO' ? 'mL' : (item.unidad_liquido === 'GALON' ? 'Gal' : 'L');
             if (esLiq) {
@@ -1360,7 +1413,9 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         var cant = parseFloat((document.getElementById('captura-cantidad') || {}).value || 0) || 0;
 
         var esLiq8 = prod && esLiquidoBase(prod.unidad);
-        if (prod && ((esLiq8 && pres > 0) || (!esLiq8 && cant > 0))) {
+        var uLiq8 = (esLiq8 && document.getElementById('captura-unidad-liquido')) ? document.getElementById('captura-unidad-liquido').value : 'LITRO';
+        var valorActivo8 = (esLiq8 && uLiq8 !== 'GALON') ? pres : cant;
+        if (prod && valorActivo8 > 0) {
             agregarEntradaALista();
         }
 
@@ -1377,7 +1432,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         var lineas = [];
 
         listaEntradas.forEach(function(item) {
-            var esLiq = (item.unidad_medida === 'LITRO' || item.unidad_medida === 'MILILITRO');
+            var esLiq = esLiquidoBase(item.unidad_medida);
             var uLiq = item.unidad_liquido === 'MILILITRO' ? 'mL' : (item.unidad_liquido === 'GALON' ? 'Gal' : 'L');
             var det = '';
             if (esLiq) {

@@ -276,29 +276,70 @@ class Producto {
         try {
             $this->conn->beginTransaction();
 
-            // 1. Eliminar relaciones de kit asociadas
+            // 1. Verificar si el producto tiene historial en ventas o detalles asociados
+            $tieneVentas = false;
+            try {
+                $chkDV = $this->conn->prepare("SELECT COUNT(*) FROM detalle_ventas WHERE producto_id = :id");
+                $chkDV->execute([':id' => $id]);
+                if ($chkDV->fetchColumn() > 0) {
+                    $tieneVentas = true;
+                }
+            } catch (\Exception $e) {}
+
+            if (!$tieneVentas) {
+                try {
+                    $chkVD = $this->conn->prepare("SELECT COUNT(*) FROM ventas_detalle WHERE producto_id = :id");
+                    $chkVD->execute([':id' => $id]);
+                    if ($chkVD->fetchColumn() > 0) {
+                        $tieneVentas = true;
+                    }
+                } catch (\Exception $e) {}
+            }
+
+            if (!$tieneVentas) {
+                try {
+                    $chkCD = $this->conn->prepare("SELECT COUNT(*) FROM cotizaciones_detalle WHERE producto_id = :id");
+                    $chkCD->execute([':id' => $id]);
+                    if ($chkCD->fetchColumn() > 0) {
+                        $tieneVentas = true;
+                    }
+                } catch (\Exception $e) {}
+            }
+
+            // 2. Desvincular de kits (como kit o como insumo)
             $delKits = $this->conn->prepare("DELETE FROM " . $this->table_kits . " WHERE kit_id = :id OR insumo_id = :id");
             $delKits->bindParam(":id", $id);
             $delKits->execute();
 
-            // 2. Eliminar detalles de entradas de compra asociados
-            $delEntradas = $this->conn->prepare("DELETE FROM detalle_entradas WHERE producto_id = :id");
-            $delEntradas->bindParam(":id", $id);
-            $delEntradas->execute();
+            if ($tieneVentas) {
+                // Borrado lógico para proteger la integridad referencial de los tickets y ventas históricas
+                $upd = $this->conn->prepare("UPDATE " . $this->table_name . " 
+                    SET estado = 'INACTIVO',
+                        codigo_barras = CONCAT(SUBSTRING(COALESCE(codigo_barras, 'DEL'), 1, 30), '_INAC_', UNIX_TIMESTAMP())
+                    WHERE id = :id");
+                $upd->bindParam(":id", $id);
+                $res = $upd->execute();
 
-            // 3. Eliminar movimientos de inventario asociados
-            $delMovs = $this->conn->prepare("DELETE FROM movimientos_inventario WHERE producto_id = :id");
-            $delMovs->bindParam(":id", $id);
-            $delMovs->execute();
+                $this->conn->commit();
+                return $res;
+            } else {
+                // Borrado físico seguro ya que no tiene historial de ventas
+                $delEntradas = $this->conn->prepare("DELETE FROM detalle_entradas WHERE producto_id = :id");
+                $delEntradas->bindParam(":id", $id);
+                $delEntradas->execute();
 
-            // 4. Eliminar el producto
-            $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
-            $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(":id", $id);
-            $res = $stmt->execute();
+                $delMovs = $this->conn->prepare("DELETE FROM movimientos_inventario WHERE producto_id = :id");
+                $delMovs->bindParam(":id", $id);
+                $delMovs->execute();
 
-            $this->conn->commit();
-            return $res;
+                $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(":id", $id);
+                $res = $stmt->execute();
+
+                $this->conn->commit();
+                return $res;
+            }
         } catch (\Exception $e) {
             if ($this->conn->inTransaction()) {
                 $this->conn->rollBack();
@@ -307,10 +348,12 @@ class Producto {
         }
     }
 
-    public function obtenerTodos() {
+    public function obtenerTodos($soloActivos = true) {
+        $whereClause = $soloActivos ? " WHERE p.estado = 'ACTIVO' " : "";
         $query = "SELECT p.*, u.nombre as usuario_nombre 
                   FROM " . $this->table_name . " p 
                   LEFT JOIN usuarios u ON p.usuario_registro_id = u.id 
+                  {$whereClause}
                   ORDER BY 
                     CASE 
                         WHEN p.codigo_interno_sku REGEXP '^[0-9]+$' THEN CAST(p.codigo_interno_sku AS UNSIGNED)

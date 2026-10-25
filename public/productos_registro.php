@@ -232,8 +232,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $productosNormalesJson  = $insumosDisponiblesJson;
                     if ($tipo === 'KIT') {
                         $kitGuardadoExitoso = true;
-                        $_POST = [];
                     }
+                    $_POST = [];
                 } else {
                     $error = "Error al crear el producto. Revisa los datos.";
                 }

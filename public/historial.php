@@ -151,8 +151,157 @@ $filtroSkuJs = json_encode($filtroSku);
             color: #f1f5f9;
         }
 
+        /* ── Modal de Detalles ── */
+        .modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.65);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            animation: fadeInOverlay 0.2s ease;
+        }
+        .modal-overlay.active { display: flex; }
+        @keyframes fadeInOverlay { from { opacity:0; } to { opacity:1; } }
+
+        .modal-box {
+            background: linear-gradient(145deg, #1e2d3d, #0f172a);
+            border: 1px solid rgba(99,102,241,0.35);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 620px;
+            max-height: 88vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+            animation: slideUpModal 0.25s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        @keyframes slideUpModal { from { transform: translateY(24px) scale(0.97); opacity:0; } to { transform: none; opacity:1; } }
+
+        .modal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1.25rem 1.5rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        .modal-header h2 {
+            font-size: 1.05rem; font-weight: 700; color: #fff; margin: 0;
+            display: flex; align-items: center; gap: 0.6rem;
+        }
+        .modal-close {
+            width: 32px; height: 32px;
+            border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.05);
+            color: #94a3b8; font-size: 1rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+        }
+        .modal-close:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); color: #fca5a5; }
+
+        .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem 1rem;
+        }
+        .detail-item {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px;
+            padding: 0.65rem 0.9rem;
+        }
+        .detail-item.full { grid-column: 1 / -1; }
+        .detail-label {
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.07em; color: #64748b; margin-bottom: 0.3rem;
+        }
+        .detail-value {
+            font-size: 0.9rem; color: #e2e8f0; font-weight: 500;
+            word-break: break-word;
+        }
+        .detail-value.mono { font-family: monospace; color: #a5b4fc; }
+
+        .modal-kit-section {
+            margin-top: 1rem;
+            padding: 0.85rem 1rem;
+            background: rgba(139,92,246,0.07);
+            border: 1px solid rgba(139,92,246,0.25);
+            border-radius: 10px;
+        }
+        .modal-kit-title {
+            font-size: 0.72rem; font-weight: 700; color: #c4b5fd;
+            text-transform: uppercase; letter-spacing: 0.06em;
+            margin-bottom: 0.6rem;
+            display: flex; align-items: center; gap: 0.4rem;
+        }
+        .modal-kit-pill {
+            display: flex; align-items: center; gap: 0.5rem;
+            background: rgba(15,23,42,0.5);
+            border: 1px solid rgba(139,92,246,0.2);
+            border-radius: 7px;
+            padding: 0.3rem 0.65rem;
+            margin-top: 0.3rem;
+            font-size: 0.82rem;
+        }
+        .btn-detalle {
+            display: inline-flex; align-items: center; gap: 0.3rem;
+            padding: 0.3rem 0.7rem;
+            background: rgba(99,102,241,0.12);
+            border: 1px solid rgba(99,102,241,0.3);
+            color: #a5b4fc;
+            border-radius: 7px;
+            font-size: 0.75rem; font-weight: 600;
+            cursor: pointer;
+            transition: all 0.18s;
+            white-space: nowrap;
+        }
+        .btn-detalle:hover {
+            background: rgba(99,102,241,0.28);
+            border-color: rgba(99,102,241,0.6);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+        .btn-ticket {
+            display: inline-flex; align-items: center; gap: 0.25rem;
+            padding: 0.2rem 0.55rem;
+            background: rgba(56,189,248,0.1);
+            border: 1px solid rgba(56,189,248,0.3);
+            color: #38bdf8;
+            border-radius: 6px;
+            font-size: 0.7rem; font-weight: 600;
+            cursor: pointer;
+            transition: all 0.18s;
+            white-space: nowrap;
+        }
+        .btn-ticket:hover {
+            background: rgba(56,189,248,0.25);
+            border-color: rgba(56,189,248,0.6);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        /* ── Ticket Térmico ── */
+        .hist-ticket-paper {
+            background: #fff;
+            color: #111;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 0.78rem;
+            line-height: 1.4;
+            max-width: 340px;
+            margin: 0 auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .hist-ticket-center { text-align: center; }
+        .hist-ticket-divider { border-top: 1px dashed #666; margin: 0.75rem 0; }
+        .hist-ticket-table { width: 100%; border-collapse: collapse; }
+        .hist-ticket-table th, .hist-ticket-table td { padding: 0.2rem 0; font-size: 0.75rem; }
+        .hist-ticket-table th { border-bottom: 1px dashed #444; }
+
         @media print {
-            .sidebar, .no-print, #banner-filtro-sku, #paginationControls, #pageSizeSelect, #btn-limpiar-fechas, .select-arrow-btn { display: none !important; }
+            .sidebar, .no-print, #banner-filtro-sku, #paginationControls, #pageSizeSelect, #btn-limpiar-fechas, .select-arrow-btn, .btn-detalle, .btn-ticket { display: none !important; }
             .main-content { margin-left: 0 !important; width: 100% !important; padding: 0 !important; background: #fff !important; color: #000 !important; }
             body { background: #fff !important; color: #000 !important; }
             .card { background: none !important; border: none !important; padding: 0 !important; box-shadow: none !important; }
@@ -245,6 +394,18 @@ $filtroSkuJs = json_encode($filtroSku);
                                 <option value="SALIDA STOCK" style="background:#1e293b; color:#f1f5f9;">Salida de Stock</option>
                                 <option value="ELIMINACION PRODUCTO" style="background:#1e293b; color:#f1f5f9;">Eliminación</option>
                                 <option value="EDICION PRODUCTO" style="background:#1e293b; color:#f1f5f9;">Edición</option>
+                            </select>
+                            <div class="select-arrow-btn">▼</div>
+                        </div>
+
+                        <!-- Filtro por Tipo de Producto -->
+                        <div class="select-wrapper" style="width: 175px;">
+                            <select id="tipoProductoFilter" class="form-control" style="width: 100%; padding: 0.4rem 2.2rem 0.4rem 0.75rem; height: 38px; background: #1e293b; color: #f1f5f9; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; line-height: 1.2; cursor: pointer; box-sizing: border-box;">
+                                <option value="" style="background:#1e293b; color:#f1f5f9;">Tipo de producto</option>
+                                <option value="NORMAL" style="background:#1e293b; color:#cbd5e1;">Normal</option>
+                                <option value="INSUMO" style="background:#1e293b; color:#fde68a;">Insumo</option>
+                                <option value="SERVICIO" style="background:#1e293b; color:#7dd3fc;">Servicio</option>
+                                <option value="KIT" style="background:#1e293b; color:#c4b5fd;">Kit / Paquete</option>
                             </select>
                             <div class="select-arrow-btn">▼</div>
                         </div>
@@ -395,6 +556,7 @@ $filtroSkuJs = json_encode($filtroSku);
                                 <th class="sort-header" onclick="sortData('usuario_nombre')">
                                     Usuario <span class="sort-icon" id="sort-usuario_nombre">⇅</span>
                                 </th>
+                                <th style="text-align: center;" class="no-print">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="historialTbody">
@@ -415,6 +577,42 @@ $filtroSkuJs = json_encode($filtroSku);
 
             </div>
         </main>
+    </div>
+
+    <!-- ── Modal de Detalles del Movimiento ── -->
+    <div id="detallesModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Detalle del Movimiento
+                </h2>
+                <button class="modal-close" onclick="cerrarModal()" title="Cerrar">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="modalContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Modal de Ticket Térmico (Historial) ── -->
+    <div id="ticketModal" class="modal-overlay">
+        <div class="modal-box" style="max-width:440px;">
+            <div class="modal-header">
+                <h2>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                    Ticket de Venta
+                </h2>
+                <button class="modal-close" onclick="cerrarModalTicket()" title="Cerrar">✕</button>
+            </div>
+            <div class="modal-body" style="background:#1f2937; padding:1.25rem;">
+                <div id="ticketContent"></div>
+            </div>
+            <div style="display:flex; gap:0.75rem; padding:1rem 1.5rem; border-top:1px solid rgba(255,255,255,0.07);">
+                <button onclick="cerrarModalTicket()" style="flex:1; padding:0.55rem; background:rgba(255,255,255,0.06); border:1px solid var(--border); color:var(--text-muted); border-radius:8px; font-size:0.85rem; font-weight:600; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color=''">Cerrar</button>
+                <button onclick="imprimirTicketHistorial()" style="flex:1; padding:0.55rem; background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.35); color:#38bdf8; border-radius:8px; font-size:0.85rem; font-weight:600; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; justify-content:center; gap:0.4rem;" onmouseover="this.style.background='rgba(56,189,248,0.3)'; this.style.color='#fff';" onmouseout="this.style.background='rgba(56,189,248,0.15)'; this.style.color='#38bdf8';">🖨️ Imprimir Ticket</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -534,6 +732,7 @@ $filtroSkuJs = json_encode($filtroSku);
         function filterData() {
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
             const tipoFilter = document.getElementById('tipoFilter').value;
+            const tipoProductoFilter = (document.getElementById('tipoProductoFilter')?.value || '').trim().toUpperCase();
             const usuarioFilter = (document.getElementById('usuarioFilter')?.value || '').trim().toLowerCase();
 
             // Rango de fechas: fecha inicio = 00:00:00 del día, fecha fin = 23:59:59 del día
@@ -565,6 +764,13 @@ $filtroSkuJs = json_encode($filtroSku);
                 const matchTipoFilter = !tipoFilter ? true : 
                     (tipoFilter === 'KIT' ? esKitItem : item.tipo_movimiento === tipoFilter);
 
+                // Filtro por tipo de producto (Normal, Insumo, Servicio, Kit/Paquete)
+                const itemTipoProd = (item.tipo_producto || '').toUpperCase();
+                const matchTipoProducto = !tipoProductoFilter ||
+                    (tipoProductoFilter === 'KIT'
+                        ? (itemTipoProd === 'KIT' || itemTipoProd === 'KIT_PAQUETE' || esKitItem)
+                        : itemTipoProd === tipoProductoFilter);
+
                 const sku     = (item.producto_sku         || '').toLowerCase();
                 const desc    = (item.producto_descripcion || '').toLowerCase();
                 const tipoMov = (item.tipo_movimiento      || '').toLowerCase();
@@ -595,7 +801,7 @@ $filtroSkuJs = json_encode($filtroSku);
                 const itemUsuario = (item.usuario_nombre || '').trim().toLowerCase();
                 const matchUsuarioFilter = !usuarioFilter || (itemUsuario === usuarioFilter);
 
-                return matchTipoFilter && matchUsuarioFilter && matchQuery && matchFecha;
+                return matchTipoFilter && matchTipoProducto && matchUsuarioFilter && matchQuery && matchFecha;
             });
 
             // Actualizar indicador de rango y usuario
@@ -689,15 +895,17 @@ $filtroSkuJs = json_encode($filtroSku);
             const pageData = filteredData.slice(startIdx, startIdx + pageSize);
 
             if (pageData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron movimientos.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron movimientos.</td></tr>`;
             } else {
                 pageData.forEach((item, idx) => {
                     const rowId = `row-${item.id || idx}`;
                     const badgeClass = getBadgeClass(item.tipo_movimiento);
                     const cantidadFormatted = parseFloat(item.cantidad || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     const costoFormatted = '$' + parseFloat(item.costo_unitario || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    const stockAntesFormatted = parseFloat(item.stock_antes || 0).toFixed(2);
-                    const stockDespuesFormatted = parseFloat(item.stock_despues || 0).toFixed(2);
+                    const stockAntesNum = parseFloat(item.stock_antes ?? 0);
+                    const stockDespuesNum = parseFloat(item.stock_despues ?? 0);
+                    const stockAntesFormatted = isNaN(stockAntesNum) ? '0.00' : stockAntesNum.toFixed(2);
+                    const stockDespuesFormatted = isNaN(stockDespuesNum) ? '0.00' : stockDespuesNum.toFixed(2);
 
                     const folioVal = formatNotasFolio(item.motivo);
                     const folioHtml = (folioVal !== '-')
@@ -735,14 +943,52 @@ $filtroSkuJs = json_encode($filtroSku);
                               item.tipo_movimiento === 'VENTA POS'   ? `<span style="color:#38bdf8; font-weight:700;">${cantidadFormatted}</span>` :
                               `<span style="color:#6ee7b7;">+${cantidadFormatted}</span>`}
                         </td>
-                        <td style="text-align: center; font-size: 0.85rem; color: var(--text-muted);">
-                            ${(item.tipo_producto === 'SERVICIO' && stockAntesFormatted == '0.00' && stockDespuesFormatted == '0.00') ?
-                              `<span style="font-size:0.75rem; color:#94a3b8; font-style:italic;">Servicio (N/A)</span>` :
-                              `<span>${stockAntesFormatted}</span><span style="margin: 0 0.3rem; opacity: 0.5;">→</span><strong style="color: #fff;">${stockDespuesFormatted}</strong>`}
+                        <td style="text-align: center; font-size: 0.85rem;">
+                            ${(() => {
+                                const tipoProd = (item.tipo_producto || '').toUpperCase();
+                                const esServicio = tipoProd === 'SERVICIO';
+                                const ambosEnCero = stockAntesNum === 0 && stockDespuesNum === 0;
+
+                                // Servicio sin stock real → N/A
+                                if (esServicio && ambosEnCero) {
+                                    return `<span style="font-size:0.73rem; color:#94a3b8; font-style:italic;">Servicio (N/A)</span>`;
+                                }
+
+                                // Determinar color flecha y del valor final según si subió, bajó o no cambió
+                                const diff = stockDespuesNum - stockAntesNum;
+                                let colorDespues, flecha;
+                                if (diff > 0) {
+                                    colorDespues = '#6ee7b7'; // verde
+                                    flecha = '<span style="color:#6ee7b7;opacity:0.8;">→</span>';
+                                } else if (diff < 0) {
+                                    colorDespues = '#fda4af'; // rojo
+                                    flecha = '<span style="color:#fda4af;opacity:0.8;">→</span>';
+                                } else {
+                                    colorDespues = '#94a3b8'; // gris neutro
+                                    flecha = '<span style="color:#64748b;opacity:0.7;">→</span>';
+                                }
+
+                                return `<span style="color:var(--text-muted);">${stockAntesFormatted}</span>
+                                        <span style="margin:0 0.3rem;">${flecha}</span>
+                                        <strong style="color:${colorDespues};">${stockDespuesFormatted}</strong>`;
+                            })()}
                         </td>
                         <td style="text-align: right; font-size: 0.85rem;">${costoFormatted}</td>
-                        <td style="font-size: 0.85rem; text-align: center; white-space: nowrap;">${folioHtml}</td>
+                        <td style="font-size: 0.85rem; text-align: center; white-space: nowrap;">
+                            ${(() => {
+                                if (item.tipo_movimiento === 'VENTA POS' && folioVal !== '-') {
+                                    return `<span style="display:inline-flex; align-items:center; gap:0.4rem;">${folioHtml}<button class="btn-ticket no-print" onclick="verTicketHistorial('${folioVal}')" title="Ver ticket de venta">🖨️ Ticket</button></span>`;
+                                }
+                                return folioHtml;
+                            })()}
+                        </td>
                         <td style="font-size: 0.85rem; font-weight: 500;">${item.usuario_nombre || 'Sistema'}</td>
+                        <td style="text-align: center;" class="no-print">
+                            <button class="btn-detalle" onclick="mostrarDetalles(${item.id || idx})" title="Ver detalles del movimiento">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                Detalles
+                            </button>
+                        </td>
                     `;
                     tbody.appendChild(tr);
 
@@ -775,12 +1021,21 @@ $filtroSkuJs = json_encode($filtroSku);
                                 <td style="text-align:right; font-size:0.8rem; color:var(--text-muted);">
                                     <span style="opacity:0.5;">—</span>
                                 </td>
-                                <td style="font-size:0.82rem; text-align:center;">
-                                    <span style="display:inline-flex; align-items:center; gap:0.3rem; background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.3); border-radius:6px; padding:0.2rem 0.55rem; color:#c4b5fd; white-space:nowrap;">
-                                        📦 Kit: <strong style="color:#e2e8f0;">${item.producto_descripcion}</strong>
-                                    </span>
+                                <td style="font-size:0.82rem; text-align:center; white-space:nowrap;">
+                                    ${(() => {
+                                        const ticketFolio = formatNotasFolio(item.motivo);
+                                        if (ticketFolio !== '-') {
+                                            return `<span style="font-family:monospace; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.1); padding:0.2rem 0.5rem; border-radius:6px; border:1px solid rgba(56,189,248,0.25); white-space:nowrap;">🎫 ${ticketFolio}</span>`;
+                                        }
+                                        const kitSku = item.producto_sku || '';
+                                        if (kitSku) {
+                                            return `<span class="sku-tag" style="font-weight:600;">📦 ${kitSku}</span>`;
+                                        }
+                                        return `<span style="color:var(--text-muted); opacity:0.4;">-</span>`;
+                                    })()}
                                 </td>
                                 <td style="font-size:0.82rem; color:var(--text-muted);">${item.usuario_nombre || 'Sistema'}</td>
+                                <td class="no-print"></td>
                             `;
                             tbody.appendChild(insTr);
                         });
@@ -828,8 +1083,269 @@ $filtroSkuJs = json_encode($filtroSku);
             }
         }
 
+        // ── Índice rápido para buscar por id ──────────────────────────────────────
+        function getItemById(id) {
+            return rawData.find(item => String(item.id) === String(id)) || null;
+        }
+
+        // ── Modal de Detalles ─────────────────────────────────────────────────────
+        function mostrarDetalles(id) {
+            const item = getItemById(id);
+            if (!item) return;
+
+            const costoFmt = '$' + parseFloat(item.costo_unitario || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const cantFmt  = parseFloat(item.cantidad || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const sAFmt    = parseFloat(item.stock_antes   || 0).toFixed(2);
+            const sDFmt    = parseFloat(item.stock_despues || 0).toFixed(2);
+            const badgeClass = getBadgeClass(item.tipo_movimiento);
+            const folioVal = formatNotasFolio(item.motivo);
+
+            // Kit insumos
+            let kitSection = '';
+            let kitDetalleArr = null;
+            try {
+                kitDetalleArr = typeof item.kit_detalle === 'string' ? JSON.parse(item.kit_detalle) : item.kit_detalle;
+                if (!Array.isArray(kitDetalleArr) || kitDetalleArr.length === 0) kitDetalleArr = null;
+            } catch(e) { kitDetalleArr = null; }
+
+            if (kitDetalleArr) {
+                const pills = kitDetalleArr.map(ins => {
+                    const qty = parseFloat(ins.cantidad_total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const unidad = (ins.unidad || '').toUpperCase();
+                    return `<div class="modal-kit-pill">
+                        <span style="color:#a78bfa;font-weight:bold;">↳</span>
+                        <span style="background:rgba(139,92,246,0.25);color:#c4b5fd;font-weight:700;padding:0.1rem 0.4rem;border-radius:4px;font-size:0.75rem;">${qty} ${unidad}</span>
+                        <span style="color:#f1f5f9;font-weight:500;">${ins.insumo_nombre}</span>
+                        ${ins.insumo_sku ? `<span style="color:#94a3b8;font-size:0.72rem;font-family:monospace;margin-left:auto;">SKU: ${ins.insumo_sku}</span>` : ''}
+                    </div>`;
+                }).join('');
+                kitSection = `<div class="modal-kit-section">
+                    <div class="modal-kit-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                        Insumos del Kit (${kitDetalleArr.length})
+                    </div>
+                    ${pills}
+                </div>`;
+            }
+
+            // Motivo completo (si hay y no solo folio)
+            const motivoCompleto = (item.motivo && item.motivo.trim()) ? item.motivo.trim() : '—';
+
+            document.getElementById('modalContent').innerHTML = `
+                <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.1rem;">
+                    <span class="badge ${badgeClass}" style="font-size:0.8rem;">${item.tipo_movimiento}</span>
+                    ${getTipoBadge(item.tipo_producto)}
+                    ${item.tipo_producto === 'KIT' || kitDetalleArr ? `<span class="badge badge-kit" style="font-size:0.72rem;">📦 Kit</span>` : ''}
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Fecha y Hora</div>
+                        <div class="detail-value">${formatFecha(item.fecha_hora)}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">ID Movimiento</div>
+                        <div class="detail-value mono">#${item.id || '—'}</div>
+                    </div>
+                    <div class="detail-item full">
+                        <div class="detail-label">Producto</div>
+                        <div class="detail-value" style="font-weight:700;color:#fff;">${item.producto_descripcion || '—'}</div>
+                        ${item.producto_sku ? `<div class="detail-value mono" style="font-size:0.8rem;margin-top:0.25rem;">SKU: ${item.producto_sku}</div>` : ''}
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Cantidad</div>
+                        <div class="detail-value" style="font-size:1.05rem;font-weight:700;color:${item.tipo_movimiento==='SALIDA STOCK'?'#fda4af':'#6ee7b7'};">${item.tipo_movimiento === 'SALIDA STOCK' ? '-' : '+'}${cantFmt}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Costo Unitario</div>
+                        <div class="detail-value" style="color:#38bdf8;font-weight:700;">${costoFmt}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Stock Antes</div>
+                        <div class="detail-value" style="color:#94a3b8;">${sAFmt}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Stock Después</div>
+                        <div class="detail-value" style="color:${parseFloat(item.stock_despues||0)>=parseFloat(item.stock_antes||0)?'#6ee7b7':'#fda4af'};font-weight:700;">${sDFmt}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Folio / Referencia</div>
+                        <div class="detail-value mono">${folioVal !== '-' ? folioVal : '—'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Usuario</div>
+                        <div class="detail-value" style="color:#e2e8f0;">${item.usuario_nombre || 'Sistema'}</div>
+                    </div>
+                    <div class="detail-item full">
+                        <div class="detail-label">Notas / Motivo completo</div>
+                        <div class="detail-value" style="font-size:0.85rem;color:#cbd5e1;line-height:1.5;">${motivoCompleto}</div>
+                    </div>
+                </div>
+                ${kitSection}
+            `;
+
+            document.getElementById('detallesModal').classList.add('active');
+        }
+
+        function cerrarModal() {
+            document.getElementById('detallesModal').classList.remove('active');
+        }
+
+        // Cerrar modal al hacer clic en el overlay
+        document.getElementById('detallesModal').addEventListener('click', function(e) {
+            if (e.target === this) cerrarModal();
+        });
+
+        // Cerrar modal con Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') cerrarModal();
+        });
+
+        // ── Ticket Térmico desde Historial ────────────────────────────────────
+        async function verTicketHistorial(folio) {
+            const contentEl = document.getElementById('ticketContent');
+            contentEl.innerHTML = '<div style="text-align:center; padding:2rem; color:#94a3b8;">Cargando ticket...</div>';
+            document.getElementById('ticketModal').classList.add('active');
+
+            try {
+                const res = await fetch(`api/pos_api.php?action=obtener_ticket&venta_id=${encodeURIComponent(folio)}`);
+                const data = await res.json();
+                if (data.success && data.ticket) {
+                    renderTicketHistorial(data.ticket);
+                } else {
+                    contentEl.innerHTML = `<div style="text-align:center; padding:2rem; color:#fca5a5;">No se encontró el ticket para el folio: ${folio}</div>`;
+                }
+            } catch (e) {
+                contentEl.innerHTML = '<div style="text-align:center; padding:2rem; color:#fca5a5;">Error al obtener el ticket.</div>';
+            }
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str || '';
+            return div.innerHTML;
+        }
+
+        function renderTicketHistorial(ticket) {
+            const isPagado = ticket.estado_pago === 'PAGADO';
+            const detalles = ticket.detalles || [];
+
+            document.getElementById('ticketContent').innerHTML = `
+                <div class="hist-ticket-paper" id="hist-ticket-print-wrapper">
+                    <div class="hist-ticket-center">
+                        <h2 style="font-size:1.15rem; font-weight:800; letter-spacing:0.02em;">LAVANDERÍA VERA</h2>
+                        <p style="font-size:0.7rem; color:#444;">Tu ropa limpia, fresca y a tiempo</p>
+                        <p style="font-size:0.7rem; color:#444;">Tel: (999) 000-0000</p>
+                        <div class="hist-ticket-divider"></div>
+                        <div style="font-weight:700; font-size:0.95rem;">FOLIO: ${ticket.folio}</div>
+                        ${ticket.numero_carga ? `<div style="font-weight:800; color:#000; font-size:0.9rem; background:#f0f0f0; padding:2px 4px; margin:3px 0; border:1px solid #ccc;">CARGA DE LAVADO: ${ticket.numero_carga}</div>` : ''}
+                        <p style="font-size:0.7rem; color:#555;">Fecha: ${ticket.fecha_venta}</p>
+                        <p style="font-size:0.7rem; color:#555;">Cajero: ${escapeHtml(ticket.cajero_nombre)}</p>
+                    </div>
+
+                    <div class="hist-ticket-divider"></div>
+                    <div style="font-size:0.73rem;">
+                        <div><strong>Cliente:</strong> ${escapeHtml(ticket.cliente_nombre || 'Público General')}</div>
+                        ${ticket.cliente_telefono ? `<div><strong>Teléfono:</strong> ${escapeHtml(ticket.cliente_telefono)}</div>` : ''}
+                    </div>
+
+                    <div class="hist-ticket-divider"></div>
+                    <table class="hist-ticket-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left;">Cant</th>
+                                <th style="text-align:left;">Descripción</th>
+                                <th style="text-align:right;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${detalles.map(d => `
+                                <tr>
+                                    <td style="vertical-align:top;">${parseFloat(d.cantidad)}</td>
+                                    <td style="vertical-align:top;">
+                                        ${escapeHtml(d.descripcion)}
+                                        ${d.ropa_kg > 0 ? `<div style="font-size:0.65rem; color:#555;">(${d.ropa_kg} kg)</div>` : ''}
+                                        ${d.notas ? `<div style="font-size:0.65rem; color:#555;">* ${escapeHtml(d.notas)}</div>` : ''}
+                                    </td>
+                                    <td style="text-align:right; vertical-align:top;">$${parseFloat(d.subtotal).toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+
+                    <div class="hist-ticket-divider"></div>
+                    <div style="display:flex; justify-content:space-between; font-size:1.15rem; font-weight:800;">
+                        <span>TOTAL:</span>
+                        <span>$${parseFloat(ticket.total).toFixed(2)}</span>
+                    </div>
+
+                    <div style="margin-top:0.5rem; font-size:0.75rem;">
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>Estado:</span>
+                            <strong style="color:${isPagado ? '#059669' : '#d97706'}; font-size:0.85rem;">
+                                ${isPagado ? 'PAGADO' : 'PENDIENTE DE PAGO'}
+                            </strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>Método:</span>
+                            <span>${ticket.metodo_pago}</span>
+                        </div>
+                        ${isPagado && ticket.metodo_pago === 'EFECTIVO' ? `
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>Recibido:</span>
+                            <span>$${parseFloat(ticket.monto_recibido || 0).toFixed(2)}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>Cambio:</span>
+                            <span>$${parseFloat(ticket.cambio || 0).toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="hist-ticket-divider"></div>
+                    <div class="hist-ticket-center" style="font-size:0.68rem; color:#444;">
+                        <p style="font-weight:700;">¡Gracias por su preferencia!</p>
+                        <p>Conserve este ticket para recoger sus prendas.</p>
+                        <p style="margin-top:0.3rem;">No nos hacemos responsables por prendas no recogidas después de 30 días.</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function cerrarModalTicket() {
+            document.getElementById('ticketModal').classList.remove('active');
+        }
+
+        function imprimirTicketHistorial() {
+            const ticketEl = document.getElementById('hist-ticket-print-wrapper');
+            if (!ticketEl) return;
+            const printWin = window.open('', '_blank', 'width=400,height=600');
+            printWin.document.write(`
+                <html><head><title>Ticket</title>
+                <style>
+                    @page { size: 80mm auto; margin: 0; }
+                    body { margin: 0; padding: 8px; font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 12px; color: #000; }
+                    h2 { margin: 0; } p { margin: 2px 0; }
+                    table { width: 100%; border-collapse: collapse; }
+                    th, td { padding: 2px 0; font-size: 11px; }
+                    th { border-bottom: 1px dashed #000; }
+                    .divider { border-top: 1px dashed #000; margin: 8px 0; }
+                    .center { text-align: center; }
+                </style></head><body>
+                ${ticketEl.innerHTML.replace(/hist-ticket-divider/g, 'divider').replace(/hist-ticket-center/g, 'center')}
+                </body></html>
+            `);
+            printWin.document.close();
+            printWin.onload = () => { printWin.print(); printWin.close(); };
+        }
+
+        // Cerrar modal ticket al clic en overlay
+        document.getElementById('ticketModal').addEventListener('click', function(e) {
+            if (e.target === this) cerrarModalTicket();
+        });
+
         document.getElementById('searchInput').addEventListener('input', filterData);
         document.getElementById('tipoFilter').addEventListener('change', filterData);
+        document.getElementById('tipoProductoFilter')?.addEventListener('change', filterData);
         document.getElementById('usuarioFilter')?.addEventListener('change', filterData);
         document.getElementById('pageSizeSelect').addEventListener('change', (e) => {
             pageSize = parseInt(e.target.value) || 10;
