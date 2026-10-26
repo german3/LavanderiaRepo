@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS entradas_compras (
     importe     DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     total       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS detalle_entradas (
     id              VARCHAR(36)   PRIMARY KEY,
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS detalle_entradas (
     costo_unitario  DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     FOREIGN KEY (entrada_id)  REFERENCES entradas_compras(id) ON DELETE CASCADE,
     FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS movimientos_inventario (
     id               VARCHAR(36)   PRIMARY KEY,
@@ -122,6 +122,117 @@ CREATE TABLE IF NOT EXISTS movimientos_inventario (
     INDEX (tipo_movimiento),
     INDEX (fecha),
     FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Spec 05: Punto de Venta (POS), Cortes de Caja y Cargas de Lavandería
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS caja_cortes (
+    id                  VARCHAR(36) PRIMARY KEY,
+    usuario_id          VARCHAR(36) NOT NULL,
+    fecha_apertura      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    monto_inicial       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    fecha_cierre        DATETIME NULL,
+    total_efectivo      DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    total_tarjeta       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    total_transferencia DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    efectivo_declarado  DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    diferencia          DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    observaciones       TEXT NULL,
+    estado              ENUM('ABIERTA', 'CERRADA') NOT NULL DEFAULT 'ABIERTA',
+    INDEX (usuario_id),
+    INDEX (estado),
+    INDEX (fecha_apertura)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS ventas (
+    id             VARCHAR(36) PRIMARY KEY,
+    folio          VARCHAR(50) NOT NULL UNIQUE,
+    cliente_id     VARCHAR(36) NULL,
+    usuario_id     VARCHAR(36) NOT NULL,
+    caja_id        VARCHAR(36) NULL,
+    total          DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    estado         ENUM('ACTIVA', 'CANCELADA') NOT NULL DEFAULT 'ACTIVA',
+    metodo_pago    ENUM('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'PENDIENTE') NOT NULL DEFAULT 'EFECTIVO',
+    estado_pago    ENUM('PAGADO', 'PENDIENTE') NOT NULL DEFAULT 'PAGADO',
+    monto_recibido DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    cambio         DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    fecha_venta    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    fecha_pago     DATETIME NULL,
+    observaciones  TEXT NULL,
+    INDEX (cliente_id),
+    INDEX (usuario_id),
+    INDEX (caja_id),
+    INDEX (estado),
+    INDEX (estado_pago),
+    INDEX (fecha_venta)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS detalle_ventas (
+    id              VARCHAR(36) PRIMARY KEY,
+    venta_id        VARCHAR(36) NOT NULL,
+    producto_id     VARCHAR(36) NOT NULL,
+    cantidad        DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+    precio_unitario DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    subtotal        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    ropa_kg         DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    notas           TEXT NULL,
+    INDEX (venta_id),
+    INDEX (producto_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cancelaciones_ventas (
+    id         VARCHAR(36) PRIMARY KEY,
+    venta_id   VARCHAR(36) NOT NULL UNIQUE,
+    motivo     TEXT NOT NULL,
+    usuario_id VARCHAR(36) NOT NULL,
+    fecha      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX (venta_id),
+    INDEX (usuario_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cargas (
+    id                    VARCHAR(36) PRIMARY KEY,
+    numero_carga          VARCHAR(50) NOT NULL UNIQUE,
+    venta_id              VARCHAR(36) NOT NULL,
+    cliente_id            VARCHAR(36) NULL,
+    estado                ENUM('RECIBIDA', 'LISTA_CONCLUIDA', 'ENTREGADA', 'CANCELADA') NOT NULL DEFAULT 'RECIBIDA',
+    estado_pago           ENUM('PENDIENTE', 'PAGADO') NOT NULL DEFAULT 'PAGADO',
+    total                 DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    ropa_kg               DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    fecha_recepcion       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    fecha_conclusion      DATETIME NULL,
+    fecha_entrega         DATETIME NULL,
+    usuario_registro_id   VARCHAR(36) NOT NULL,
+    usuario_conclusion_id VARCHAR(36) NULL,
+    observaciones         TEXT NULL,
+    INDEX (venta_id),
+    INDEX (cliente_id),
+    INDEX (estado),
+    INDEX (estado_pago)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS historial_movimientos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+    tipo_movimiento VARCHAR(50) NOT NULL,
+    producto_id VARCHAR(50) NULL,
+    producto_sku VARCHAR(100) NULL,
+    producto_descripcion VARCHAR(255) NOT NULL,
+    tipo_producto VARCHAR(50) DEFAULT 'NORMAL',
+    cantidad DECIMAL(10,2) DEFAULT 0.00,
+    costo_unitario DECIMAL(10,2) DEFAULT 0.00,
+    stock_antes DECIMAL(10,2) DEFAULT 0.00,
+    stock_despues DECIMAL(10,2) DEFAULT 0.00,
+    motivo TEXT NULL,
+    kit_detalle TEXT NULL,
+    usuario_id INT NULL,
+    usuario_nombre VARCHAR(255) NULL,
+    INDEX (fecha_hora),
+    INDEX (tipo_movimiento),
+    INDEX (producto_sku)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 

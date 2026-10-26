@@ -36,7 +36,7 @@ class Carga
 
     private function asegurarTabla(): void
     {
-        $sql = "CREATE TABLE IF NOT EXISTS cargas (
+        $sqlConFk = "CREATE TABLE IF NOT EXISTS cargas (
             id                    VARCHAR(36) PRIMARY KEY,
             numero_carga          VARCHAR(50) NOT NULL UNIQUE,
             venta_id              VARCHAR(36) NOT NULL,
@@ -57,12 +57,44 @@ class Carga
             INDEX (estado_pago),
             FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE CASCADE,
             FOREIGN KEY (usuario_registro_id) REFERENCES usuarios(id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+
+        $sqlSinFk = "CREATE TABLE IF NOT EXISTS cargas (
+            id                    VARCHAR(36) PRIMARY KEY,
+            numero_carga          VARCHAR(50) NOT NULL UNIQUE,
+            venta_id              VARCHAR(36) NOT NULL,
+            cliente_id            VARCHAR(36) NULL,
+            estado                ENUM('RECIBIDA', 'LISTA_CONCLUIDA', 'ENTREGADA', 'CANCELADA') NOT NULL DEFAULT 'RECIBIDA',
+            estado_pago           ENUM('PENDIENTE', 'PAGADO') NOT NULL DEFAULT 'PAGADO',
+            total                 DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            ropa_kg               DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            fecha_recepcion       DATETIME DEFAULT CURRENT_TIMESTAMP,
+            fecha_conclusion      DATETIME NULL,
+            fecha_entrega         DATETIME NULL,
+            usuario_registro_id   VARCHAR(36) NOT NULL,
+            usuario_conclusion_id VARCHAR(36) NULL,
+            observaciones         TEXT NULL,
+            INDEX (venta_id),
+            INDEX (cliente_id),
+            INDEX (estado),
+            INDEX (estado_pago)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
 
         try {
-            $this->conn->exec($sql);
-        } catch (Exception $e) {
-            error_log("Carga::asegurarTabla — " . $e->getMessage());
+            $this->conn->exec($sqlConFk);
+        } catch (\Throwable $e) {
+            error_log("Carga::asegurarTabla (con FK falló: " . $e->getMessage() . ") — intentando sin FK...");
+            try {
+                $this->conn->exec($sqlSinFk);
+            } catch (\Throwable $e2) {
+                error_log("Carga::asegurarTabla (sin FK falló): " . $e2->getMessage());
+            }
+        }
+
+        try {
+            $this->conn->exec("ALTER TABLE cargas CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        } catch (\Throwable $e) {
+            // Silencioso
         }
     }
 

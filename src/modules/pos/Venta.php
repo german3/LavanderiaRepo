@@ -38,65 +38,123 @@ class Venta
 
     private function asegurarTablas(): void
     {
-        $sqls = [
-            "CREATE TABLE IF NOT EXISTS ventas (
-                id             VARCHAR(36) PRIMARY KEY,
-                folio          VARCHAR(50) NOT NULL UNIQUE,
-                cliente_id     VARCHAR(36) NULL,
-                usuario_id     VARCHAR(36) NOT NULL,
-                caja_id        VARCHAR(36) NULL,
-                total          DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-                estado         ENUM('ACTIVA', 'CANCELADA') NOT NULL DEFAULT 'ACTIVA',
-                metodo_pago    ENUM('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'PENDIENTE') NOT NULL DEFAULT 'EFECTIVO',
-                estado_pago    ENUM('PAGADO', 'PENDIENTE') NOT NULL DEFAULT 'PAGADO',
-                monto_recibido DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-                cambio         DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-                fecha_venta    DATETIME DEFAULT CURRENT_TIMESTAMP,
-                fecha_pago     DATETIME NULL,
-                observaciones  TEXT NULL,
-                INDEX (cliente_id),
-                INDEX (usuario_id),
-                INDEX (caja_id),
-                INDEX (estado),
-                INDEX (estado_pago),
-                INDEX (fecha_venta),
-                FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-                FOREIGN KEY (cliente_id) REFERENCES clientes(id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
-
-            "CREATE TABLE IF NOT EXISTS detalle_ventas (
-                id              VARCHAR(36) PRIMARY KEY,
-                venta_id        VARCHAR(36) NOT NULL,
-                producto_id     VARCHAR(36) NOT NULL,
-                cantidad        DECIMAL(10,2) NOT NULL DEFAULT 1.00,
-                precio_unitario DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-                subtotal        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-                ropa_kg         DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-                notas           TEXT NULL,
-                INDEX (venta_id),
-                INDEX (producto_id),
-                FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE CASCADE,
-                FOREIGN KEY (producto_id) REFERENCES productos(id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
-
-            "CREATE TABLE IF NOT EXISTS cancelaciones_ventas (
-                id         VARCHAR(36) PRIMARY KEY,
-                venta_id   VARCHAR(36) NOT NULL UNIQUE,
-                motivo     TEXT NOT NULL,
-                usuario_id VARCHAR(36) NOT NULL,
-                fecha      DATETIME DEFAULT CURRENT_TIMESTAMP,
-                INDEX (venta_id),
-                INDEX (usuario_id),
-                FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE CASCADE,
-                FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+        $tablas = [
+            'ventas' => [
+                'con_fk' => "CREATE TABLE IF NOT EXISTS ventas (
+                    id             VARCHAR(36) PRIMARY KEY,
+                    folio          VARCHAR(50) NOT NULL UNIQUE,
+                    cliente_id     VARCHAR(36) NULL,
+                    usuario_id     VARCHAR(36) NOT NULL,
+                    caja_id        VARCHAR(36) NULL,
+                    total          DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                    estado         ENUM('ACTIVA', 'CANCELADA') NOT NULL DEFAULT 'ACTIVA',
+                    metodo_pago    ENUM('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'PENDIENTE') NOT NULL DEFAULT 'EFECTIVO',
+                    estado_pago    ENUM('PAGADO', 'PENDIENTE') NOT NULL DEFAULT 'PAGADO',
+                    monto_recibido DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                    cambio         DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                    fecha_venta    DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    fecha_pago     DATETIME NULL,
+                    observaciones  TEXT NULL,
+                    INDEX (cliente_id),
+                    INDEX (usuario_id),
+                    INDEX (caja_id),
+                    INDEX (estado),
+                    INDEX (estado_pago),
+                    INDEX (fecha_venta),
+                    FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+                    FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+                'sin_fk' => "CREATE TABLE IF NOT EXISTS ventas (
+                    id             VARCHAR(36) PRIMARY KEY,
+                    folio          VARCHAR(50) NOT NULL UNIQUE,
+                    cliente_id     VARCHAR(36) NULL,
+                    usuario_id     VARCHAR(36) NOT NULL,
+                    caja_id        VARCHAR(36) NULL,
+                    total          DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                    estado         ENUM('ACTIVA', 'CANCELADA') NOT NULL DEFAULT 'ACTIVA',
+                    metodo_pago    ENUM('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'PENDIENTE') NOT NULL DEFAULT 'EFECTIVO',
+                    estado_pago    ENUM('PAGADO', 'PENDIENTE') NOT NULL DEFAULT 'PAGADO',
+                    monto_recibido DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                    cambio         DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                    fecha_venta    DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    fecha_pago     DATETIME NULL,
+                    observaciones  TEXT NULL,
+                    INDEX (cliente_id),
+                    INDEX (usuario_id),
+                    INDEX (caja_id),
+                    INDEX (estado),
+                    INDEX (estado_pago),
+                    INDEX (fecha_venta)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+            ],
+            'detalle_ventas' => [
+                'con_fk' => "CREATE TABLE IF NOT EXISTS detalle_ventas (
+                    id              VARCHAR(36) PRIMARY KEY,
+                    venta_id        VARCHAR(36) NOT NULL,
+                    producto_id     VARCHAR(36) NOT NULL,
+                    cantidad        DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+                    precio_unitario DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                    subtotal        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                    ropa_kg         DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                    notas           TEXT NULL,
+                    INDEX (venta_id),
+                    INDEX (producto_id),
+                    FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE CASCADE,
+                    FOREIGN KEY (producto_id) REFERENCES productos(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+                'sin_fk' => "CREATE TABLE IF NOT EXISTS detalle_ventas (
+                    id              VARCHAR(36) PRIMARY KEY,
+                    venta_id        VARCHAR(36) NOT NULL,
+                    producto_id     VARCHAR(36) NOT NULL,
+                    cantidad        DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+                    precio_unitario DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                    subtotal        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                    ropa_kg         DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                    notas           TEXT NULL,
+                    INDEX (venta_id),
+                    INDEX (producto_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+            ],
+            'cancelaciones_ventas' => [
+                'con_fk' => "CREATE TABLE IF NOT EXISTS cancelaciones_ventas (
+                    id         VARCHAR(36) PRIMARY KEY,
+                    venta_id   VARCHAR(36) NOT NULL UNIQUE,
+                    motivo     TEXT NOT NULL,
+                    usuario_id VARCHAR(36) NOT NULL,
+                    fecha      DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (venta_id),
+                    INDEX (usuario_id),
+                    FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE CASCADE,
+                    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+                'sin_fk' => "CREATE TABLE IF NOT EXISTS cancelaciones_ventas (
+                    id         VARCHAR(36) PRIMARY KEY,
+                    venta_id   VARCHAR(36) NOT NULL UNIQUE,
+                    motivo     TEXT NOT NULL,
+                    usuario_id VARCHAR(36) NOT NULL,
+                    fecha      DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (venta_id),
+                    INDEX (usuario_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+            ]
         ];
 
-        foreach ($sqls as $sql) {
+        foreach ($tablas as $nombre => $queries) {
             try {
-                $this->conn->exec($sql);
-            } catch (Exception $e) {
-                error_log("Venta::asegurarTablas — " . $e->getMessage());
+                $this->conn->exec($queries['con_fk']);
+            } catch (\Throwable $e) {
+                error_log("Venta::asegurarTablas ($nombre con FK falló: " . $e->getMessage() . ") — intentando sin FK...");
+                try {
+                    $this->conn->exec($queries['sin_fk']);
+                } catch (\Throwable $e2) {
+                    error_log("Venta::asegurarTablas ($nombre sin FK falló): " . $e2->getMessage());
+                }
+            }
+
+            try {
+                $this->conn->exec("ALTER TABLE $nombre CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+            } catch (\Throwable $e) {
+                // Silencioso
             }
         }
     }

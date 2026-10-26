@@ -34,7 +34,7 @@ class CajaCorte
 
     private function asegurarTabla(): void
     {
-        $sql = "CREATE TABLE IF NOT EXISTS caja_cortes (
+        $sqlConFk = "CREATE TABLE IF NOT EXISTS caja_cortes (
             id                  VARCHAR(36) PRIMARY KEY,
             usuario_id          VARCHAR(36) NOT NULL,
             fecha_apertura      DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -51,12 +51,42 @@ class CajaCorte
             INDEX (estado),
             INDEX (fecha_apertura),
             FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+
+        $sqlSinFk = "CREATE TABLE IF NOT EXISTS caja_cortes (
+            id                  VARCHAR(36) PRIMARY KEY,
+            usuario_id          VARCHAR(36) NOT NULL,
+            fecha_apertura      DATETIME DEFAULT CURRENT_TIMESTAMP,
+            monto_inicial       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            fecha_cierre        DATETIME NULL,
+            total_efectivo      DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            total_tarjeta       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            total_transferencia DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            efectivo_declarado  DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            diferencia          DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            observaciones       TEXT NULL,
+            estado              ENUM('ABIERTA', 'CERRADA') NOT NULL DEFAULT 'ABIERTA',
+            INDEX (usuario_id),
+            INDEX (estado),
+            INDEX (fecha_apertura)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
 
         try {
-            $this->conn->exec($sql);
-        } catch (Exception $e) {
-            error_log("CajaCorte::asegurarTabla — " . $e->getMessage());
+            $this->conn->exec($sqlConFk);
+        } catch (\Throwable $e) {
+            error_log("CajaCorte::asegurarTabla (con FK falló: " . $e->getMessage() . ") — intentando crear sin FK...");
+            try {
+                $this->conn->exec($sqlSinFk);
+            } catch (\Throwable $e2) {
+                error_log("CajaCorte::asegurarTabla (sin FK también falló): " . $e2->getMessage());
+            }
+        }
+
+        // Homogeneizar collation para evitar error 1267 (Illegal mix of collations)
+        try {
+            $this->conn->exec("ALTER TABLE caja_cortes CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        } catch (\Throwable $e) {
+            // Ignorar si no se tienen permisos ALTER
         }
     }
 
@@ -79,7 +109,7 @@ class CajaCorte
     {
         $sql = "SELECT c.*, u.nombre as usuario_nombre 
                 FROM caja_cortes c
-                JOIN usuarios u ON c.usuario_id = u.id
+                JOIN usuarios u ON c.usuario_id COLLATE utf8mb4_unicode_ci = u.id COLLATE utf8mb4_unicode_ci
                 WHERE c.estado = 'ABIERTA'";
         
         $params = [];
