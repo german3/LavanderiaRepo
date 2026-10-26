@@ -74,8 +74,13 @@ try {
             $productos = $stmtProd->fetchAll(PDO::FETCH_ASSOC);
 
             // Obtener lista completa de clientes registrados activos
-            $stmtCli = $db->query("SELECT id, nombre, telefono, whatsapp_disponible, direccion FROM clientes WHERE estado = 'ACTIVO' ORDER BY nombre ASC");
-            $clientes = $stmtCli->fetchAll(PDO::FETCH_ASSOC);
+            try {
+                $stmtCli = $db->query("SELECT id, nombre, telefono, whatsapp_disponible, direccion FROM clientes WHERE estado = 'ACTIVO' ORDER BY nombre ASC");
+                $clientes = $stmtCli->fetchAll(PDO::FETCH_ASSOC);
+            } catch (\Throwable $e) {
+                $stmtCli = $db->query("SELECT id, nombre, telefono, 0 AS whatsapp_disponible, direccion FROM clientes WHERE estado = 'ACTIVO' ORDER BY nombre ASC");
+                $clientes = $stmtCli->fetchAll(PDO::FETCH_ASSOC);
+            }
 
             // Ventas recientes del día
             $ventasRecientes = $ventaModel->obtenerVentasRecientes(25);
@@ -107,8 +112,13 @@ try {
         case 'search_clients':
             $term = trim($_GET['q'] ?? '');
             if ($term === '') {
-                $stmt = $db->query("SELECT id, nombre, telefono, whatsapp_disponible, direccion FROM clientes WHERE estado = 'ACTIVO' ORDER BY nombre ASC LIMIT 50");
-                $clientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                try {
+                    $stmt = $db->query("SELECT id, nombre, telefono, whatsapp_disponible, direccion FROM clientes WHERE estado = 'ACTIVO' ORDER BY nombre ASC LIMIT 50");
+                    $clientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (\Throwable $e) {
+                    $stmt = $db->query("SELECT id, nombre, telefono, 0 AS whatsapp_disponible, direccion FROM clientes WHERE estado = 'ACTIVO' ORDER BY nombre ASC LIMIT 50");
+                    $clientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                }
             } else {
                 $clientes = $clienteModel->buscar($term);
             }

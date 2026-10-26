@@ -20,6 +20,15 @@ class Cliente {
 
     public function __construct($db) {
         $this->conn = $db;
+        $this->asegurarColumnas();
+    }
+
+    private function asegurarColumnas(): void {
+        try {
+            $this->conn->exec("ALTER TABLE " . $this->table_name . " ADD COLUMN whatsapp_disponible TINYINT(1) DEFAULT 0 AFTER telefono");
+        } catch (\Throwable $e) {
+            // Columna ya existe o usuario sin permisos DDL
+        }
     }
 
     // Caso de uso: RegistrarCliente (Cajeros y Admins)
