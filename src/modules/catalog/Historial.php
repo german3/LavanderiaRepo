@@ -48,6 +48,40 @@ class Historial {
         } catch (Exception $e) {
             // Ya existe, ignorar
         }
+
+        // Sincronizar consumos de kits registrados previamente en movimientos_inventario que no estén en historial_movimientos
+        try {
+            $sqlSync = "INSERT INTO " . $this->table_name . " 
+                (fecha_hora, tipo_movimiento, producto_id, producto_sku, producto_descripcion, tipo_producto, cantidad, costo_unitario, stock_antes, stock_despues, motivo, kit_detalle, usuario_id, usuario_nombre)
+                SELECT 
+                    mi.fecha,
+                    'KIT_CONSUMO',
+                    mi.producto_id,
+                    COALESCE(p.codigo_interno_sku, p.codigo_barras, 'S/C'),
+                    p.descripcion,
+                    'INSUMO',
+                    mi.cantidad,
+                    mi.costo_unitario,
+                    mi.stock_antes,
+                    mi.stock_despues,
+                    mi.motivo,
+                    NULL,
+                    NULL,
+                    COALESCE(u.nombre, 'Sistema')
+                FROM movimientos_inventario mi
+                JOIN productos p ON mi.producto_id = p.id
+                LEFT JOIN usuarios u ON mi.usuario_id = u.id
+                WHERE mi.tipo_movimiento = 'KIT_CONSUMO'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM " . $this->table_name . " hm 
+                      WHERE hm.tipo_movimiento = 'KIT_CONSUMO' 
+                        AND hm.producto_id = mi.producto_id 
+                        AND hm.fecha_hora = mi.fecha
+                  )";
+            $this->conn->exec($sqlSync);
+        } catch (\Throwable $e) {
+            // Silencioso si la tabla no existe aún
+        }
     }
 
     public function registrar($datos) {

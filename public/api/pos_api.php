@@ -23,17 +23,17 @@ use App\Modules\Pos\CajaCorte;
 $db = (new Database())->getConnection();
 $auth = new AuthService($db);
 
-// Verificar sesión exclusiva del FrontOffice POS
-if (!$auth->checkAuthPos()) {
+// Verificar sesión: FrontOffice POS o BackOffice autenticado
+if (!$auth->checkAuthPos() && !$auth->checkAuth()) {
     http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'Sesión de Punto de Venta no iniciada o expirada. Favor de iniciar sesión en el POS.']);
+    echo json_encode(['success' => false, 'message' => 'Sesión no iniciada o expirada. Favor de iniciar sesión.']);
     exit;
 }
 
-$currentUserId = $_SESSION['pos_usuario_id'];
-$currentUserName = $_SESSION['pos_nombre'] ?? 'Cajero';
-$currentUserRole = $_SESSION['pos_rol'] ?? 'EMPLEADO_CAJERO';
-$isAdmin = $auth->isPosAdmin();
+$currentUserId = $_SESSION['pos_usuario_id'] ?? $_SESSION['usuario_id'] ?? null;
+$currentUserName = $_SESSION['pos_nombre'] ?? $_SESSION['nombre'] ?? 'Usuario';
+$currentUserRole = $_SESSION['pos_rol'] ?? $_SESSION['rol'] ?? 'EMPLEADO_CAJERO';
+$isAdmin = $auth->isPosAdmin() || $auth->isAdmin();
 
 $ventaModel = new Venta($db);
 $cajaModel = new CajaCorte($db);

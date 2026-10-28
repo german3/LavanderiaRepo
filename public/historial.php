@@ -388,6 +388,7 @@ $filtroSkuJs = json_encode($filtroSku);
                             <select id="tipoFilter" class="form-control" style="width: 100%; padding: 0.4rem 2.2rem 0.4rem 0.75rem; height: 38px; background: #1e293b; color: #f1f5f9; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; line-height: 1.2; cursor: pointer; box-sizing: border-box;">
                                 <option value="" style="background:#1e293b; color:#f1f5f9;">Todos los movimientos</option>
                                 <option value="KIT" style="background:#1e293b; color:#c4b5fd; font-weight:600;">📦 Solo Kits / Paquetes</option>
+                                <option value="KIT_CONSUMO" style="background:#1e293b; color:#c4b5fd;">🧪 Consumo Insumos Kit</option>
                                 <option value="VENTA POS" style="background:#1e293b; color:#f1f5f9;">Ventas POS / Cobro</option>
                                 <option value="ALTA PRODUCTO" style="background:#1e293b; color:#f1f5f9;">Alta de Producto</option>
                                 <option value="ENTRADA STOCK" style="background:#1e293b; color:#f1f5f9;">Entrada de Stock</option>
@@ -639,6 +640,8 @@ $filtroSkuJs = json_encode($filtroSku);
                 case 'SALIDA STOCK': return 'badge-salida';
                 case 'ELIMINACION PRODUCTO': return 'badge-eliminacion';
                 case 'EDICION PRODUCTO': return 'badge-edicion';
+                case 'KIT_CONSUMO':
+                case 'CONSUMO KIT': return 'badge-kit';
                 default: return 'badge-alta';
             }
         }
@@ -760,9 +763,10 @@ $filtroSkuJs = json_encode($filtroSku);
             }
 
             filteredData = rawData.filter(item => {
-                const esKitItem = (item.tipo_producto === 'KIT' || (item.kit_detalle && item.kit_detalle !== 'null' && item.kit_detalle !== '[]'));
+                const esKitConsumo = (item.tipo_movimiento === 'KIT_CONSUMO' || item.tipo_movimiento === 'CONSUMO KIT');
+                const esKitItem = (item.tipo_producto === 'KIT' || esKitConsumo || (item.kit_detalle && item.kit_detalle !== 'null' && item.kit_detalle !== '[]'));
                 const matchTipoFilter = !tipoFilter ? true : 
-                    (tipoFilter === 'KIT' ? esKitItem : item.tipo_movimiento === tipoFilter);
+                    (tipoFilter === 'KIT' ? esKitItem : (tipoFilter === 'KIT_CONSUMO' ? esKitConsumo : item.tipo_movimiento === tipoFilter));
 
                 // Filtro por tipo de producto (Normal, Insumo, Servicio, Kit/Paquete)
                 const itemTipoProd = (item.tipo_producto || '').toUpperCase();
@@ -800,6 +804,10 @@ $filtroSkuJs = json_encode($filtroSku);
 
                 const itemUsuario = (item.usuario_nombre || '').trim().toLowerCase();
                 const matchUsuarioFilter = !usuarioFilter || (itemUsuario === usuarioFilter);
+
+                // Suprimir siempre las filas VENTA POS de kits: los insumos KIT_CONSUMO ya aparecen como filas propias
+                const esVentaPosKit = (item.tipo_movimiento === 'VENTA POS' && (item.tipo_producto === 'KIT' || item.tipo_producto === 'KIT_PAQUETE'));
+                if (esVentaPosKit) return false;
 
                 return matchTipoFilter && matchTipoProducto && matchUsuarioFilter && matchQuery && matchFecha;
             });
@@ -898,6 +906,11 @@ $filtroSkuJs = json_encode($filtroSku);
                 tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron movimientos.</td></tr>`;
             } else {
                 pageData.forEach((item, idx) => {
+                    // ── Suprimir la fila padre VENTA POS de un Kit: los insumos KIT_CONSUMO ya aparecen como filas propias ──
+                    if (item.tipo_movimiento === 'VENTA POS' && (item.tipo_producto === 'KIT' || item.tipo_producto === 'KIT_PAQUETE')) {
+                        return;
+                    }
+
                     const rowId = `row-${item.id || idx}`;
                     const badgeClass = getBadgeClass(item.tipo_movimiento);
                     const cantidadFormatted = parseFloat(item.cantidad || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -931,7 +944,7 @@ $filtroSkuJs = json_encode($filtroSku);
                             ${formatFecha(item.fecha_hora)}
                         </td>
                         <td>
-                            <span class="badge ${badgeClass}">${item.tipo_movimiento}</span>${kitBadgeExtra}
+                            <span class="badge ${badgeClass}">${(item.tipo_movimiento === "KIT_CONSUMO" ? "CONSUMO KIT" : item.tipo_movimiento)}</span>${kitBadgeExtra}
                         </td>
                         <td>${getTipoBadge(item.tipo_producto)}</td>
                         <td>
@@ -939,7 +952,7 @@ $filtroSkuJs = json_encode($filtroSku);
                             ${item.producto_sku ? `<span class="sku-tag">SKU: ${item.producto_sku}</span>` : ''}
                         </td>
                         <td style="text-align: right; font-weight: 600;">
-                            ${item.tipo_movimiento === 'SALIDA STOCK' ? `<span style="color:#fda4af;">-${cantidadFormatted}</span>` :
+                            ${(item.tipo_movimiento === 'SALIDA STOCK' || item.tipo_movimiento === 'KIT_CONSUMO' || item.tipo_movimiento === 'CONSUMO KIT') ? `<span style="color:#fda4af; font-weight:700;">-${cantidadFormatted}</span>` :
                               item.tipo_movimiento === 'VENTA POS'   ? `<span style="color:#38bdf8; font-weight:700;">${cantidadFormatted}</span>` :
                               `<span style="color:#6ee7b7;">+${cantidadFormatted}</span>`}
                         </td>
@@ -975,12 +988,7 @@ $filtroSkuJs = json_encode($filtroSku);
                         </td>
                         <td style="text-align: right; font-size: 0.85rem;">${costoFormatted}</td>
                         <td style="font-size: 0.85rem; text-align: center; white-space: nowrap;">
-                            ${(() => {
-                                if (item.tipo_movimiento === 'VENTA POS' && folioVal !== '-') {
-                                    return `<span style="display:inline-flex; align-items:center; gap:0.4rem;">${folioHtml}<button class="btn-ticket no-print" onclick="verTicketHistorial('${folioVal}')" title="Ver ticket de venta">🖨️ Ticket</button></span>`;
-                                }
-                                return folioHtml;
-                            })()}
+                            ${folioHtml}
                         </td>
                         <td style="font-size: 0.85rem; font-weight: 500;">${item.usuario_nombre || 'Sistema'}</td>
                         <td style="text-align: center;" class="no-print">
@@ -992,8 +1000,8 @@ $filtroSkuJs = json_encode($filtroSku);
                     `;
                     tbody.appendChild(tr);
 
-                    // ── Filas separadas por cada insumo del Kit ─────────────────
-                    if (kitDetalleArr) {
+                    // ── Filas separadas por cada insumo del Kit (solo altas/edición de catálogo) ──
+                    if (kitDetalleArr && item.tipo_movimiento !== 'VENTA POS' && item.tipo_movimiento !== 'KIT_CONSUMO') {
                         kitDetalleArr.forEach(ins => {
                             const insQty = parseFloat(ins.cantidad_total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                             const insUnidad = (ins.unidad || '').toUpperCase();
@@ -1133,7 +1141,7 @@ $filtroSkuJs = json_encode($filtroSku);
 
             document.getElementById('modalContent').innerHTML = `
                 <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.1rem;">
-                    <span class="badge ${badgeClass}" style="font-size:0.8rem;">${item.tipo_movimiento}</span>
+                    <span class="badge ${badgeClass}" style="font-size:0.8rem;">${item.tipo_movimiento === 'KIT_CONSUMO' ? 'CONSUMO KIT' : item.tipo_movimiento}</span>
                     ${getTipoBadge(item.tipo_producto)}
                     ${item.tipo_producto === 'KIT' || kitDetalleArr ? `<span class="badge badge-kit" style="font-size:0.72rem;">📦 Kit</span>` : ''}
                 </div>
@@ -1153,7 +1161,7 @@ $filtroSkuJs = json_encode($filtroSku);
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Cantidad</div>
-                        <div class="detail-value" style="font-size:1.05rem;font-weight:700;color:${item.tipo_movimiento==='SALIDA STOCK'?'#fda4af':'#6ee7b7'};">${item.tipo_movimiento === 'SALIDA STOCK' ? '-' : '+'}${cantFmt}</div>
+                        <div class="detail-value" style="font-size:1.05rem;font-weight:700;color:${(item.tipo_movimiento==='SALIDA STOCK'||item.tipo_movimiento==='KIT_CONSUMO')?'#fda4af':'#6ee7b7'};">${(item.tipo_movimiento === 'SALIDA STOCK' || item.tipo_movimiento === 'KIT_CONSUMO') ? '-' : '+'}${cantFmt}</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Costo Unitario</div>
@@ -1181,6 +1189,23 @@ $filtroSkuJs = json_encode($filtroSku);
                     </div>
                 </div>
                 ${kitSection}
+                ${folioVal !== '-' ? `
+                <div style="margin-top:1.1rem;">
+                    <button onclick="verTicketHistorial('${folioVal}')"
+                        style="width:100%; display:flex; align-items:center; justify-content:center; gap:0.5rem;
+                               padding:0.65rem 1rem;
+                               background:rgba(56,189,248,0.12);
+                               border:1px solid rgba(56,189,248,0.35);
+                               color:#38bdf8;
+                               border-radius:10px;
+                               font-size:0.88rem; font-weight:700; cursor:pointer;
+                               transition:all 0.18s;"
+                        onmouseover="this.style.background='rgba(56,189,248,0.25)';this.style.color='#fff';"
+                        onmouseout="this.style.background='rgba(56,189,248,0.12)';this.style.color='#38bdf8';">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        Ver Ticket de Venta &mdash; ${folioVal}
+                    </button>
+                </div>` : ''}
             `;
 
             document.getElementById('detallesModal').classList.add('active');
