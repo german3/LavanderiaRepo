@@ -157,6 +157,31 @@ class Venta
                 // Silencioso
             }
         }
+
+        // Asegurar columnas requeridas en ventas si la tabla ya existía previamente
+        $columnasVentas = [
+            "ALTER TABLE ventas ADD COLUMN folio VARCHAR(50) NOT NULL UNIQUE AFTER id",
+            "ALTER TABLE ventas ADD COLUMN cliente_id VARCHAR(36) NULL AFTER folio",
+            "ALTER TABLE ventas ADD COLUMN usuario_id VARCHAR(36) NOT NULL AFTER cliente_id",
+            "ALTER TABLE ventas ADD COLUMN caja_id VARCHAR(36) NULL AFTER usuario_id",
+            "ALTER TABLE ventas ADD COLUMN total DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER caja_id",
+            "ALTER TABLE ventas ADD COLUMN estado ENUM('ACTIVA', 'CANCELADA') NOT NULL DEFAULT 'ACTIVA' AFTER total",
+            "ALTER TABLE ventas ADD COLUMN metodo_pago ENUM('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'PENDIENTE') NOT NULL DEFAULT 'EFECTIVO' AFTER estado",
+            "ALTER TABLE ventas ADD COLUMN estado_pago ENUM('PAGADO', 'PENDIENTE') NOT NULL DEFAULT 'PAGADO' AFTER metodo_pago",
+            "ALTER TABLE ventas ADD COLUMN monto_recibido DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER estado_pago",
+            "ALTER TABLE ventas ADD COLUMN cambio DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER monto_recibido",
+            "ALTER TABLE ventas ADD COLUMN fecha_venta DATETIME DEFAULT CURRENT_TIMESTAMP AFTER cambio",
+            "ALTER TABLE ventas ADD COLUMN fecha_pago DATETIME NULL AFTER fecha_venta",
+            "ALTER TABLE ventas ADD COLUMN observaciones TEXT NULL AFTER fecha_pago",
+        ];
+
+        foreach ($columnasVentas as $colSql) {
+            try {
+                $this->conn->exec($colSql);
+            } catch (\Throwable $e) {
+                // Silencioso si la columna ya existe
+            }
+        }
     }
 
     private function uuid(): string

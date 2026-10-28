@@ -163,6 +163,12 @@ $productosJson = json_encode($productos);
         .badge-insumo   { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); }
         .badge-kit      { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3); }
         .badge-servicio { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+        /* Badges de TIPO (mismo diseño que historial.php) */
+        .badge-tipo-normal, .badge-tipo-insumo, .badge-tipo-servicio, .badge-tipo-kit { padding: 0.35rem 0.75rem; border-radius: 99px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; text-transform: uppercase; }
+        .badge-tipo-normal   { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.35); }
+        .badge-tipo-insumo   { background: rgba(234, 179, 8, 0.18); color: #fde68a; border: 1px solid rgba(234, 179, 8, 0.3); }
+        .badge-tipo-servicio { background: rgba(14, 165, 233, 0.18); color: #7dd3fc; border: 1px solid rgba(14, 165, 233, 0.3); }
+        .badge-tipo-kit      { background: rgba(139, 92, 246, 0.22); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.38); }
 
         /* Botones de acción */
         .btn-action {
@@ -428,12 +434,19 @@ $productosJson = json_encode($productos);
                             <td style="font-weight: 500;"><?= htmlspecialchars($p['descripcion']) ?></td>
                             <td>
                                 <?php
-                                    $badgeClass = 'badge-normal';
-                                    if ($p['tipo'] == 'INSUMO')   $badgeClass = 'badge-insumo';
-                                    if ($p['tipo'] == 'KIT')      $badgeClass = 'badge-kit';
-                                    if ($p['tipo'] == 'SERVICIO') $badgeClass = 'badge-servicio';
+                                    switch (strtoupper($p['tipo'] ?? '')) {
+                                        case 'NORMAL':   $tipoClass = 'badge-tipo-normal';   $tipoLabel = 'Normal';        break;
+                                        case 'INSUMO':   $tipoClass = 'badge-tipo-insumo';   $tipoLabel = 'Insumo';        break;
+                                        case 'SERVICIO': $tipoClass = 'badge-tipo-servicio'; $tipoLabel = 'Servicio';      break;
+                                        case 'KIT':      $tipoClass = 'badge-tipo-kit';      $tipoLabel = 'Kit / Paquete'; break;
+                                        default:         $tipoClass = '';                    $tipoLabel = '';
+                                    }
                                 ?>
-                                <span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($p['tipo']) ?></span>
+                                <?php if ($tipoLabel !== ''): ?>
+                                    <span class="badge <?= $tipoClass ?>"><?= $tipoLabel ?></span>
+                                <?php else: ?>
+                                    <span style="color: var(--text-muted); font-size: 0.8rem;">—</span>
+                                <?php endif; ?>
                             </td>
                             <td style="font-weight: 600; color: <?= (in_array($p['tipo'], ['KIT', 'SERVICIO'])) ? 'var(--text-muted)' : (($p['stock_cantidad'] <= 0) ? '#f87171' : 'var(--text-main)') ?>">
                                 <?php if (in_array($p['tipo'], ['KIT', 'SERVICIO'])): ?>
@@ -456,8 +469,14 @@ $productosJson = json_encode($productos);
                                 <?= (in_array($p['tipo'], ['KIT', 'SERVICIO'])) ? '<span style="font-size: 0.85rem; font-weight: 500;">N/A</span>' : '$' . number_format($p['costo'], 2) ?>
                             </td>
                             <td style="font-weight: 600;">$<?= number_format($p['precio_venta'], 2) ?></td>
-                            <td style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase;">
-                                <?= ($p['tipo'] === 'KIT') ? 'MÚLTIPLE' : (($p['unidad_medida'] === 'LITRO' || $p['unidad_medida'] === 'MILILITRO') ? '<span style="color:#38bdf8;font-weight:600;">LITROS</span>' : htmlspecialchars(mb_strtoupper($p['unidad_medida'] ?? '', 'UTF-8'))) ?>
+                            <td>
+                                <?php if ($p['tipo'] !== 'KIT' && ($p['unidad_medida'] === 'LITRO' || $p['unidad_medida'] === 'MILILITRO')): ?>
+                                    <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 0.78rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 6px;">
+                                        LITROS
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge badge-normal" style="padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.75rem; font-weight: 600;"><?= ($p['tipo'] === 'KIT') ? 'MÚLTIPLE' : htmlspecialchars(mb_strtoupper($p['unidad_medida'] ?? '', 'UTF-8')) ?></span>
+                                <?php endif; ?>
                             </td>
                             <td style="text-align: right; white-space: nowrap;">
                                 <button type="button" class="btn-action btn-detalles" title="Ver Detalles" onclick="abrirModalDetalles('<?= htmlspecialchars($p['id'], ENT_QUOTES) ?>')">
@@ -829,11 +848,13 @@ $productosJson = json_encode($productos);
             // Badges
             let badgeHtml = '';
             if (prod.tipo === 'NORMAL') {
-                badgeHtml = '<span class="badge badge-normal">Normal / Insumo</span>';
+                badgeHtml = '<span class="badge badge-tipo-normal">Normal</span>';
+            } else if (prod.tipo === 'INSUMO') {
+                badgeHtml = '<span class="badge badge-tipo-insumo">Insumo</span>';
             } else if (prod.tipo === 'KIT') {
-                badgeHtml = '<span class="badge badge-kit">Kit / Paquete</span>';
+                badgeHtml = '<span class="badge badge-tipo-kit">Kit / Paquete</span>';
             } else {
-                badgeHtml = '<span class="badge badge-servicio">Servicio</span>';
+                badgeHtml = '<span class="badge badge-tipo-servicio">Servicio</span>';
             }
 
             const esLiquido = (prod.unidad_medida === 'LITRO' || prod.unidad_medida === 'MILILITRO');
@@ -951,7 +972,7 @@ $productosJson = json_encode($productos);
             // Actualizar enlace a movimientos de este producto
             const btnMovimientos = document.getElementById('btn-movimientos');
             if (btnMovimientos) {
-                if (prod.tipo === 'NORMAL') {
+                if (prod.tipo === 'NORMAL' || prod.tipo === 'INSUMO') {
                     btnMovimientos.href = `stock_entradas.php?producto_id=${encodeURIComponent(prod.id)}`;
                     btnMovimientos.style.display = 'inline-flex';
                 } else {
@@ -1058,7 +1079,7 @@ $productosJson = json_encode($productos);
                 if (curUnidad !== prodOriginalValores.unidad_medida) hayCambios = true;
                 if (curCosto !== prodOriginalValores.costo) hayCambios = true;
             }
-            if (prodOriginalValores.tipo === 'NORMAL') {
+            if (prodOriginalValores.tipo === 'NORMAL' || prodOriginalValores.tipo === 'INSUMO') {
                 if (curStockMin !== prodOriginalValores.stock_minimo) hayCambios = true;
             }
             if (prodOriginalValores.tipo === 'KIT' || prodOriginalValores.tipo === 'SERVICIO') {

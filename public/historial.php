@@ -1005,7 +1005,7 @@ $filtroSkuJs = json_encode($filtroSku);
                                     <span style="opacity:0.45;">↳</span>
                                 </td>
                                 <td>
-                                    <span class="badge ${badgeClass}" style="opacity:0.65; font-size:0.7rem; padding:0.25rem 0.55rem;">${item.tipo_movimiento}</span>
+                                    <span class="badge ${badgeClass}" style="opacity:0.65; font-size:0.7rem; padding:0.25rem 0.55rem;">${item.tipo_movimiento === 'ALTA PRODUCTO' ? 'Insumo Agregado' : item.tipo_movimiento}</span>
                                 </td>
                                 <td>${getTipoBadge('INSUMO')}</td>
                                 <td>

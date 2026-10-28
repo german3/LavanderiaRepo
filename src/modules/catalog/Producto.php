@@ -126,7 +126,7 @@ class Producto {
         );
 
         $ropaKgVal = isset($this->ropa_kg) ? floatval($this->ropa_kg) : 0.00;
-        $stockMinimoVal = ($this->tipo === 'NORMAL') ? floatval($this->stock_minimo ?? 0) : 0.00;
+        $stockMinimoVal = ($this->tipo === 'NORMAL' || $this->tipo === 'INSUMO') ? floatval($this->stock_minimo ?? 0) : 0.00;
 
         // Validar y asegurar que usuario_registro_id exista en la tabla usuarios
         if (!empty($this->usuario_registro_id)) {

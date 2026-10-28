@@ -287,6 +287,12 @@ $productosJson = json_encode($productos);
             border: 1px solid rgba(139, 92, 246, 0.3);
         }
 
+        .badge-tipo-insumo {
+            background: rgba(234, 179, 8, 0.18);
+            color: #fde68a;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+        }
+
         .btn-action {
             padding: 0.4rem 0.75rem;
             border-radius: 8px;
@@ -1028,7 +1034,7 @@ $productosJson = json_encode($productos);
 
                 const badgeTipo = p.tipo === 'KIT'
                     ? `<span class="badge badge-tipo-kit">KIT</span>`
-                    : `<span class="badge badge-tipo-normal">NORMAL</span>`;
+                    : (p.tipo === 'INSUMO' ? `<span class="badge badge-tipo-insumo">INSUMO</span>` : `<span class="badge badge-tipo-normal">NORMAL</span>`);
 
                 const codigoBarrasHtml = p.codigo_barras ? `<br><small style="color: var(--text-muted); font-size: 0.75rem;">${escapeHtml(p.codigo_barras)}</small>` : '';
 
@@ -1105,7 +1111,9 @@ $productosJson = json_encode($productos);
             // Badges
             let badgeHtml = '';
             if (prod.tipo === 'NORMAL') {
-                badgeHtml = '<span class="badge badge-tipo-normal">Normal / Insumo</span>';
+                badgeHtml = '<span class="badge badge-tipo-normal">Normal</span>';
+            } else if (prod.tipo === 'INSUMO') {
+                badgeHtml = '<span class="badge badge-tipo-insumo">Insumo</span>';
             } else if (prod.tipo === 'KIT') {
                 badgeHtml = '<span class="badge badge-tipo-kit">Kit / Paquete</span>';
             } else {
