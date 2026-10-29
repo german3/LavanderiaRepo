@@ -12,6 +12,7 @@ const POS = {
     searchQuery: '',
     selectedClient: null,
     selectedKit: null,
+    selectedInsumo: null,
     cart: [],
     selectedPayMethod: 'EFECTIVO',
     activeModal: null,
@@ -152,6 +153,15 @@ const POS = {
                 }
             } else if (p.tipo === 'KIT') {
                 stockBadge = `<span class="pos-prod-stock">Kit de Insumos</span>`;
+            } else if (p.tipo === 'INSUMO') {
+                const uMed = p.unidad_medida ? ` ${p.unidad_medida}` : '';
+                if (stock <= 0) {
+                    stockBadge = `<span class="pos-prod-stock out">Sin Stock (0${uMed})</span>`;
+                } else if (stock <= stockMin) {
+                    stockBadge = `<span class="pos-prod-stock low">Stock Bajo (${stock}${uMed})</span>`;
+                } else {
+                    stockBadge = `<span class="pos-prod-stock">Stock: ${stock}${uMed}</span>`;
+                }
             } else {
                 stockBadge = `<span class="pos-prod-stock">Servicio</span>`;
             }
@@ -159,10 +169,24 @@ const POS = {
             const kgBadge = ropaKg > 0 ? `<span class="pos-prod-kg">⚖️ ${ropaKg} kg</span>` : '';
 
             const isKitSelected = (this.currentCategory === 'KIT' && this.selectedKit && this.selectedKit.id === p.id);
-            const selectedBadge = isKitSelected ? '<span style="font-size:0.65rem; font-weight:700; color:#c084fc; background:rgba(168,85,247,0.25); padding:0.1rem 0.45rem; border-radius:4px;">✓ SELECCIONADO</span>' : '';
+            const currentSelectedProdId = document.getElementById('pos-selected-producto-id')?.value;
+            const isInsumoSelected = (p.tipo === 'INSUMO' && (
+                (this.selectedInsumo && this.selectedInsumo.id === p.id) ||
+                (currentSelectedProdId && currentSelectedProdId === p.id)
+            ));
+
+            let cardSelectedClass = '';
+            let selectedBadge = '';
+            if (isKitSelected) {
+                cardSelectedClass = 'pos-kit-selected';
+                selectedBadge = '<span style="font-size:0.65rem; font-weight:700; color:#c084fc; background:rgba(168,85,247,0.25); padding:0.1rem 0.45rem; border-radius:4px;">✓ SELECCIONADO</span>';
+            } else if (isInsumoSelected) {
+                cardSelectedClass = 'pos-insumo-selected';
+                selectedBadge = '<span style="font-size:0.65rem; font-weight:700; color:#fbbf24; background:rgba(245,158,11,0.25); border:1px solid rgba(245,158,11,0.4); padding:0.1rem 0.45rem; border-radius:4px;">✓ SELECCIONADO</span>';
+            }
 
             return `
-                <div class="pos-prod-card ${isKitSelected ? 'pos-kit-selected' : ''}" onclick="POS.addToCart('${p.id}')" data-id="${p.id}">
+                <div class="pos-prod-card ${cardSelectedClass}" onclick="POS.addToCart('${p.id}')" data-id="${p.id}">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
                         <span class="pos-prod-badge ${p.tipo}">${p.tipo === 'NORMAL' ? 'Producto' : p.tipo}</span>
                         ${selectedBadge}
@@ -464,6 +488,7 @@ const POS = {
         const inputKg = document.getElementById('pos-input-kilos');
 
         if (inputHidden) inputHidden.value = prod.id;
+        this.selectedInsumo = (prod.tipo === 'INSUMO') ? prod : null;
         if (inputSearch) inputSearch.value = `${prod.descripcion} ($${parseFloat(prod.precio_venta).toFixed(2)})`;
         if (clearBtn) clearBtn.style.display = 'flex';
         if (dropdown) dropdown.style.display = 'none';
@@ -485,6 +510,7 @@ const POS = {
     },
 
     clearProductoSeleccionado(focusInput = true) {
+        this.selectedInsumo = null;
         const inputHidden = document.getElementById('pos-selected-producto-id');
         const inputSearch = document.getElementById('pos-search-producto-input');
         const clearBtn = document.getElementById('pos-btn-clear-prod');

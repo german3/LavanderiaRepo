@@ -1103,6 +1103,12 @@ body {
     animation: kitPulse 0.35s ease;
 }
 
+.pos-prod-card.pos-insumo-selected {
+    border-color: #f59e0b !important;
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.45) !important;
+    background: rgba(245, 158, 11, 0.12) !important;
+}
+
 .pos-prod-card.pos-kit-selected {
     border-color: #a855f7 !important;
     box-shadow: 0 0 16px rgba(168, 85, 247, 0.45) !important;

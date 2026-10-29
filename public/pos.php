@@ -30,6 +30,13 @@ $isAdmin  = $auth->isPosAdmin();
     <title>Punto de Venta | FrontOffice | Lavandería Vera</title>
     <link rel="stylesheet" href="css/pos.css">
     <link rel="icon" type="image/jpeg" href="img/Logo.jpeg">
+    <style>
+        .pos-prod-card.pos-insumo-selected {
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 16px rgba(245, 158, 11, 0.45) !important;
+            background: rgba(245, 158, 11, 0.12) !important;
+        }
+    </style>
 </head>
 <body>
 
