@@ -388,7 +388,6 @@ $filtroSkuJs = json_encode($filtroSku);
                             <select id="tipoFilter" class="form-control" style="width: 100%; padding: 0.4rem 2.2rem 0.4rem 0.75rem; height: 38px; background: #1e293b; color: #f1f5f9; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; line-height: 1.2; cursor: pointer; box-sizing: border-box;">
                                 <option value="" style="background:#1e293b; color:#f1f5f9;">Todos los movimientos</option>
                                 <option value="KIT" style="background:#1e293b; color:#c4b5fd; font-weight:600;">📦 Solo Kits / Paquetes</option>
-                                <option value="KIT_CONSUMO" style="background:#1e293b; color:#c4b5fd;">🧪 Consumo Insumos Kit</option>
                                 <option value="VENTA POS" style="background:#1e293b; color:#f1f5f9;">Ventas POS / Cobro</option>
                                 <option value="ALTA PRODUCTO" style="background:#1e293b; color:#f1f5f9;">Alta de Producto</option>
                                 <option value="ENTRADA STOCK" style="background:#1e293b; color:#f1f5f9;">Entrada de Stock</option>
@@ -634,14 +633,14 @@ $filtroSkuJs = json_encode($filtroSku);
 
         function getBadgeClass(tipo) {
             switch (tipo) {
-                case 'VENTA POS': return 'badge-venta';
+                case 'VENTA POS':
+                case 'KIT_CONSUMO':
+                case 'CONSUMO KIT': return 'badge-venta';
                 case 'ALTA PRODUCTO': return 'badge-alta';
                 case 'ENTRADA STOCK': return 'badge-entrada';
                 case 'SALIDA STOCK': return 'badge-salida';
                 case 'ELIMINACION PRODUCTO': return 'badge-eliminacion';
                 case 'EDICION PRODUCTO': return 'badge-edicion';
-                case 'KIT_CONSUMO':
-                case 'CONSUMO KIT': return 'badge-kit';
                 default: return 'badge-alta';
             }
         }
@@ -766,7 +765,7 @@ $filtroSkuJs = json_encode($filtroSku);
                 const esKitConsumo = (item.tipo_movimiento === 'KIT_CONSUMO' || item.tipo_movimiento === 'CONSUMO KIT');
                 const esKitItem = (item.tipo_producto === 'KIT' || esKitConsumo || (item.kit_detalle && item.kit_detalle !== 'null' && item.kit_detalle !== '[]'));
                 const matchTipoFilter = !tipoFilter ? true : 
-                    (tipoFilter === 'KIT' ? esKitItem : (tipoFilter === 'KIT_CONSUMO' ? esKitConsumo : item.tipo_movimiento === tipoFilter));
+                    (tipoFilter === 'KIT' ? esKitItem : (tipoFilter === 'VENTA POS' ? (item.tipo_movimiento === 'VENTA POS' || esKitConsumo) : item.tipo_movimiento === tipoFilter));
 
                 // Filtro por tipo de producto (Normal, Insumo, Servicio, Kit/Paquete)
                 const itemTipoProd = (item.tipo_producto || '').toUpperCase();
@@ -782,10 +781,12 @@ $filtroSkuJs = json_encode($filtroSku);
                 const motivo  = (item.motivo               || '').toLowerCase();
                 const kitStr  = (item.kit_detalle ? (typeof item.kit_detalle === 'string' ? item.kit_detalle : JSON.stringify(item.kit_detalle)) : '').toLowerCase();
 
+                const tipoMovDisplay = esKitConsumo ? 'venta pos' : tipoMov;
                 const matchQuery = !query ||
                     sku.includes(query)     ||
                     desc.includes(query)    ||
                     tipoMov.includes(query) ||
+                    tipoMovDisplay.includes(query) ||
                     usuario.includes(query) ||
                     motivo.includes(query)  ||
                     kitStr.includes(query);
@@ -944,7 +945,7 @@ $filtroSkuJs = json_encode($filtroSku);
                             ${formatFecha(item.fecha_hora)}
                         </td>
                         <td>
-                            <span class="badge ${badgeClass}">${(item.tipo_movimiento === "KIT_CONSUMO" ? "CONSUMO KIT" : item.tipo_movimiento)}</span>${kitBadgeExtra}
+                            <span class="badge ${badgeClass}">${(item.tipo_movimiento === "KIT_CONSUMO" || item.tipo_movimiento === "CONSUMO KIT" ? "VENTA POS" : item.tipo_movimiento)}</span>${kitBadgeExtra}
                         </td>
                         <td>${getTipoBadge(item.tipo_producto)}</td>
                         <td>
@@ -952,8 +953,7 @@ $filtroSkuJs = json_encode($filtroSku);
                             ${item.producto_sku ? `<span class="sku-tag">SKU: ${item.producto_sku}</span>` : ''}
                         </td>
                         <td style="text-align: right; font-weight: 600;">
-                            ${(item.tipo_movimiento === 'SALIDA STOCK' || item.tipo_movimiento === 'KIT_CONSUMO' || item.tipo_movimiento === 'CONSUMO KIT') ? `<span style="color:#fda4af; font-weight:700;">-${cantidadFormatted}</span>` :
-                              item.tipo_movimiento === 'VENTA POS'   ? `<span style="color:#38bdf8; font-weight:700;">${cantidadFormatted}</span>` :
+                            ${(item.tipo_movimiento === 'SALIDA STOCK' || item.tipo_movimiento === 'VENTA POS' || item.tipo_movimiento === 'KIT_CONSUMO' || item.tipo_movimiento === 'CONSUMO KIT') ? `<span style="color:#fda4af; font-weight:700;">-${cantidadFormatted}</span>` :
                               `<span style="color:#6ee7b7;">+${cantidadFormatted}</span>`}
                         </td>
                         <td style="text-align: center; font-size: 0.85rem;">
@@ -1141,7 +1141,7 @@ $filtroSkuJs = json_encode($filtroSku);
 
             document.getElementById('modalContent').innerHTML = `
                 <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.1rem;">
-                    <span class="badge ${badgeClass}" style="font-size:0.8rem;">${item.tipo_movimiento === 'KIT_CONSUMO' ? 'CONSUMO KIT' : item.tipo_movimiento}</span>
+                    <span class="badge ${badgeClass}" style="font-size:0.8rem;">${(item.tipo_movimiento === 'KIT_CONSUMO' || item.tipo_movimiento === 'CONSUMO KIT') ? 'VENTA POS' : item.tipo_movimiento}</span>
                     ${getTipoBadge(item.tipo_producto)}
                     ${item.tipo_producto === 'KIT' || kitDetalleArr ? `<span class="badge badge-kit" style="font-size:0.72rem;">📦 Kit</span>` : ''}
                 </div>
@@ -1161,7 +1161,7 @@ $filtroSkuJs = json_encode($filtroSku);
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Cantidad</div>
-                        <div class="detail-value" style="font-size:1.05rem;font-weight:700;color:${(item.tipo_movimiento==='SALIDA STOCK'||item.tipo_movimiento==='KIT_CONSUMO')?'#fda4af':'#6ee7b7'};">${(item.tipo_movimiento === 'SALIDA STOCK' || item.tipo_movimiento === 'KIT_CONSUMO') ? '-' : '+'}${cantFmt}</div>
+                        <div class="detail-value" style="font-size:1.05rem;font-weight:700;color:${(item.tipo_movimiento==='SALIDA STOCK'||item.tipo_movimiento==='VENTA POS'||item.tipo_movimiento==='KIT_CONSUMO')?'#fda4af':'#6ee7b7'};">${(item.tipo_movimiento === 'SALIDA STOCK' || item.tipo_movimiento === 'VENTA POS' || item.tipo_movimiento === 'KIT_CONSUMO') ? '-' : '+'}${cantFmt}</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Costo Unitario</div>

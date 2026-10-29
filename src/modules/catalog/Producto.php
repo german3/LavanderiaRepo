@@ -49,7 +49,7 @@ class Producto {
 
     // Obtener todos los productos de tipo INSUMO y NORMAL (para selector en movimientos y compras)
     public function obtenerProductosNormales() {
-        $query = "SELECT id, codigo_barras, codigo_interno_sku, descripcion, tipo, unidad_medida, costo, precio_venta
+        $query = "SELECT id, codigo_barras, codigo_interno_sku, descripcion, tipo, unidad_medida, stock_cantidad, costo, precio_venta
                   FROM " . $this->table_name . "
                   WHERE tipo IN ('INSUMO', 'NORMAL') AND estado = 'ACTIVO'
                   ORDER BY tipo = 'INSUMO' DESC, descripcion ASC";

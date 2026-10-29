@@ -116,14 +116,26 @@ $isAdmin  = $auth->isPosAdmin();
                     <!-- 1. Elegir Cliente de los Registrados -->
                     <div class="pos-entry-field">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <label class="pos-entry-label" for="pos-select-cliente">1. Cliente Registrado (*)</label>
+                            <label class="pos-entry-label" for="pos-cliente-search-input">1. Cliente Registrado (*)</label>
                             <button type="button" class="pos-btn-cust" style="padding:0.15rem 0.45rem; font-size:0.7rem;" onclick="POS.openModal('modal-nuevo-cliente')" title="Registrar nuevo cliente">
                                 + Nuevo
                             </button>
                         </div>
-                        <select id="pos-select-cliente" class="pos-form-select" onchange="POS.onClienteSelectChange(this.value)">
-                            <option value="">-- Seleccionar Cliente Registrado --</option>
-                        </select>
+                        <div class="pos-search-prod-wrapper" style="position:relative;">
+                            <svg class="pos-search-prod-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                            <input type="text" id="pos-cliente-search-input" class="pos-form-input pos-search-input-field"
+                                placeholder="Buscar cliente o Público General..."
+                                autocomplete="off"
+                                oninput="POS.onSearchClienteInput(this.value)"
+                                onfocus="POS.onSearchClienteFocus()"
+                                onkeydown="POS.onSearchClienteKeydown(event)">
+                            <input type="hidden" id="pos-selected-cliente-id" value="MOSTRADOR">
+                            <button type="button" id="pos-btn-clear-cliente" class="pos-btn-clear-prod" style="display:none;" onclick="POS.clearClienteSeleccionado()" title="Limpiar cliente">✕</button>
+                            <!-- Dropdown flotante con resultados de clientes -->
+                            <div id="pos-cliente-dropdown-results" class="pos-prod-dropdown-results" style="display:none;"></div>
+                        </div>
                         <div id="pos-selected-client-hint" style="font-size:0.75rem; color:#60a5fa; font-weight:600; margin-top:0.3rem;"></div>
                     </div>
 

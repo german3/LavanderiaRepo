@@ -283,27 +283,8 @@ const POS = {
     // Poblar Selectores de Captura Rápida (FrontOffice)
     // ─────────────────────────────────────────────────────────────
     populateClientesSelect() {
-        const select = document.getElementById('pos-select-cliente');
-        if (!select) return;
-
-        const currentVal = select.value;
-        select.innerHTML = '<option value="">-- Seleccionar Cliente Registrado --</option><option value="MOSTRADOR">👤 Público General / Mostrador</option>';
-
-        // Ordenar clientes alfabéticamente
-        const sortedClients = [...this.clients].sort((a, b) => a.nombre.localeCompare(b.nombre));
-
-        sortedClients.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c.id;
-            opt.textContent = `${c.nombre} (📞 ${c.telefono || 'Sin tel'})`;
-            select.appendChild(opt);
-        });
-
-        if (this.selectedClient && this.selectedClient.id) {
-            select.value = this.selectedClient.id;
-        } else if (currentVal) {
-            select.value = currentVal;
-        }
+        // Inicializar el combobox de cliente con el valor por defecto: Público General
+        this.selectCliente('MOSTRADOR', 'Público General / Mostrador');
     },
 
     // ─────────────────────────────────────────────────────────────
@@ -628,7 +609,7 @@ const POS = {
     },
 
     agregarRegistroFormulario() {
-        const selectCli = document.getElementById('pos-select-cliente');
+        const selectCli = document.getElementById('pos-selected-cliente-id');
         const inputKg = document.getElementById('pos-input-kilos');
         const kilos = parseFloat(inputKg ? inputKg.value : 0);
 
@@ -652,7 +633,7 @@ const POS = {
         const clienteId = selectCli ? selectCli.value : '';
         if (!clienteId || clienteId === '') {
             alert('Por favor selecciona un cliente de los registrados (o elige Público General) para relacionarlo a este registro.');
-            selectCli?.focus();
+            document.getElementById('pos-cliente-search-input')?.focus();
             return;
         }
 
@@ -709,7 +690,7 @@ const POS = {
     },
 
     agregarKitPorKilos(kit, kilos) {
-        const selectCli = document.getElementById('pos-select-cliente');
+        const selectCli = document.getElementById('pos-selected-cliente-id');
         const clienteId = selectCli ? selectCli.value : '';
 
         let clienteObj = null;
@@ -962,16 +943,122 @@ const POS = {
     // Clientes
     // ─────────────────────────────────────────────────────────────
     setClient(client) {
-        this.selectedClient = client;
-        const select = document.getElementById('pos-select-cliente');
-        if (select && client && client.id) {
-            select.value = client.id;
-            this.onClienteSelectChange(client.id);
-        } else if (select) {
-            select.value = 'MOSTRADOR';
-            this.onClienteSelectChange('MOSTRADOR');
+        if (client && client.id) {
+            this.selectCliente(client.id, client.nombre || '');
+        } else {
+            this.selectCliente('MOSTRADOR', 'Público General / Mostrador');
         }
         this.closeModal('modal-buscar-cliente');
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // Combobox de búsqueda de Cliente (igual que Buscar Producto)
+    // ─────────────────────────────────────────────────────────────
+    onSearchClienteInput(query) {
+        const dropdown = document.getElementById('pos-cliente-dropdown-results');
+        const clearBtn = document.getElementById('pos-btn-clear-cliente');
+        const q = (query || '').trim();
+
+        if (clearBtn) clearBtn.style.display = q !== '' ? 'flex' : 'none';
+
+        if (q === '') {
+            // Al borrar todo, volver a Mostrador
+            this.selectCliente('MOSTRADOR', 'Público General / Mostrador');
+            if (dropdown) dropdown.style.display = 'none';
+            return;
+        }
+        this._renderClienteDropdown(q);
+    },
+
+    onSearchClienteFocus() {
+        const inp = document.getElementById('pos-cliente-search-input');
+        const q = (inp ? inp.value : '').trim();
+        this._renderClienteDropdown(q);
+    },
+
+    onSearchClienteKeydown(event) {
+        const dropdown = document.getElementById('pos-cliente-dropdown-results');
+        if (!dropdown || dropdown.style.display === 'none') return;
+        const items = Array.from(dropdown.querySelectorAll('.pos-prod-drop-item'));
+        if (!items.length) return;
+        const active = dropdown.querySelector('.pos-prod-drop-item.active');
+        let idx = items.indexOf(active);
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            idx = (idx + 1) % items.length;
+            items.forEach(i => i.classList.remove('active'));
+            items[idx].classList.add('active');
+            items[idx].scrollIntoView({ block: 'nearest' });
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            idx = (idx - 1 + items.length) % items.length;
+            items.forEach(i => i.classList.remove('active'));
+            items[idx].classList.add('active');
+            items[idx].scrollIntoView({ block: 'nearest' });
+        } else if (event.key === 'Enter') {
+            event.preventDefault();
+            if (active) active.click();
+        } else if (event.key === 'Escape') {
+            dropdown.style.display = 'none';
+        }
+    },
+
+    _renderClienteDropdown(q) {
+        const dropdown = document.getElementById('pos-cliente-dropdown-results');
+        if (!dropdown) return;
+
+        // Siempre incluir Mostrador como primera opción
+        const mostrador = { id: 'MOSTRADOR', nombre: 'Público General / Mostrador', telefono: '' };
+        const pool = [mostrador, ...this.clients];
+
+        const ql = q.toLowerCase();
+        const matches = q
+            ? pool.filter(c => c.nombre.toLowerCase().includes(ql) || (c.telefono && c.telefono.includes(ql))).slice(0, 15)
+            : pool.slice(0, 15);
+
+        if (matches.length === 0) {
+            dropdown.innerHTML = '<div style="padding:0.75rem; text-align:center; color:#64748b; font-size:0.83rem;">Sin resultados</div>';
+        } else {
+            dropdown.innerHTML = matches.map(c => {
+                const cId = this.escapeHtml(String(c.id || 'MOSTRADOR'));
+                const cNombre = this.escapeHtml(c.nombre || '');
+                const cTel = c.telefono ? ` <span style="font-size:0.75rem; color:#64748b; margin-left:0.5rem;">📞 ${this.escapeHtml(c.telefono)}</span>` : '';
+                return `<div class="pos-prod-drop-item" data-cliente-id="${cId}" data-cliente-nombre="${cNombre}">` +
+                    `<span style="font-weight:600;">${cNombre}</span>${cTel}` +
+                    `</div>`;
+            }).join('');
+
+            // Asociar eventos click
+            dropdown.querySelectorAll('.pos-prod-drop-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const id = item.getAttribute('data-cliente-id');
+                    const nombre = item.getAttribute('data-cliente-nombre');
+                    this.selectCliente(id, nombre);
+                });
+            });
+        }
+        dropdown.style.display = 'block';
+    },
+
+    selectCliente(clienteId, nombre) {
+        const inp = document.getElementById('pos-cliente-search-input');
+        const hiddenInp = document.getElementById('pos-selected-cliente-id');
+        const dropdown = document.getElementById('pos-cliente-dropdown-results');
+        const clearBtn = document.getElementById('pos-btn-clear-cliente');
+
+        if (inp) inp.value = nombre || '';
+        if (hiddenInp) hiddenInp.value = clienteId || '';
+        if (dropdown) dropdown.style.display = 'none';
+        // Mostrar botón limpiar solo si no es Mostrador
+        if (clearBtn) clearBtn.style.display = (clienteId && clienteId !== 'MOSTRADOR') ? 'flex' : 'none';
+
+        this.onClienteSelectChange(clienteId);
+    },
+
+    clearClienteSeleccionado() {
+        const inp = document.getElementById('pos-cliente-search-input');
+        if (inp) inp.value = '';
+        this.selectCliente('MOSTRADOR', 'Público General / Mostrador');
     },
 
     async buscarClientes(query) {
@@ -1831,12 +1918,18 @@ const POS = {
     // Eventos y Teclado / Scanner
     // ─────────────────────────────────────────────────────────────
     bindEvents() {
-        // Clic fuera del buscador de productos: cerrar dropdown
+        // Clic fuera del buscador de productos o clientes: cerrar dropdowns
         document.addEventListener('click', (e) => {
-            const wrapper = document.querySelector('.pos-prod-search-col');
-            const dropdown = document.getElementById('pos-producto-dropdown-results');
-            if (dropdown && wrapper && !wrapper.contains(e.target)) {
-                dropdown.style.display = 'none';
+            const prodWrapper = document.querySelector('.pos-prod-search-col');
+            const prodDropdown = document.getElementById('pos-producto-dropdown-results');
+            if (prodDropdown && prodWrapper && !prodWrapper.contains(e.target)) {
+                prodDropdown.style.display = 'none';
+            }
+            // Cerrar dropdown de cliente si click fuera
+            const clienteDropdown = document.getElementById('pos-cliente-dropdown-results');
+            const clienteWrapper = document.getElementById('pos-cliente-search-input')?.closest('.pos-search-prod-wrapper');
+            if (clienteDropdown && clienteWrapper && !clienteWrapper.contains(e.target)) {
+                clienteDropdown.style.display = 'none';
             }
         });
 
