@@ -162,15 +162,20 @@ $isAdmin  = $auth->isPosAdmin();
                         </div>
                     </div>
 
-                    <!-- 3. Campo de Cantidad de Kilos -->
+                                        <!-- 3. Campo de Cantidad de Kilos / Insumos -->
                     <div id="pos-field-kilos-col" class="pos-entry-field">
-                        <label class="pos-entry-label" for="pos-input-kilos">3. Cantidad de Kilos</label>
-                        <div class="number-input-wrapper">
-                            <input type="number" step="0.05" min="0.05" id="pos-input-kilos" class="pos-form-input" style="font-family:'JetBrains Mono',monospace; font-weight:700;" placeholder="Ej. 4.5" value="1.0" oninput="POS.calcPreviewCosto()" onkeydown="if(event.key==='Enter'){event.preventDefault(); POS.agregarRegistroFormulario();}">
-                            <div class="spin-buttons">
-                                <button type="button" class="spin-btn" onclick="POS.stepKilos(0.5)" title="Aumentar">▲</button>
-                                <button type="button" class="spin-btn" onclick="POS.stepKilos(-0.5)" title="Disminuir">▼</button>
+                        <label class="pos-entry-label" id="pos-label-cantidad" for="pos-input-kilos">3. Cantidad de Kilos</label>
+                        <div style="display:flex; gap:0.4rem; align-items:center;">
+                            <div class="number-input-wrapper" style="flex:1;">
+                                <input type="number" step="0.05" min="0.01" id="pos-input-kilos" class="pos-form-input" style="font-family:'JetBrains Mono',monospace; font-weight:700;" placeholder="Ej. 4.5" value="1.0" oninput="POS.calcPreviewCosto()" onkeydown="if(event.key==='Enter'){event.preventDefault(); POS.agregarRegistroFormulario();}">
+                                <div class="spin-buttons">
+                                    <button type="button" class="spin-btn" onclick="POS.stepKilos(0.5)" title="Aumentar">▲</button>
+                                    <button type="button" class="spin-btn" onclick="POS.stepKilos(-0.5)" title="Disminuir">▼</button>
+                                </div>
                             </div>
+                            <select id="pos-select-unidad-insumo" class="pos-form-select" style="display:none; width:auto; min-width:115px; font-weight:600; padding:0.45rem 0.6rem;" onchange="POS.onUnidadInsumoChange()">
+                                <!-- Opciones dinámicas para Insumos -->
+                            </select>
                         </div>
                     </div>
 
