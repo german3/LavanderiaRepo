@@ -486,7 +486,10 @@ const POS = {
         const selectUnidad = document.getElementById('pos-select-unidad-insumo');
         const inputKg = document.getElementById('pos-input-kilos');
 
+        const grid = document.getElementById('pos-entry-grid');
+
         if (!prod || prod.tipo !== 'INSUMO') {
+            if (grid) grid.classList.remove('has-unit-select');
             if (label) label.textContent = '3. Cantidad de Kilos';
             if (selectUnidad) {
                 selectUnidad.style.display = 'none';
@@ -516,6 +519,7 @@ const POS = {
                 // Por defecto "Mililitros" cuando sea litros
                 selectUnidad.value = 'ML';
                 selectUnidad.style.display = 'block';
+                if (grid) grid.classList.add('has-unit-select');
             }
             if (inputKg) {
                 inputKg.step = '10';
@@ -534,6 +538,7 @@ const POS = {
                 // Por defecto "Gramos" cuando sea kilos
                 selectUnidad.value = 'GR';
                 selectUnidad.style.display = 'block';
+                if (grid) grid.classList.add('has-unit-select');
             }
             if (inputKg) {
                 inputKg.step = '10';
@@ -544,6 +549,7 @@ const POS = {
         }
         // 3. Caso Conteo / Pieza: solo campo de cantidad sin desplegable
         else {
+            if (grid) grid.classList.remove('has-unit-select');
             if (selectUnidad) {
                 selectUnidad.style.display = 'none';
                 selectUnidad.innerHTML = '';
