@@ -344,7 +344,7 @@ class Venta
                 ':observaciones'  => $observaciones
             ]);
 
-            // Insertar detalles y descontar inventario
+            // Insertar detalles en detalle_ventas
             $stmtDet = $this->conn->prepare(
                 "INSERT INTO detalle_ventas (
                     id, venta_id, producto_id, cantidad, precio_unitario, subtotal, ropa_kg, notas
@@ -364,124 +364,191 @@ class Venta
                     ':ropa_kg'         => $det['ropa_kg'],
                     ':notas'           => $det['notas']
                 ]);
+            }
 
+            // ═════════════════════════════════════════════════════════════
+            // CONSOLIDAR Y SUMAR CONSUMOS DE INSUMOS Y PRODUCTOS POR VENTA
+            // (Si un insumo forma parte de un Kit y se vende por separado,
+            // se suman ambas cantidades para descontar el total exacto).
+            // ═════════════════════════════════════════════════════════════
+            $consumosInventario = [];
+            $kitsRegistrados = [];
+            $serviciosRegistrados = [];
+
+            foreach ($detallesParaInsertar as $det) {
                 $pInfo = $det['producto_info'];
-                $cant = $det['cantidad'];
-                $stockAntes = floatval($pInfo['stock_cantidad']);
-                $stockDespues = $stockAntes;
+                $cant = floatval($det['cantidad']);
 
-                // Regla Spec 05 §3: Si tipo = NORMAL o INSUMO, descontar y registrar MovimientoInventario VENTA
                 if ($pInfo['tipo'] === 'NORMAL' || $pInfo['tipo'] === 'INSUMO') {
-                    $stockDespues = $stockAntes - $cant;
-
-                    $stmtUpd = $this->conn->prepare("UPDATE productos SET stock_cantidad = :nuevo_stock WHERE id = :id");
-                    $stmtUpd->execute([':nuevo_stock' => $stockDespues, ':id' => $pInfo['id']]);
-
-                    $this->movimientoModel->registrar([
-                        'producto_id'     => $pInfo['id'],
-                        'cantidad'        => $cant,
-                        'tipo_movimiento' => 'VENTA',
-                        'motivo'          => "Venta en mostrador Folio: {$folio} - Cliente: {$det['cliente_nombre']}",
-                        'usuario_id'      => $usuarioId,
-                        'referencia_id'   => $ventaId,
-                        'costo_unitario'  => floatval($pInfo['costo']),
-                        'stock_antes'     => $stockAntes,
-                        'stock_despues'   => $stockDespues
-                    ]);
-                }
-
-                // Regla Spec 05 §3: Si tipo = KIT, descontar insumos del Kit y registrar KIT_CONSUMO
-                $kitDetalleParaHistorial = null;
-                if ($pInfo['tipo'] === 'KIT') {
+                    $pid = $pInfo['id'];
+                    if (!isset($consumosInventario[$pid])) {
+                        $consumosInventario[$pid] = [
+                            'producto_id'     => $pid,
+                            'tipo_producto'   => $pInfo['tipo'],
+                            'cantidad_total'  => 0.0,
+                            'precio_unitario' => floatval($det['precio_unitario']),
+                            'origenes'        => []
+                        ];
+                    }
+                    $consumosInventario[$pid]['cantidad_total'] += $cant;
+                    $consumosInventario[$pid]['origenes'][] = "Venta directa: {$cant} " . ($pInfo['unidad_medida'] ?? '');
+                } elseif ($pInfo['tipo'] === 'KIT') {
+                    // Insumos del Kit
                     $stmtKits = $this->conn->prepare(
-                        "SELECT pk.insumo_id, pk.cantidad_consumida, pk.unidad, p.stock_cantidad, p.costo, p.descripcion, p.unidad_medida, p.codigo_interno_sku, p.codigo_barras
+                        "SELECT pk.insumo_id, pk.cantidad_consumida, pk.unidad, p.costo, p.descripcion, p.unidad_medida, p.codigo_interno_sku, p.codigo_barras, p.tipo, p.stock_cantidad
                          FROM productos_kits pk
                          JOIN productos p ON pk.insumo_id = p.id
                          WHERE pk.kit_id = :kit_id"
                     );
                     $stmtKits->execute([':kit_id' => $pInfo['id']]);
-                    $insumos = $stmtKits->fetchAll(PDO::FETCH_ASSOC);
+                    $insumosKit = $stmtKits->fetchAll(PDO::FETCH_ASSOC);
 
-                    $kitDetalleParaHistorial = [];
-                    foreach ($insumos as $insumo) {
+                    $kitDetalleArr = [];
+                    foreach ($insumosKit as $insumo) {
+                        $insId = $insumo['insumo_id'];
                         $cantConsumidaTotal = floatval($insumo['cantidad_consumida']) * $cant;
-                        $stockInsumoAntes = floatval($insumo['stock_cantidad']);
-                        $stockInsumoDespues = $stockInsumoAntes - $cantConsumidaTotal;
 
-                        $stmtUpdInsumo = $this->conn->prepare("UPDATE productos SET stock_cantidad = :nuevo_stock WHERE id = :id");
-                        $stmtUpdInsumo->execute([':nuevo_stock' => $stockInsumoDespues, ':id' => $insumo['insumo_id']]);
+                        if (!isset($consumosInventario[$insId])) {
+                            $consumosInventario[$insId] = [
+                                'producto_id'     => $insId,
+                                'tipo_producto'   => $insumo['tipo'] ?: 'INSUMO',
+                                'cantidad_total'  => 0.0,
+                                'precio_unitario' => floatval($insumo['costo']),
+                                'origenes'        => []
+                            ];
+                        }
+                        $consumosInventario[$insId]['cantidad_total'] += $cantConsumidaTotal;
+                        $consumosInventario[$insId]['origenes'][] = "Kit {$pInfo['descripcion']}: {$cantConsumidaTotal} " . ($insumo['unidad'] ?: $insumo['unidad_medida']);
 
-                        $insumoSku = $insumo['codigo_interno_sku'] ?: ($insumo['codigo_barras'] ?: 'S/C');
-                        $motivoInsumo = "Consumo por Kit {$pInfo['descripcion']} - Folio: {$folio} - Cliente: {$det['cliente_nombre']}";
-
-                        $this->movimientoModel->registrar([
-                            'producto_id'     => $insumo['insumo_id'],
-                            'cantidad'        => $cantConsumidaTotal,
-                            'tipo_movimiento' => 'KIT_CONSUMO',
-                            'motivo'          => $motivoInsumo,
-                            'usuario_id'      => $usuarioId,
-                            'referencia_id'   => $ventaId,
-                            'costo_unitario'  => floatval($insumo['costo']),
-                            'stock_antes'     => $stockInsumoAntes,
-                            'stock_despues'   => $stockInsumoDespues
-                        ]);
-
-                        // ═════════════════════════════════════════════════════════════
-                        // REGISTRO INDIVIDUAL DEL INSUMO CONSUMIDO EN HISTORIAL INVENTARIOS
-                        // ═════════════════════════════════════════════════════════════
-                        $this->historialModel->registrar([
-                            'tipo_movimiento'      => 'KIT_CONSUMO',
-                            'producto_id'          => $insumo['insumo_id'],
-                            'producto_sku'         => $insumoSku,
-                            'producto_descripcion' => $insumo['descripcion'],
-                            'tipo_producto'        => 'INSUMO',
-                            'cantidad'             => $cantConsumidaTotal,
-                            'costo_unitario'       => floatval($insumo['costo']),
-                            'stock_antes'          => $stockInsumoAntes,
-                            'stock_despues'        => $stockInsumoDespues,
-                            'motivo'               => $motivoInsumo,
-                            'kit_detalle'          => null,
-                            'usuario_id'           => null,
-                            'usuario_nombre'       => $usuarioNombre
-                        ]);
-
-                        // Acumular detalle para historial
-                        $kitDetalleParaHistorial[] = [
-                            'insumo_id'       => $insumo['insumo_id'],
-                            'insumo_sku'      => $insumoSku,
-                            'insumo_nombre'   => $insumo['descripcion'],
-                            'cantidad_total'  => $cantConsumidaTotal,
-                            'unidad'          => $insumo['unidad'] ?: $insumo['unidad_medida'],
-                            'stock_antes'     => $stockInsumoAntes,
-                            'stock_despues'   => $stockInsumoDespues,
-                            'costo'           => floatval($insumo['costo'])
+                        $kitDetalleArr[] = [
+                            'insumo_id'      => $insId,
+                            'insumo_sku'     => $insumo['codigo_interno_sku'] ?: ($insumo['codigo_barras'] ?: 'S/C'),
+                            'insumo_nombre'  => $insumo['descripcion'],
+                            'cantidad_total' => $cantConsumidaTotal,
+                            'unidad'         => $insumo['unidad'] ?: $insumo['unidad_medida'],
+                            'costo'          => floatval($insumo['costo'])
                         ];
                     }
+
+                    $cantHistorial = $det['ropa_kg'] > 0 ? $det['ropa_kg'] : $cant;
+                    $kitsRegistrados[] = [
+                        'producto_id'     => $pInfo['id'],
+                        'sku'             => $pInfo['codigo_interno_sku'] ?: ($pInfo['codigo_barras'] ?: 'S/C'),
+                        'descripcion'     => $pInfo['descripcion'],
+                        'cantidad'        => $cantHistorial,
+                        'precio_unitario' => $det['precio_unitario'],
+                        'kit_detalle'     => $kitDetalleArr
+                    ];
+                } elseif ($pInfo['tipo'] === 'SERVICIO') {
+                    $cantHistorial = $det['ropa_kg'] > 0 ? $det['ropa_kg'] : $cant;
+                    $serviciosRegistrados[] = [
+                        'producto_id'     => $pInfo['id'],
+                        'sku'             => $pInfo['codigo_interno_sku'] ?: ($pInfo['codigo_barras'] ?: 'S/C'),
+                        'descripcion'     => $pInfo['descripcion'],
+                        'cantidad'        => $cantHistorial,
+                        'precio_unitario' => $det['precio_unitario']
+                    ];
+                }
+            }
+
+            // ═════════════════════════════════════════════════════════════
+            // APLICAR DEDUCCIÓN DE INVENTARIO Y REGISTRAR MOVIMIENTOS
+            // (Deduce la suma total de cada producto y registra el stock exacto).
+            // ═════════════════════════════════════════════════════════════
+            foreach ($consumosInventario as $insId => $cData) {
+                // Leer stock REAL y ACTUAL con bloqueo FOR UPDATE
+                $stmtLock = $this->conn->prepare(
+                    "SELECT id, descripcion, tipo, stock_cantidad, costo, precio_venta, codigo_barras, codigo_interno_sku, unidad_medida
+                     FROM productos WHERE id = :id FOR UPDATE"
+                );
+                $stmtLock->execute([':id' => $insId]);
+                $pRow = $stmtLock->fetch(PDO::FETCH_ASSOC);
+
+                if (!$pRow) continue;
+
+                $stockAntes = floatval($pRow['stock_cantidad']);
+                $cantDeducir = floatval($cData['cantidad_total']);
+                $stockDespues = $stockAntes - $cantDeducir;
+
+                // Actualizar stock en tabla productos
+                $stmtUpd = $this->conn->prepare("UPDATE productos SET stock_cantidad = :nuevo_stock WHERE id = :id");
+                $stmtUpd->execute([':nuevo_stock' => $stockDespues, ':id' => $insId]);
+
+                $motivoMov = "Venta Folio: {$folio} - Cliente: {$clienteNombreGlobal}";
+                if (!empty($cData['origenes'])) {
+                    $motivoMov .= " (" . implode(' + ', $cData['origenes']) . ")";
                 }
 
-                // ═════════════════════════════════════════════════════════════
-                // REGISTRO GLOBAL EN HISTORIAL DE MOVIMIENTOS (Spec FrontOffice)
-                // ═════════════════════════════════════════════════════════════
-                $cantHistorial = $det['ropa_kg'] > 0 ? $det['ropa_kg'] : $cant;
-                $unidadHistorial = $det['ropa_kg'] > 0 ? "kg" : ($pInfo['unidad_medida'] ?? 'pza');
-                $motivoHistorial = $folio;
+                // Registrar en movimientos_inventario
+                $this->movimientoModel->registrar([
+                    'producto_id'     => $pRow['id'],
+                    'cantidad'        => $cantDeducir,
+                    'tipo_movimiento' => 'VENTA',
+                    'motivo'          => $motivoMov,
+                    'usuario_id'      => $usuarioId,
+                    'referencia_id'   => $ventaId,
+                    'costo_unitario'  => floatval($pRow['costo']),
+                    'stock_antes'     => $stockAntes,
+                    'stock_despues'   => $stockDespues
+                ]);
+
+                // Registrar en historial_movimientos
+                $sku = $pRow['codigo_interno_sku'] ?: ($pRow['codigo_barras'] ?: 'S/C');
+                $costoOPrecio = floatval($pRow['precio_venta']) > 0 ? floatval($pRow['precio_venta']) : floatval($pRow['costo']);
 
                 $this->historialModel->registrar([
                     'tipo_movimiento'      => 'VENTA POS',
-                    'producto_id'          => $pInfo['id'],
-                    'producto_sku'         => $pInfo['codigo_interno_sku'] ?: ($pInfo['codigo_barras'] ?: 'S/C'),
-                    'producto_descripcion' => $pInfo['descripcion'],
-                    'tipo_producto'        => $pInfo['tipo'],
-                    'cantidad'             => $cantHistorial,
-                    'costo_unitario'       => $det['precio_unitario'],
+                    'producto_id'          => $pRow['id'],
+                    'producto_sku'         => $sku,
+                    'producto_descripcion' => $pRow['descripcion'],
+                    'tipo_producto'        => $pRow['tipo'] ?: 'INSUMO',
+                    'cantidad'             => $cantDeducir,
+                    'costo_unitario'       => $costoOPrecio,
                     'stock_antes'          => $stockAntes,
                     'stock_despues'        => $stockDespues,
-                    'motivo'               => $motivoHistorial,
-                    'kit_detalle'          => $kitDetalleParaHistorial,
+                    'motivo'               => $folio,
+                    'kit_detalle'          => null,
                     'usuario_id'           => null,
                     'usuario_nombre'       => $usuarioNombre
                 ]);
+            }
 
+            // Registrar Kits en historial_movimientos (para auditoría)
+            foreach ($kitsRegistrados as $kReg) {
+                $this->historialModel->registrar([
+                    'tipo_movimiento'      => 'VENTA POS',
+                    'producto_id'          => $kReg['producto_id'],
+                    'producto_sku'         => $kReg['sku'],
+                    'producto_descripcion' => $kReg['descripcion'],
+                    'tipo_producto'        => 'KIT',
+                    'cantidad'             => $kReg['cantidad'],
+                    'costo_unitario'       => $kReg['precio_unitario'],
+                    'stock_antes'          => 0.00,
+                    'stock_despues'        => 0.00,
+                    'motivo'               => $folio,
+                    'kit_detalle'          => $kReg['kit_detalle'],
+                    'usuario_id'           => null,
+                    'usuario_nombre'       => $usuarioNombre
+                ]);
+            }
+
+            // Registrar Servicios en historial_movimientos
+            foreach ($serviciosRegistrados as $sReg) {
+                $this->historialModel->registrar([
+                    'tipo_movimiento'      => 'VENTA POS',
+                    'producto_id'          => $sReg['producto_id'],
+                    'producto_sku'         => $sReg['sku'],
+                    'producto_descripcion' => $sReg['descripcion'],
+                    'tipo_producto'        => 'SERVICIO',
+                    'cantidad'             => $sReg['cantidad'],
+                    'costo_unitario'       => $sReg['precio_unitario'],
+                    'stock_antes'          => 0.00,
+                    'stock_despues'        => 0.00,
+                    'motivo'               => $folio,
+                    'kit_detalle'          => null,
+                    'usuario_id'           => null,
+                    'usuario_nombre'       => $usuarioNombre
+                ]);
             }
 
             // Regla Spec 05 §3 & 06 §3: Generar Carga automáticamente para servicios de lavandería
@@ -646,7 +713,7 @@ class Venta
             // Cancelar carga asociada si existe
             $this->cargaModel->cancelarPorVenta($ventaId);
 
-            // Revertir inventario
+            // Revertir inventario consolidado
             $stmtDet = $this->conn->prepare(
                 "SELECT dv.*, p.tipo, p.descripcion, p.stock_cantidad, p.costo, p.codigo_interno_sku, p.codigo_barras 
                  FROM detalle_ventas dv
@@ -656,106 +723,84 @@ class Venta
             $stmtDet->execute([':venta_id' => $ventaId]);
             $detalles = $stmtDet->fetchAll(PDO::FETCH_ASSOC);
 
-            // Obtener nombre del usuario que cancela
-            $usuarioNombre = 'Sistema';
-            if (!empty($usuarioId)) {
-                $stmtU = $this->conn->prepare("SELECT nombre FROM usuarios WHERE id = :uid");
-                $stmtU->execute([':uid' => $usuarioId]);
-                if ($uRow = $stmtU->fetch(PDO::FETCH_ASSOC)) {
-                    $usuarioNombre = $uRow['nombre'];
-                }
-            }
-
+            // Acumular cantidades a restaurar por producto_id
+            $restauraciones = [];
             foreach ($detalles as $det) {
                 $cant = floatval($det['cantidad']);
 
                 if ($det['tipo'] === 'NORMAL' || $det['tipo'] === 'INSUMO') {
-                    $stockAntes = floatval($det['stock_cantidad']);
-                    $stockDespues = $stockAntes + $cant;
-
-                    $stmtUpd = $this->conn->prepare("UPDATE productos SET stock_cantidad = :nuevo_stock WHERE id = :id");
-                    $stmtUpd->execute([':nuevo_stock' => $stockDespues, ':id' => $det['producto_id']]);
-
-                    $motivoRev = "Reversión por Cancelación de Venta {$venta['folio']}: {$motivo}";
-
-                    $this->movimientoModel->registrar([
-                        'producto_id'     => $det['producto_id'],
-                        'cantidad'        => $cant,
-                        'tipo_movimiento' => 'AJUSTE',
-                        'motivo'          => $motivoRev,
-                        'usuario_id'      => $usuarioId,
-                        'referencia_id'   => $ventaId,
-                        'costo_unitario'  => floatval($det['costo']),
-                        'stock_antes'     => $stockAntes,
-                        'stock_despues'   => $stockDespues
-                    ]);
-
-                    $this->historialModel->registrar([
-                        'tipo_movimiento'      => 'ENTRADA STOCK',
-                        'producto_id'          => $det['producto_id'],
-                        'producto_sku'         => $det['codigo_interno_sku'] ?: ($det['codigo_barras'] ?: 'S/C'),
-                        'producto_descripcion' => $det['descripcion'],
-                        'tipo_producto'        => $det['tipo'],
-                        'cantidad'             => $cant,
-                        'costo_unitario'       => floatval($det['costo']),
-                        'stock_antes'          => $stockAntes,
-                        'stock_despues'        => $stockDespues,
-                        'motivo'               => $motivoRev,
-                        'kit_detalle'          => null,
-                        'usuario_id'           => null,
-                        'usuario_nombre'       => $usuarioNombre
-                    ]);
-                }
-
-                if ($det['tipo'] === 'KIT') {
+                    $pid = $det['producto_id'];
+                    $restauraciones[$pid] = ($restauraciones[$pid] ?? 0.0) + $cant;
+                } elseif ($det['tipo'] === 'KIT') {
                     $stmtKits = $this->conn->prepare(
-                        "SELECT pk.insumo_id, pk.cantidad_consumida, p.stock_cantidad, p.costo, p.descripcion, p.codigo_interno_sku, p.codigo_barras 
+                        "SELECT pk.insumo_id, pk.cantidad_consumida
                          FROM productos_kits pk
-                         JOIN productos p ON pk.insumo_id = p.id
                          WHERE pk.kit_id = :kit_id"
                     );
                     $stmtKits->execute([':kit_id' => $det['producto_id']]);
                     $insumos = $stmtKits->fetchAll(PDO::FETCH_ASSOC);
 
                     foreach ($insumos as $insumo) {
+                        $insId = $insumo['insumo_id'];
                         $cantConsumidaTotal = floatval($insumo['cantidad_consumida']) * $cant;
-                        $stockInsumoAntes = floatval($insumo['stock_cantidad']);
-                        $stockInsumoDespues = $stockInsumoAntes + $cantConsumidaTotal;
-
-                        $stmtUpdInsumo = $this->conn->prepare("UPDATE productos SET stock_cantidad = :nuevo_stock WHERE id = :id");
-                        $stmtUpdInsumo->execute([':nuevo_stock' => $stockInsumoDespues, ':id' => $insumo['insumo_id']]);
-
-                        $motivoRevIns = "Reversión Insumo por Cancelación de Venta {$venta['folio']}: {$motivo}";
-
-                        $this->movimientoModel->registrar([
-                            'producto_id'     => $insumo['insumo_id'],
-                            'cantidad'        => $cantConsumidaTotal,
-                            'tipo_movimiento' => 'AJUSTE',
-                            'motivo'          => $motivoRevIns,
-                            'usuario_id'      => $usuarioId,
-                            'referencia_id'   => $ventaId,
-                            'costo_unitario'  => floatval($insumo['costo']),
-                            'stock_antes'     => $stockInsumoAntes,
-                            'stock_despues'   => $stockInsumoDespues
-                        ]);
-
-                        $this->historialModel->registrar([
-                            'tipo_movimiento'      => 'ENTRADA STOCK',
-                            'producto_id'          => $insumo['insumo_id'],
-                            'producto_sku'         => $insumo['codigo_interno_sku'] ?: ($insumo['codigo_barras'] ?: 'S/C'),
-                            'producto_descripcion' => $insumo['descripcion'],
-                            'tipo_producto'        => 'INSUMO',
-                            'cantidad'             => $cantConsumidaTotal,
-                            'costo_unitario'       => floatval($insumo['costo']),
-                            'stock_antes'          => $stockInsumoAntes,
-                            'stock_despues'        => $stockInsumoDespues,
-                            'motivo'               => $motivoRevIns,
-                            'kit_detalle'          => null,
-                            'usuario_id'           => null,
-                            'usuario_nombre'       => $usuarioNombre
-                        ]);
+                        $restauraciones[$insId] = ($restauraciones[$insId] ?? 0.0) + $cantConsumidaTotal;
                     }
                 }
+            }
+
+            // Obtener nombre del usuario para historial
+            $usuarioNombre = 'Sistema';
+            if (!empty($usuarioId)) {
+                $stmtU = $this->conn->prepare("SELECT nombre FROM usuarios WHERE id = :uid");
+                $stmtU->execute([':uid' => $usuarioId]);
+                $uRow = $stmtU->fetch(PDO::FETCH_ASSOC);
+                if ($uRow) {
+                    $usuarioNombre = $uRow['nombre'];
+                }
+            }
+
+            foreach ($restauraciones as $prodId => $cantRestaurar) {
+                $stmtLock = $this->conn->prepare("SELECT id, descripcion, tipo, stock_cantidad, costo, codigo_interno_sku, codigo_barras FROM productos WHERE id = :id FOR UPDATE");
+                $stmtLock->execute([':id' => $prodId]);
+                $pRow = $stmtLock->fetch(PDO::FETCH_ASSOC);
+
+                if (!$pRow) continue;
+
+                $stockAntes = floatval($pRow['stock_cantidad']);
+                $stockDespues = $stockAntes + $cantRestaurar;
+
+                $stmtUpd = $this->conn->prepare("UPDATE productos SET stock_cantidad = :nuevo_stock WHERE id = :id");
+                $stmtUpd->execute([':nuevo_stock' => $stockDespues, ':id' => $prodId]);
+
+                $motivoRev = "Reversión por Cancelación de Venta {$venta['folio']}: {$motivo}";
+
+                $this->movimientoModel->registrar([
+                    'producto_id'     => $prodId,
+                    'cantidad'        => $cantRestaurar,
+                    'tipo_movimiento' => 'AJUSTE',
+                    'motivo'          => $motivoRev,
+                    'usuario_id'      => $usuarioId,
+                    'referencia_id'   => $ventaId,
+                    'costo_unitario'  => floatval($pRow['costo']),
+                    'stock_antes'     => $stockAntes,
+                    'stock_despues'   => $stockDespues
+                ]);
+
+                $this->historialModel->registrar([
+                    'tipo_movimiento'      => 'ENTRADA STOCK',
+                    'producto_id'          => $prodId,
+                    'producto_sku'         => $pRow['codigo_interno_sku'] ?: ($pRow['codigo_barras'] ?: 'S/C'),
+                    'producto_descripcion' => $pRow['descripcion'],
+                    'tipo_producto'        => $pRow['tipo'],
+                    'cantidad'             => $cantRestaurar,
+                    'costo_unitario'       => floatval($pRow['costo']),
+                    'stock_antes'          => $stockAntes,
+                    'stock_despues'        => $stockDespues,
+                    'motivo'               => $motivoRev,
+                    'kit_detalle'          => null,
+                    'usuario_id'           => null,
+                    'usuario_nombre'       => $usuarioNombre
+                ]);
             }
 
             $this->conn->commit();
