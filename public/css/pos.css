@@ -1450,3 +1450,47 @@ input[type=number] {
     transform: scale(0.92);
     background: rgba(59, 130, 246, 0.5);
 }
+
+/* Encabezado de Cliente en la sección de cobro / carrito */
+.pos-cart-client-header {
+    padding: 0.65rem 1.25rem 0.25rem 1.25rem;
+    background: transparent;
+}
+.pos-cart-client-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.75rem;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    border-radius: 8px;
+    color: #93c5fd;
+    font-size: 0.82rem;
+}
+.pos-cart-client-icon {
+    font-size: 0.95rem;
+}
+.pos-cart-client-text {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.pos-cart-client-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--pos-text-muted);
+    font-weight: 600;
+}
+.pos-cart-client-name {
+    color: #fff;
+    font-weight: 700;
+}
+.pos-cart-client-tel {
+    color: #93c5fd;
+    opacity: 0.85;
+    font-size: 0.75rem;
+}

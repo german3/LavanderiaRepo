@@ -265,6 +265,18 @@ $isAdmin  = $auth->isPosAdmin();
                 </div>
             </div>
 
+            <!-- Encabezado de Cliente para la Orden / Carrito -->
+            <div id="pos-cart-client-header" class="pos-cart-client-header" style="display: none;">
+                <div class="pos-cart-client-badge">
+                    <span class="pos-cart-client-icon">👤</span>
+                    <div class="pos-cart-client-text">
+                        <span class="pos-cart-client-label">Cliente:</span>
+                        <strong id="pos-cart-client-name">Público General / Mostrador</strong>
+                        <span id="pos-cart-client-tel" class="pos-cart-client-tel"></span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Scrollable Items List -->
             <div id="pos-cart-items" class="pos-items-list">
                 <div class="pos-empty-cart">

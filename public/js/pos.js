@@ -1149,9 +1149,13 @@ const POS = {
     renderCart() {
         const container = document.getElementById('pos-cart-items');
         const custNameEl = document.getElementById('pos-cust-name');
+        const clientHeaderEl = document.getElementById('pos-cart-client-header');
+        const clientNameEl = document.getElementById('pos-cart-client-name');
+        const clientTelEl = document.getElementById('pos-cart-client-tel');
         if (!container) return;
 
         if (this.cart.length === 0) {
+            if (clientHeaderEl) clientHeaderEl.style.display = 'none';
             container.innerHTML = `
                 <div class="pos-empty-cart">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
@@ -1166,6 +1170,16 @@ const POS = {
 
         if (custNameEl) {
             custNameEl.textContent = `${this.cart.length} registro(s) listos para cobro`;
+        }
+
+        if (clientHeaderEl) {
+            clientHeaderEl.style.display = 'block';
+            const cliNombre = this.cart[0]?.cliente_nombre || 'Público General / Mostrador';
+            const cliTel = this.cart[0]?.cliente_telefono || '';
+            if (clientNameEl) clientNameEl.textContent = cliNombre;
+            if (clientTelEl) {
+                clientTelEl.textContent = cliTel ? ` · 📞 ${cliTel}` : '';
+            }
         }
 
         container.innerHTML = this.cart.map((item, idx) => {
@@ -1209,10 +1223,6 @@ const POS = {
                 <div class="pos-cart-item">
                     <div class="pos-item-header">
                         <div style="flex:1; overflow:hidden;">
-                            <div class="pos-item-client-badge">
-                                👤 <strong>${this.escapeHtml(item.cliente_nombre || 'Público General')}</strong>
-                                ${item.cliente_telefono ? `<span style="opacity:0.85; margin-left:0.25rem;">📞 ${this.escapeHtml(item.cliente_telefono)}</span>` : ''}
-                            </div>
                             <div class="pos-item-name">${this.escapeHtml(item.descripcion)}</div>
                         </div>
                         <button class="pos-item-remove" onclick="POS.removeFromCart(${idx})" title="Eliminar este registro">
