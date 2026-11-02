@@ -1037,6 +1037,14 @@ const POS = {
         // Si es un KIT o estamos en la pestaña Kits y Paquetes
         if (prod.tipo === 'KIT' || this.currentCategory === 'KIT') {
             this.selectedKit = prod;
+
+            // Ocultar campo "2. PRODUCTO O SERVICIO" (igual que en pestaña Kits y Paquetes)
+            const prodCol = document.getElementById('pos-field-producto-col') || document.querySelector('.pos-prod-search-col');
+            const entryGrid = document.getElementById('pos-entry-grid') || document.querySelector('.pos-entry-grid');
+            if (prodCol) prodCol.classList.add('pos-hidden');
+            if (entryGrid) entryGrid.classList.add('hide-producto');
+            this.clearProductoSeleccionado(false);
+
             this.renderProducts();
 
             const titleText = document.getElementById('pos-entry-title-text');
@@ -1059,7 +1067,19 @@ const POS = {
             return;
         }
 
-        // Para servicios o productos normales, seleccionarlo en el buscador superior para capturar kilos
+        // Para servicios o productos normales: restaurar campo "2. PRODUCTO O SERVICIO"
+        // si estaba oculto por un kit seleccionado anteriormente en la pestaña Todos
+        if (this.currentCategory === 'ALL' && this.selectedKit) {
+            this.selectedKit = null;
+            const prodCol = document.getElementById('pos-field-producto-col') || document.querySelector('.pos-prod-search-col');
+            const entryGrid = document.getElementById('pos-entry-grid') || document.querySelector('.pos-entry-grid');
+            if (prodCol) prodCol.classList.remove('pos-hidden');
+            if (entryGrid) entryGrid.classList.remove('hide-producto');
+            const titleText = document.getElementById('pos-entry-title-text');
+            if (titleText) titleText.textContent = 'Registro de Servicio / Venta por Kilos';
+        }
+
+        // Seleccionar el producto en el buscador superior para capturar cantidad
         this.seleccionarProducto(productId);
     },
 
