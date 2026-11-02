@@ -1153,6 +1153,20 @@ body {
     background: rgba(168, 85, 247, 0.12) !important;
 }
 
+/* Selección visual para Productos (NORMAL) */
+.pos-prod-card.pos-normal-selected {
+    border-color: #22c55e !important;
+    box-shadow: 0 0 16px rgba(34, 197, 94, 0.45) !important;
+    background: rgba(34, 197, 94, 0.10) !important;
+}
+
+/* Selección visual para Servicios */
+.pos-prod-card.pos-servicio-selected {
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.45) !important;
+    background: rgba(56, 189, 248, 0.10) !important;
+}
+
 @keyframes kitPulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.04); box-shadow: 0 0 20px rgba(168, 85, 247, 0.6); }

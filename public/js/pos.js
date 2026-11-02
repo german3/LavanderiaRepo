@@ -168,12 +168,22 @@ const POS = {
 
             const kgBadge = ropaKg > 0 ? `<span class="pos-prod-kg">⚖️ ${ropaKg} kg</span>` : '';
 
-            const isKitSelected = (this.currentCategory === 'KIT' && this.selectedKit && this.selectedKit.id === p.id);
             const currentSelectedProdId = document.getElementById('pos-selected-producto-id')?.value;
+
+            // Kit seleccionado: aplica en categoría KIT y en ALL
+            const isKitSelected = (p.tipo === 'KIT' && this.selectedKit && this.selectedKit.id === p.id);
+
+            // Insumo seleccionado
             const isInsumoSelected = (p.tipo === 'INSUMO' && (
                 (this.selectedInsumo && this.selectedInsumo.id === p.id) ||
                 (currentSelectedProdId && currentSelectedProdId === p.id)
             ));
+
+            // Producto normal seleccionado
+            const isNormalSelected = (p.tipo === 'NORMAL' && currentSelectedProdId && currentSelectedProdId === p.id);
+
+            // Servicio seleccionado
+            const isServicioSelected = (p.tipo === 'SERVICIO' && currentSelectedProdId && currentSelectedProdId === p.id);
 
             let cardSelectedClass = '';
             let selectedBadge = '';
@@ -183,6 +193,12 @@ const POS = {
             } else if (isInsumoSelected) {
                 cardSelectedClass = 'pos-insumo-selected';
                 selectedBadge = '<span style="font-size:0.65rem; font-weight:700; color:#fbbf24; background:rgba(245,158,11,0.25); border:1px solid rgba(245,158,11,0.4); padding:0.1rem 0.45rem; border-radius:4px;">✓ SELECCIONADO</span>';
+            } else if (isNormalSelected) {
+                cardSelectedClass = 'pos-normal-selected';
+                selectedBadge = '<span style="font-size:0.65rem; font-weight:700; color:#22c55e; background:rgba(34,197,94,0.20); border:1px solid rgba(34,197,94,0.4); padding:0.1rem 0.45rem; border-radius:4px;">✓ SELECCIONADO</span>';
+            } else if (isServicioSelected) {
+                cardSelectedClass = 'pos-servicio-selected';
+                selectedBadge = '<span style="font-size:0.65rem; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.20); border:1px solid rgba(56,189,248,0.4); padding:0.1rem 0.45rem; border-radius:4px;">✓ SELECCIONADO</span>';
             }
 
             return `
