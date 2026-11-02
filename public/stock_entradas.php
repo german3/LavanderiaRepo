@@ -308,6 +308,21 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             </button>
         </header>
 
+        <?php if ($mensaje): ?>
+            <div id="alerta-confirmacion-stock" class="alert" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); padding: 1rem 1.25rem; border-radius: 12px; margin-bottom: 1.5rem; display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.1); transition: opacity 0.5s ease, transform 0.5s ease;">
+                <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                    <span style="font-size: 1.35rem; line-height: 1;">✅</span>
+                    <div>
+                        <strong style="color: #6ee7b7; font-size: 0.95rem; display: block; margin-bottom: 0.25rem;">¡Movimiento Registrado Exitosamente!</strong>
+                        <div style="font-size: 0.85rem; line-height: 1.5; color: #a7f3d0; white-space: pre-line;">
+                            <?= htmlspecialchars($mensaje) ?>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" onclick="cerrarAlertaConfirmacion()" style="background: none; border: none; color: #34d399; font-size: 1.1rem; cursor: pointer; line-height: 1; padding: 0.2rem;" title="Cerrar">✕</button>
+            </div>
+        <?php endif; ?>
+
         <?php if ($error): ?>
             <div class="alert alert-error" style="margin-bottom: 1.5rem;">
                 <?= htmlspecialchars($error) ?>
@@ -1815,7 +1830,26 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         renderInvPagina(1);
     }
 
+    function cerrarAlertaConfirmacion() {
+        var el = document.getElementById('alerta-confirmacion-stock');
+        if (el) {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-10px)';
+            setTimeout(function() {
+                el.style.display = 'none';
+            }, 500);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+        // Desvanecer mensaje de confirmación a los 3 segundos
+        var alertStock = document.getElementById('alerta-confirmacion-stock');
+        if (alertStock) {
+            setTimeout(function() {
+                cerrarAlertaConfirmacion();
+            }, 3000);
+        }
+
         document.querySelectorAll('.fila-inv').forEach(function(f) { if (!f.dataset.filtrado) f.dataset.filtrado = '1'; });
         renderInvPagina(1);
 
