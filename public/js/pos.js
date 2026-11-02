@@ -1169,14 +1169,40 @@ const POS = {
 
         container.innerHTML = this.cart.map((item, idx) => {
             const isKit = item.tipo === 'KIT';
+
+            // Derivar la etiqueta de unidad real según tipo y unidad_medida del item
+            let unitLabel, stepVal, deltaVal;
+            if (isKit) {
+                unitLabel = 'paq';
+                stepVal   = '1';
+                deltaVal  = 1;
+            } else {
+                // Normalizar unidad guardada en el carrito
+                const uRaw = (item.unidad_medida || '').toUpperCase().trim();
+                if (uRaw === 'ML' || uRaw === 'MILILITRO' || uRaw === 'MILILITROS') {
+                    unitLabel = 'ml';  stepVal = '10';  deltaVal = 50;
+                } else if (uRaw === 'LITRO' || uRaw === 'LITROS' || uRaw === 'L') {
+                    unitLabel = 'L';   stepVal = '0.1'; deltaVal = 0.5;
+                } else if (uRaw === 'GALON' || uRaw === 'GAL' || uRaw === 'GALONES') {
+                    unitLabel = 'gal'; stepVal = '0.1'; deltaVal = 0.5;
+                } else if (uRaw === 'GR' || uRaw === 'G' || uRaw === 'GRAMO' || uRaw === 'GRAMOS') {
+                    unitLabel = 'g';   stepVal = '10';  deltaVal = 50;
+                } else if (uRaw === 'KG' || uRaw === 'KILO' || uRaw === 'KILOGRAMO' || uRaw === 'KILOGRAMOS') {
+                    unitLabel = 'kg';  stepVal = '0.1'; deltaVal = 0.5;
+                } else if (uRaw === 'PIEZA' || uRaw === 'PIEZAS' || uRaw === 'PZA' || uRaw === 'PZ') {
+                    unitLabel = 'pza'; stepVal = '1';   deltaVal = 1;
+                } else if (item.tipo === 'SERVICIO') {
+                    unitLabel = 'kg';  stepVal = '0.1'; deltaVal = 0.5;
+                } else {
+                    unitLabel = uRaw.toLowerCase() || 'u'; stepVal = '0.1'; deltaVal = 0.5;
+                }
+            }
+
             const kilosVal = parseFloat(item.ropa_kg || item.cantidad || 0);
             const displayQty = isKit ? item.cantidad : kilosVal;
-            const unitLabel = isKit ? 'paq' : 'kg';
-            const stepVal = isKit ? '1' : '0.1';
-            const deltaVal = isKit ? 1 : 0.5;
             const unitPricing = isKit 
                 ? `$${item.precio_unitario.toFixed(2)} / paq <span style="font-size:0.65rem; color:#a5b4fc;">(${item.ropa_kg} kg)</span>` 
-                : `$${item.precio_unitario.toFixed(2)} / kg`;
+                : `$${item.precio_unitario.toFixed(2)} / ${unitLabel}`;
 
             return `
                 <div class="pos-cart-item">
