@@ -502,10 +502,9 @@ const POS = {
         const label = document.getElementById('pos-label-cantidad');
         const selectUnidad = document.getElementById('pos-select-unidad-insumo');
         const inputKg = document.getElementById('pos-input-kilos');
-
         const grid = document.getElementById('pos-entry-grid');
 
-        if (!prod || prod.tipo !== 'INSUMO') {
+        if (!prod) {
             if (grid) grid.classList.remove('has-unit-select');
             if (label) label.textContent = '3. Cantidad de Kilos';
             if (selectUnidad) {
@@ -516,57 +515,110 @@ const POS = {
                 inputKg.step = '0.05';
                 inputKg.min = '0.01';
                 inputKg.placeholder = 'Ej. 4.5';
+                inputKg.value = '1.0';
             }
             return;
         }
 
-        // Es un INSUMO: el campo debe decir '3. Cantidad'
-        if (label) label.textContent = '3. Cantidad';
-
         const uMed = (prod.unidad_medida || '').toUpperCase().trim();
 
-        // 1. Caso Líquidos / Volumen: litros, mililitros, galones
-        if (uMed === 'LITRO' || uMed === 'LITROS' || uMed === 'L' || uMed === 'ML' || uMed === 'MILILITRO' || uMed === 'GALON' || uMed === 'GAL') {
+        // 1. Caso Conteo / Pieza (ej. "PIEZA", "PIEZAS", "PZA", "PZ")
+        if (uMed === 'PIEZA' || uMed === 'PIEZAS' || uMed === 'PZA' || uMed === 'PZ') {
+            if (grid) grid.classList.remove('has-unit-select');
+            if (label) label.textContent = '3. Cantidad de Piezas';
+            if (selectUnidad) {
+                selectUnidad.style.display = 'none';
+                selectUnidad.innerHTML = '';
+            }
+            if (inputKg) {
+                inputKg.step = '1';
+                inputKg.min = '1';
+                inputKg.placeholder = 'Ej. 1';
+                inputKg.value = '1';
+            }
+        }
+        // 2. Caso Líquidos / Volumen: Litros, Mililitros, Galones
+        else if (uMed === 'LITRO' || uMed === 'LITROS' || uMed === 'L' || uMed === 'ML' || uMed === 'MILILITRO' || uMed === 'GALON' || uMed === 'GAL') {
+            // El título debe decir '3. Cantidad' solamente y al lado derecho selector de unidades
+            if (label) label.textContent = '3. Cantidad';
             if (selectUnidad) {
                 selectUnidad.innerHTML = `
-                    <option value="ML">Mililitros</option>
                     <option value="LITRO">Litros</option>
-                    <option value="GALON">Galones</option>`
-                ;
-                // Por defecto "Mililitros" cuando sea litros
-                selectUnidad.value = 'ML';
+                    <option value="ML">Mililitros</option>
+                    <option value="GALON">Galones</option>
+                `;
+                // Por defecto Litros si la unidad base es Litro o Galón; Mililitros si es ML
+                if (uMed === 'ML' || uMed === 'MILILITRO') {
+                    selectUnidad.value = 'ML';
+                } else if (uMed === 'GALON' || uMed === 'GAL') {
+                    selectUnidad.value = 'GALON';
+                } else {
+                    selectUnidad.value = 'LITRO';
+                }
                 selectUnidad.style.display = 'block';
                 if (grid) grid.classList.add('has-unit-select');
             }
             if (inputKg) {
-                inputKg.step = '10';
-                inputKg.min = '1';
-                inputKg.placeholder = 'Ej. 250';
-                inputKg.value = '250';
+                if (selectUnidad && selectUnidad.value === 'ML') {
+                    inputKg.step = '10';
+                    inputKg.min = '1';
+                    inputKg.placeholder = 'Ej. 250';
+                    inputKg.value = '250';
+                } else {
+                    inputKg.step = '0.1';
+                    inputKg.min = '0.01';
+                    inputKg.placeholder = 'Ej. 1.0';
+                    inputKg.value = '1.0';
+                }
             }
         }
-        // 2. Caso Peso / Masa: kilogramos, gramos
+        // 3. Caso Peso / Masa: Kilogramos, Gramos
         else if (uMed === 'KG' || uMed === 'KILO' || uMed === 'KILOGRAMO' || uMed === 'KILOGRAMOS' || uMed === 'GR' || uMed === 'G' || uMed === 'GRAMO' || uMed === 'GRAMOS') {
-            if (selectUnidad) {
-                selectUnidad.innerHTML = `
-                    <option value="GR">Gramos</option>
-                    <option value="KG">Kilogramos</option>`
-                ;
-                // Por defecto "Gramos" cuando sea kilos
-                selectUnidad.value = 'GR';
-                selectUnidad.style.display = 'block';
-                if (grid) grid.classList.add('has-unit-select');
-            }
-            if (inputKg) {
-                inputKg.step = '10';
-                inputKg.min = '1';
-                inputKg.placeholder = 'Ej. 250';
-                inputKg.value = '250';
+            if (prod.tipo === 'INSUMO') {
+                if (label) label.textContent = '3. Cantidad';
+                if (selectUnidad) {
+                    selectUnidad.innerHTML = `
+                        <option value="GR">Gramos</option>
+                        <option value="KG">Kilogramos</option>
+                    `;
+                    selectUnidad.value = (uMed === 'GR' || uMed === 'G' || uMed === 'GRAMO' || uMed === 'GRAMOS') ? 'GR' : 'KG';
+                    selectUnidad.style.display = 'block';
+                    if (grid) grid.classList.add('has-unit-select');
+                }
+                if (inputKg) {
+                    if (selectUnidad && selectUnidad.value === 'GR') {
+                        inputKg.step = '10';
+                        inputKg.min = '1';
+                        inputKg.placeholder = 'Ej. 250';
+                        inputKg.value = '250';
+                    } else {
+                        inputKg.step = '0.1';
+                        inputKg.min = '0.05';
+                        inputKg.placeholder = 'Ej. 1.0';
+                        inputKg.value = '1.0';
+                    }
+                }
+            } else {
+                if (grid) grid.classList.remove('has-unit-select');
+                if (label) label.textContent = '3. Cantidad de Kilos';
+                if (selectUnidad) {
+                    selectUnidad.style.display = 'none';
+                    selectUnidad.innerHTML = '';
+                }
+                if (inputKg) {
+                    inputKg.step = '0.05';
+                    inputKg.min = '0.01';
+                    inputKg.placeholder = 'Ej. 1.0';
+                    inputKg.value = prod.ropa_kg > 0 ? parseFloat(prod.ropa_kg).toFixed(1) : '1.0';
+                }
             }
         }
-        // 3. Caso Conteo / Pieza: solo campo de cantidad sin desplegable
+        // 4. Servicios o cualquier otra unidad
         else {
             if (grid) grid.classList.remove('has-unit-select');
+            if (label) {
+                label.textContent = uMed ? `3. Cantidad de ${prod.unidad_medida}` : '3. Cantidad de Kilos';
+            }
             if (selectUnidad) {
                 selectUnidad.style.display = 'none';
                 selectUnidad.innerHTML = '';
@@ -659,19 +711,12 @@ const POS = {
         if (clearBtn) clearBtn.style.display = 'flex';
         if (dropdown) dropdown.style.display = 'none';
 
-        // Fijar valor del campo cantidad según el tipo de producto:
-        // - PIEZA: siempre 1
-        // - Con ropa_kg: su valor asignado
-        // - Otros: 1.0 por defecto
-        if (inputKg) {
+        // Si el producto tiene ropa_kg asignado explícito, sugerir sus kilos
+        if (inputKg && prod.ropa_kg > 0) {
             const uMedBase = (prod.unidad_medida || '').toUpperCase().trim();
             const esPieza = (uMedBase === 'PIEZA' || uMedBase === 'PIEZAS' || uMedBase === 'PZA' || uMedBase === 'PZ');
-            if (esPieza) {
-                inputKg.value = '1';
-            } else if (prod.ropa_kg > 0) {
+            if (!esPieza) {
                 inputKg.value = parseFloat(prod.ropa_kg).toFixed(1);
-            } else {
-                inputKg.value = '1.0';
             }
         }
 
@@ -747,16 +792,22 @@ const POS = {
         const isVisible = selectUnidad && selectUnidad.style.display !== 'none';
         const uSel = isVisible ? selectUnidad.value : '';
 
+        const inputHidden = document.getElementById('pos-selected-producto-id');
+        const prodId = inputHidden ? inputHidden.value : '';
+        const prod = prodId ? this.products.find(p => p.id === prodId) : null;
+        const uMedProd = (prod?.unidad_medida || '').toUpperCase().trim();
+        const esPieza = (uMedProd === 'PIEZA' || uMedProd === 'PIEZAS' || uMedProd === 'PZA' || uMedProd === 'PZ');
+
         let step = delta;
         if (uSel === 'ML' || uSel === 'GR') {
             step = delta > 0 ? 50 : -50;
-        } else if (uSel === 'PIEZA' || (!isVisible && this.selectedInsumo?.unidad_medida === 'PIEZA')) {
+        } else if (esPieza || uSel === 'PIEZA') {
             step = delta > 0 ? 1 : -1;
         }
 
         let val = (parseFloat(inputKg.value) || 0) + step;
-        if (val < 0.01) val = (uSel === 'ML' || uSel === 'GR') ? 10 : 0.05;
-        inputKg.value = (uSel === 'ML' || uSel === 'GR' || (!isVisible && this.selectedInsumo?.unidad_medida === 'PIEZA')) ? Math.round(val) : val.toFixed(2);
+        if (val < 0.01) val = (uSel === 'ML' || uSel === 'GR') ? 10 : (esPieza ? 1 : 0.05);
+        inputKg.value = (uSel === 'ML' || uSel === 'GR' || esPieza) ? Math.round(val) : val.toFixed(2);
         this.calcPreviewCosto();
     },
 
@@ -814,10 +865,11 @@ const POS = {
             return;
         }
 
-        // Cálculo especial para INSUMOS con conversión de unidades
-        if (prod.tipo === 'INSUMO') {
-            const selectUnidad = document.getElementById('pos-select-unidad-insumo');
-            const isSelectVisible = selectUnidad && selectUnidad.style.display !== 'none';
+        // Cálculo con conversión de unidades (para Insumos o Productos Líquidos/Litros con selector visible)
+        const selectUnidad = document.getElementById('pos-select-unidad-insumo');
+        const isSelectVisible = selectUnidad && selectUnidad.style.display !== 'none';
+
+        if (isSelectVisible || prod.tipo === 'INSUMO') {
             const uSel = isSelectVisible ? selectUnidad.value : prod.unidad_medida;
             const { factor, textoUnidad } = this.obtenerFactorConversion(prod.unidad_medida, uSel);
             const cantIngresada = parseFloat(inputKg ? inputKg.value : 0) || 0;
@@ -825,7 +877,7 @@ const POS = {
             const precioUnit = parseFloat(prod.precio_venta) || 0;
             const subtotal = +(cantBase * precioUnit).toFixed(2);
 
-            previewEl.textContent = `Subtotal: $` + subtotal.toFixed(2) + ` (` + cantIngresada + ` ` + textoUnidad + ` x $` + precioUnit.toFixed(2) + `/` + prod.unidad_medida + `)`;
+            previewEl.textContent = `Subtotal: $` + subtotal.toFixed(2) + ` (` + cantIngresada + ` ` + textoUnidad + ` x $` + precioUnit.toFixed(2) + `/` + (prod.unidad_medida || 'u') + `)`;
             previewEl.style.background = 'rgba(245, 158, 11, 0.18)';
             previewEl.style.color = '#fbbf24';
             previewEl.style.borderColor = 'rgba(245, 158, 11, 0.35)';
@@ -834,7 +886,12 @@ const POS = {
 
         const precio = parseFloat(prod.precio_venta) || 0;
         const subtotal = (kilos > 0 ? kilos : 1) * precio;
-        previewEl.textContent = `Subtotal: $${subtotal.toFixed(2)} (${kilos.toFixed(2)} kg x $${precio.toFixed(2)})`;
+        const uMedProd = (prod.unidad_medida || '').toUpperCase().trim();
+        const esPieza = (uMedProd === 'PIEZA' || uMedProd === 'PIEZAS' || uMedProd === 'PZA' || uMedProd === 'PZ');
+        const unidadTexto = esPieza ? 'pza' : (prod.tipo === 'SERVICIO' ? 'kg' : (prod.unidad_medida || 'kg').toLowerCase());
+        const cantTexto = esPieza ? Math.round(kilos) : kilos.toFixed(2);
+
+        previewEl.textContent = `Subtotal: $${subtotal.toFixed(2)} (${cantTexto} ${unidadTexto} x $${precio.toFixed(2)})`;
         previewEl.style.background = '';
         previewEl.style.color = '';
         previewEl.style.borderColor = '';
@@ -891,16 +948,17 @@ const POS = {
             clienteObj = this.clients.find(c => c.id === clienteId);
         }
 
-        // Manejo específico para venta de INSUMOS con conversión de unidades
-        if (prod.tipo === 'INSUMO') {
-            const selectUnidad = document.getElementById('pos-select-unidad-insumo');
-            const isSelectVisible = selectUnidad && selectUnidad.style.display !== 'none';
+        // Manejo para productos con selección de unidades (Litros, Insumos, etc.)
+        const selectUnidad = document.getElementById('pos-select-unidad-insumo');
+        const isSelectVisible = selectUnidad && selectUnidad.style.display !== 'none';
+
+        if (isSelectVisible || prod.tipo === 'INSUMO') {
             const uSel = isSelectVisible ? selectUnidad.value : prod.unidad_medida;
             const { factor, textoUnidad } = this.obtenerFactorConversion(prod.unidad_medida, uSel);
             const cantIngresada = parseFloat(inputKg ? inputKg.value : 0);
 
             if (isNaN(cantIngresada) || cantIngresada <= 0) {
-                alert('Por favor ingresa una cantidad válida mayor a 0 en el campo "3. Cantidad".');
+                alert('Por favor ingresa una cantidad válida mayor a 0 en el campo de cantidad.');
                 inputKg?.focus();
                 return;
             }
@@ -911,14 +969,18 @@ const POS = {
 
             const descVisible = (isSelectVisible && uSel !== prod.unidad_medida)
                 ? `${prod.descripcion} (${cantIngresada} ${textoUnidad})`
-                : prod.descripcion;
+                : (isSelectVisible ? `${prod.descripcion} (${cantIngresada} ${textoUnidad})` : prod.descripcion);
 
             const nuevoRegistro = {
                 id_registro: Date.now() + Math.random().toString(36).substr(2, 5),
                 producto_id: prod.id,
                 descripcion: descVisible,
                 tipo: prod.tipo,
-                unidad_medida: prod.unidad_medida,
+                unidad_medida: prod.unidad_medida, // Unidad base en inventario
+                unidad_seleccionada: uSel,
+                unidad_etiqueta: textoUnidad,
+                factor_conversion: factor,
+                cantidad_ingresada: cantIngresada, // Cantidad en la unidad elegida (ej. 1, 250)
                 precio_unitario: precioUnitario,
                 cantidad: cantEnBase, // Descuenta la cantidad proporcional exacta en unidad base de inventario
                 ropa_kg: 0,
@@ -942,6 +1004,9 @@ const POS = {
         const precioUnitario = parseFloat(prod.precio_venta) || 0;
         const subtotalCalculado = +(kilos * precioUnitario).toFixed(2);
 
+        const uMedProd = (prod.unidad_medida || '').toUpperCase().trim();
+        const esPiezaProd = (uMedProd === 'PIEZA' || uMedProd === 'PIEZAS' || uMedProd === 'PZA' || uMedProd === 'PZ');
+
         // Crear registro asociado al cliente seleccionado
         const nuevoRegistro = {
             id_registro: Date.now() + Math.random().toString(36).substr(2, 5),
@@ -949,9 +1014,13 @@ const POS = {
             descripcion: prod.descripcion,
             tipo: prod.tipo,
             unidad_medida: prod.unidad_medida,
+            unidad_seleccionada: prod.unidad_medida,
+            unidad_etiqueta: esPiezaProd ? 'pza' : (prod.tipo === 'SERVICIO' ? 'kg' : (prod.unidad_medida || 'u').toLowerCase()),
+            factor_conversion: 1,
+            cantidad_ingresada: kilos,
             precio_unitario: precioUnitario,
             cantidad: kilos,
-            ropa_kg: kilos,
+            ropa_kg: (prod.tipo === 'SERVICIO' || (prod.tipo === 'NORMAL' && !esPiezaProd && prod.ropa_kg > 0)) ? kilos : 0,
             subtotal: subtotalCalculado,
             cliente_id: clienteObj ? clienteObj.id : null,
             cliente_nombre: clienteObj ? clienteObj.nombre : 'Público General',
@@ -1095,13 +1164,22 @@ const POS = {
                 return;
             }
             it.subtotal = +(it.cantidad * it.precio_unitario).toFixed(2);
+        } else if (it.factor_conversion && it.cantidad_ingresada !== undefined) {
+            it.cantidad_ingresada += delta;
+            if (it.cantidad_ingresada <= 0) {
+                this.removeFromCart(index);
+                return;
+            }
+            it.cantidad = +(it.cantidad_ingresada * it.factor_conversion).toFixed(4);
+            it.subtotal = +(it.cantidad * it.precio_unitario).toFixed(2);
         } else {
             it.cantidad += delta;
             if (it.cantidad <= 0) {
                 this.removeFromCart(index);
                 return;
             }
-            it.ropa_kg = it.cantidad;
+            it.cantidad_ingresada = it.cantidad;
+            if (it.ropa_kg > 0) it.ropa_kg = it.cantidad;
             it.subtotal = +(it.cantidad * it.precio_unitario).toFixed(2);
         }
         this.renderCart();
@@ -1114,11 +1192,19 @@ const POS = {
             return;
         }
         const it = this.cart[index];
-        it.cantidad = val;
-        if (it.tipo !== 'KIT') {
-            it.ropa_kg = val;
+        if (it.tipo === 'KIT') {
+            it.cantidad = val;
+            it.subtotal = +(val * it.precio_unitario).toFixed(2);
+        } else if (it.factor_conversion && it.cantidad_ingresada !== undefined) {
+            it.cantidad_ingresada = val;
+            it.cantidad = +(val * it.factor_conversion).toFixed(4);
+            it.subtotal = +(it.cantidad * it.precio_unitario).toFixed(2);
+        } else {
+            it.cantidad = val;
+            it.cantidad_ingresada = val;
+            if (it.ropa_kg > 0) it.ropa_kg = val;
+            it.subtotal = +(val * it.precio_unitario).toFixed(2);
         }
-        it.subtotal = +(val * it.precio_unitario).toFixed(2);
         this.renderCart();
     },
 
@@ -1186,13 +1272,15 @@ const POS = {
             const isKit = item.tipo === 'KIT';
 
             // Derivar la etiqueta de unidad real según tipo y unidad_medida del item
-            let unitLabel, stepVal, deltaVal;
+            let unitLabel = item.unidad_etiqueta;
+            let stepVal = '1';
+            let deltaVal = 1;
+
             if (isKit) {
                 unitLabel = 'paq';
                 stepVal   = '1';
                 deltaVal  = 1;
-            } else {
-                // Normalizar unidad guardada en el carrito
+            } else if (!unitLabel) {
                 const uRaw = (item.unidad_medida || '').toUpperCase().trim();
                 if (uRaw === 'ML' || uRaw === 'MILILITRO' || uRaw === 'MILILITROS') {
                     unitLabel = 'ml';  stepVal = '10';  deltaVal = 50;
@@ -1211,13 +1299,28 @@ const POS = {
                 } else {
                     unitLabel = uRaw.toLowerCase() || 'u'; stepVal = '0.1'; deltaVal = 0.5;
                 }
+            } else {
+                if (unitLabel === 'ml' || unitLabel === 'g') {
+                    stepVal = '10'; deltaVal = 50;
+                } else if (unitLabel === 'pza' || unitLabel === 'paq') {
+                    stepVal = '1'; deltaVal = 1;
+                } else {
+                    stepVal = '0.1'; deltaVal = 0.5;
+                }
             }
 
-            const kilosVal = parseFloat(item.ropa_kg || item.cantidad || 0);
-            const displayQty = isKit ? item.cantidad : kilosVal;
+            // Cantidad mostrada: si tiene cantidad_ingresada explícita usarla
+            const displayQty = isKit 
+                ? item.cantidad 
+                : (item.cantidad_ingresada !== undefined ? item.cantidad_ingresada : parseFloat(item.ropa_kg || item.cantidad || 0));
+
+            const displayQtyFormatted = (unitLabel === 'pza' || unitLabel === 'paq' || unitLabel === 'ml' || unitLabel === 'g')
+                ? Math.round(displayQty)
+                : parseFloat(displayQty).toFixed(2);
+
             const unitPricing = isKit 
                 ? `$${item.precio_unitario.toFixed(2)} / paq <span style="font-size:0.65rem; color:#a5b4fc;">(${item.ropa_kg} kg)</span>` 
-                : `$${item.precio_unitario.toFixed(2)} / ${unitLabel}`;
+                : `$${item.precio_unitario.toFixed(2)} / ${item.unidad_medida ? item.unidad_medida.toLowerCase() : unitLabel}`;
 
             return `
                 <div class="pos-cart-item">
@@ -1232,7 +1335,7 @@ const POS = {
                     <div class="pos-item-controls">
                         <div class="pos-qty-stepper">
                             <button class="pos-qty-btn" onclick="POS.updateQty(${idx}, -${deltaVal})">-</button>
-                            <input type="number" step="${stepVal}" min="${isKit ? '1' : '0.1'}" class="pos-qty-input" style="width:58px;" value="${isKit ? displayQty : displayQty.toFixed(2)}" onchange="POS.setQty(${idx}, this.value)">
+                            <input type="number" step="${stepVal}" min="${isKit ? '1' : '0.1'}" class="pos-qty-input" style="width:58px;" value="${displayQtyFormatted}" onchange="POS.setQty(${idx}, this.value)">
                             <button class="pos-qty-btn" onclick="POS.updateQty(${idx}, ${deltaVal})">+</button>
                             <span style="font-size:0.72rem; color:var(--pos-text-muted); padding-right:0.4rem; font-weight:700;">${unitLabel}</span>
                         </div>
