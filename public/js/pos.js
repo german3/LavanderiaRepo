@@ -658,9 +658,20 @@ const POS = {
         if (clearBtn) clearBtn.style.display = 'flex';
         if (dropdown) dropdown.style.display = 'none';
 
-        // Sugerir kilos si el producto tiene sugerencia de peso
-        if (inputKg && (!inputKg.value || parseFloat(inputKg.value) <= 0)) {
-            inputKg.value = prod.ropa_kg > 0 ? parseFloat(prod.ropa_kg).toFixed(1) : '1.0';
+        // Fijar valor del campo cantidad según el tipo de producto:
+        // - PIEZA: siempre 1
+        // - Con ropa_kg: su valor asignado
+        // - Otros: 1.0 por defecto
+        if (inputKg) {
+            const uMedBase = (prod.unidad_medida || '').toUpperCase().trim();
+            const esPieza = (uMedBase === 'PIEZA' || uMedBase === 'PIEZAS' || uMedBase === 'PZA' || uMedBase === 'PZ');
+            if (esPieza) {
+                inputKg.value = '1';
+            } else if (prod.ropa_kg > 0) {
+                inputKg.value = parseFloat(prod.ropa_kg).toFixed(1);
+            } else {
+                inputKg.value = '1.0';
+            }
         }
 
         this.calcPreviewCosto();
@@ -1035,9 +1046,11 @@ const POS = {
 
             const inputKg = document.getElementById('pos-input-kilos');
             if (inputKg) {
-                // Sugerir los kilos base del paquete si el input está en 1 o vacío
-                if (!inputKg.value || parseFloat(inputKg.value) <= 1) {
-                    if (prod.ropa_kg > 0) inputKg.value = parseFloat(prod.ropa_kg).toFixed(1);
+                // Siempre poner los kilos asignados al kit seleccionado
+                if (prod.ropa_kg > 0) {
+                    inputKg.value = parseFloat(prod.ropa_kg).toFixed(1);
+                } else {
+                    inputKg.value = '1';
                 }
                 inputKg.focus();
                 inputKg.select();
