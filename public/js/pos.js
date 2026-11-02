@@ -1209,6 +1209,7 @@ const POS = {
     onSearchClienteInput(query) {
         const dropdown = document.getElementById('pos-cliente-dropdown-results');
         const clearBtn = document.getElementById('pos-btn-clear-cliente');
+        const hiddenInp = document.getElementById('pos-selected-cliente-id');
         const q = (query || '').trim();
 
         if (clearBtn) clearBtn.style.display = q !== '' ? 'flex' : 'none';
@@ -1219,11 +1220,20 @@ const POS = {
             if (dropdown) dropdown.style.display = 'none';
             return;
         }
+
+        // Al escribir, deseleccionar cliente previo para forzar nueva selección
+        if (hiddenInp && hiddenInp.value && hiddenInp.value !== 'MOSTRADOR') {
+            hiddenInp.value = '';
+        }
+
         this._renderClienteDropdown(q);
     },
 
     onSearchClienteFocus() {
         const inp = document.getElementById('pos-cliente-search-input');
+        if (inp) {
+            inp.select(); // Seleccionar todo el texto para reemplazo inmediato
+        }
         const q = (inp ? inp.value : '').trim();
         this._renderClienteDropdown(q);
     },
