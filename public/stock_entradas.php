@@ -564,8 +564,6 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                 </div>
 
-                <div id="captura-info-stock" style="display:none; margin-top:0.4rem; margin-bottom:0.75rem; padding:0.55rem 0.85rem; border-radius:8px; font-size:0.83rem; font-weight:600; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.4rem;"></div>
-
                 <!-- Panel de Unidad Líquida -->
                 <div class="liq-panel" id="captura-liq-panel" style="margin-bottom:0.75rem;">
                     <div id="captura-liq-row" style="display:grid; grid-template-columns:1fr; gap:0.75rem;">
@@ -952,7 +950,6 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
     function actualizarEstadoProductoSeleccionado(prod) {
         var tag = document.getElementById('captura-tag-costo');
         var tagStock = document.getElementById('captura-tag-stock');
-        var infoStock = document.getElementById('captura-info-stock');
         var liqPanel = document.getElementById('captura-liq-panel');
         var inpEditar = document.getElementById('captura-editar-costo');
 
@@ -974,21 +971,6 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                 tagStock.style.border = '1px solid ' + stkBorder;
                 tagStock.style.display = '';
             }
-            if (infoStock) {
-                var extraInfo = '';
-                if (esLiquido && unidad === 'LITRO') {
-                    var galEq = stockVal / 3.78541;
-                    var mlEq = stockVal * 1000;
-                    extraInfo = '<span style="font-size:0.75rem; opacity:0.85; font-weight:normal; margin-left:0.35rem;">(≈ ' + galEq.toFixed(2) + ' Gal • ' + mlEq.toLocaleString('es-MX', {maximumFractionDigits:0}) + ' mL)</span>';
-                }
-                infoStock.innerHTML = '<div style="display:flex;align-items:center;gap:0.4rem;">' +
-                    '<span>📦 Cantidad actual en almacén:</span> <strong style="font-size:0.95rem; color:' + stkColor + ';">' + stockVal.toFixed(2) + ' ' + etiquetaUnidad + '</strong>' + extraInfo +
-                    '</div>' +
-                    '<span style="font-size:0.75rem; font-weight:700; color:' + stkColor + '; text-transform:uppercase; letter-spacing:0.04em;">' + (stockVal <= 0 ? '⚠️ Agotado' : (stockVal <= 5 ? '⚠️ Stock Bajo' : '✔ En Existencia')) + '</span>';
-                infoStock.style.border = '1px solid ' + stkBorder;
-                infoStock.style.background = stkBg;
-                infoStock.style.display = 'flex';
-            }
             if (tag) {
                 tag.textContent = '💵 Costo: $' + costo.toFixed(2) + ' / ' + etiquetaUnidad;
                 tag.style.display = '';
@@ -997,7 +979,6 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             if (inpEditar && inpEditar.disabled) inpEditar.value = costo > 0 ? costo.toFixed(2) : '';
         } else {
             if (tagStock) tagStock.style.display = 'none';
-            if (infoStock) infoStock.style.display = 'none';
             if (tag) tag.style.display = 'none';
             if (liqPanel) liqPanel.style.display = 'none';
             if (inpEditar && inpEditar.disabled) inpEditar.value = '';
@@ -1389,8 +1370,6 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 
         var tagStock = document.getElementById('captura-tag-stock');
         if (tagStock) tagStock.style.display = 'none';
-        var infoStock = document.getElementById('captura-info-stock');
-        if (infoStock) infoStock.style.display = 'none';
         var tag = document.getElementById('captura-tag-costo');
         if (tag) tag.style.display = 'none';
 
