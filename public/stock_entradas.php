@@ -190,6 +190,11 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         .table tr:hover td { background: rgba(255,255,255,0.02); }
         .badge { padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.75rem; font-weight: 600; }
         .badge-normal { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .badge-tipo-normal, .badge-tipo-insumo, .badge-tipo-servicio, .badge-tipo-kit { padding: 0.35rem 0.75rem; border-radius: 99px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; text-transform: uppercase; }
+        .badge-tipo-normal   { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.35); }
+        .badge-tipo-insumo   { background: rgba(234, 179, 8, 0.18); color: #fde68a; border: 1px solid rgba(234, 179, 8, 0.3); }
+        .badge-tipo-servicio { background: rgba(14, 165, 233, 0.18); color: #7dd3fc; border: 1px solid rgba(14, 165, 233, 0.3); }
+        .badge-tipo-kit      { background: rgba(139, 92, 246, 0.22); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.38); }
 
         /* Modal Styles */
         .modal-overlay {
@@ -393,14 +398,19 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
                             <small><?= htmlspecialchars($inv['codigo_interno_sku'] ?? '') ?></small>
                         </td>
                         <td>
-                            <?php if (($inv['tipo'] ?? '') === 'INSUMO'): ?>
-                                <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 0.78rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 6px;">
-                                    🧴 Insumo
-                                </span>
+                            <?php
+                                switch (strtoupper($inv['tipo'] ?? '')) {
+                                    case 'NORMAL':   $tipoClass = 'badge-tipo-normal';   $tipoLabel = 'Normal';        break;
+                                    case 'INSUMO':   $tipoClass = 'badge-tipo-insumo';   $tipoLabel = 'Insumo';        break;
+                                    case 'SERVICIO': $tipoClass = 'badge-tipo-servicio'; $tipoLabel = 'Servicio';      break;
+                                    case 'KIT':      $tipoClass = 'badge-tipo-kit';      $tipoLabel = 'Kit / Paquete'; break;
+                                    default:         $tipoClass = '';                    $tipoLabel = '';
+                                }
+                            ?>
+                            <?php if ($tipoLabel !== ''): ?>
+                                <span class="badge <?= $tipoClass ?>"><?= $tipoLabel ?></span>
                             <?php else: ?>
-                                <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); font-size: 0.78rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 6px;">
-                                    📦 Producto
-                                </span>
+                                <span style="color: var(--text-muted); font-size: 0.8rem;">—</span>
                             <?php endif; ?>
                         </td>
                         <td style="font-weight: 500;"><?= htmlspecialchars($inv['descripcion']) ?></td>
