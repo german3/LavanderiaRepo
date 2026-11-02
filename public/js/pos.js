@@ -144,12 +144,13 @@ const POS = {
 
             let stockBadge = '';
             if (p.tipo === 'NORMAL') {
+                const uMed = p.unidad_medida ? ` ${p.unidad_medida}` : '';
                 if (stock <= 0) {
-                    stockBadge = `<span class="pos-prod-stock out">Agotado (0)</span>`;
+                    stockBadge = `<span class="pos-prod-stock out">Agotado (0${uMed})</span>`;
                 } else if (stock <= stockMin) {
-                    stockBadge = `<span class="pos-prod-stock low">Stock Bajo (${stock})</span>`;
+                    stockBadge = `<span class="pos-prod-stock low">Stock Bajo (${stock}${uMed})</span>`;
                 } else {
-                    stockBadge = `<span class="pos-prod-stock">Stock: ${stock}</span>`;
+                    stockBadge = `<span class="pos-prod-stock">Stock: ${stock}${uMed}</span>`;
                 }
             } else if (p.tipo === 'KIT') {
                 stockBadge = `<span class="pos-prod-stock">Kit de Insumos</span>`;
