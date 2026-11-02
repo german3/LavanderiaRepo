@@ -1281,13 +1281,14 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             if (uLiq === 'GALON') {
                 // Galones: leer desde campo Cantidad
                 var inpCant = document.getElementById('captura-cantidad');
-                cant = parseFloat((inpCant && inpCant.value) || 0) || 0;
-                if (cant <= 0) {
+                var cantGal = parseFloat((inpCant && inpCant.value) || 0) || 0;
+                if (cantGal <= 0) {
                     mostrarAlertaCaptura('Ingresa una cantidad de galones válida mayor a 0.');
                     if (inpCant) inpCant.focus();
                     return false;
                 }
-                pres = cant; // PHP procesa presentacion * factorCantidad
+                pres = cantGal; // PHP procesa presentacion * factorCantidad: pres * 1 = cantGal
+                cant = 1.0;
             } else {
                 // Litros o Mililitros: leer desde campo Presentación
                 var inpPres = document.getElementById('captura-presentacion');
@@ -1309,13 +1310,14 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
         } else {
             // Modo normal: leer Cantidad
             var inpCant = document.getElementById('captura-cantidad');
-            cant = parseFloat((inpCant && inpCant.value) || 0) || 0;
-            if (cant <= 0) {
+            var cantNormal = parseFloat((inpCant && inpCant.value) || 0) || 0;
+            if (cantNormal <= 0) {
                 mostrarAlertaCaptura('Ingresa una cantidad válida mayor a 0.');
                 if (inpCant) inpCant.focus();
                 return false;
             }
-            pres = cant; // PHP procesa presentacion * factorCantidad
+            pres = cantNormal; // PHP procesa presentacion * factorCantidad: pres * 1 = cantNormal
+            cant = 1.0;
         }
 
         var productoId = prod.id;
@@ -1355,7 +1357,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
             costo_total: costoTotal,
             motivo: motivoItem,
             tipo_movimiento: tipo,
-            cantidad_visible: !esLiquido || uLiq !== 'GALON'
+            cantidad_visible: (esLiquido && uLiq !== 'GALON')
         });
 
         // Limpiar campos del formulario de captura para la siguiente entrada
