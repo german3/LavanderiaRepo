@@ -301,22 +301,296 @@ $filtroSkuJs = json_encode($filtroSku);
         .hist-ticket-table th { border-bottom: 1px dashed #444; }
 
         @media print {
-            .sidebar, .no-print, #banner-filtro-sku, #paginationControls, #pageSizeSelect, #btn-limpiar-fechas, .select-arrow-btn, .btn-detalle, .btn-ticket { display: none !important; }
-            .main-content { margin-left: 0 !important; width: 100% !important; padding: 0 !important; background: #fff !important; color: #000 !important; }
-            body { background: #fff !important; color: #000 !important; }
-            .card { background: none !important; border: none !important; padding: 0 !important; box-shadow: none !important; }
-            .table { color: #000 !important; border-collapse: collapse !important; width: 100% !important; margin-top: 1rem !important; }
-            .table th, .table td { border: 1px solid #cbd5e1 !important; color: #000 !important; padding: 6px 8px !important; font-size: 9pt !important; }
-            .badge { border: 1px solid #94a3b8 !important; color: #000 !important; background: #f1f5f9 !important; }
-            .sku-tag { border: 1px solid #cbd5e1 !important; color: #334155 !important; background: #f8fafc !important; }
-            .kit-inline-box { background: #f8fafc !important; border: 1px solid #cbd5e1 !important; color: #000 !important; }
-            .kit-insumo-pill { background: #fff !important; border: 1px solid #e2e8f0 !important; color: #000 !important; }
-            .kit-insumo-qty { background: #f1f5f9 !important; color: #000 !important; }
-            .kit-insumo-name { color: #000 !important; }
+            html, body {
+                background: #ffffff !important;
+                color: #0f172a !important;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            /* Desactivar URLs impresas en enlaces */
+            a[href]:after, a:after {
+                content: "" !important;
+            }
+
+            a {
+                text-decoration: none !important;
+                color: inherit !important;
+            }
+
+            /* Ocultar interfaz e interactividad de pantalla */
+            .sidebar, .no-print, #banner-filtro-sku, #paginationControls, #pageSizeSelect, #btn-limpiar-fechas, .select-arrow-btn, .btn-detalle, .btn-ticket, .modal-overlay, .sidebar-toggle, button, header {
+                display: none !important;
+            }
+
+            /* Ocultar columna Acciones */
+            .table th:last-child, .table td:last-child {
+                display: none !important;
+            }
+
+            .app-container {
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                min-height: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            .main-content {
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                flex: 1 !important;
+                margin-left: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                position: relative !important;
+                background: #ffffff !important;
+            }
+
+            /* Encabezado Corporativo de Impresión con Logo */
+            .print-header {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                border-bottom: 2px solid #0f172a;
+                padding-bottom: 8px;
+                margin-bottom: 10px;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+
+            .print-header-brand {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .print-logo {
+                height: 48px;
+                width: auto;
+                object-fit: contain;
+                border-radius: 4px;
+            }
+
+            .print-header-titles h1 {
+                font-size: 1.25rem;
+                font-weight: 800;
+                color: #0f172a !important;
+                margin: 0;
+                line-height: 1.2;
+                letter-spacing: -0.01em;
+            }
+
+            .print-header-titles p {
+                font-size: 0.8rem;
+                color: #475569 !important;
+                margin: 1px 0 0 0;
+                font-weight: 500;
+            }
+
+            .print-meta-box {
+                text-align: right;
+                font-size: 0.775rem;
+                color: #334155;
+                line-height: 1.35;
+            }
+
+            .print-meta-box strong {
+                color: #0f172a;
+            }
+
+            /* Resumen de Métricas KPI al imprimir */
+            .print-kpis {
+                display: flex !important;
+                gap: 10px;
+                margin-bottom: 10px;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+
+            .print-kpi-item {
+                flex: 1;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 5px 10px;
+                background-color: #f8fafc !important;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .print-kpi-label {
+                font-size: 0.7rem;
+                font-weight: 700;
+                color: #475569;
+                text-transform: uppercase;
+            }
+
+            .print-kpi-val {
+                font-size: 1.1rem;
+                font-weight: 800;
+                color: #0f172a;
+            }
+
+            /* Eliminar scrollbars al imprimir */
+            html, body, .app-container, .main-content, .card, table {
+                overflow: visible !important;
+                overflow-x: visible !important;
+                overflow-y: visible !important;
+            }
+
+            ::-webkit-scrollbar {
+                display: none !important;
+                width: 0 !important;
+                height: 0 !important;
+            }
+
+            .card {
+                background: #ffffff !important;
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            /* Tabla de Impresión Estilo Profesional */
+            .table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                font-size: 8pt !important;
+                color: #0f172a !important;
+                margin-top: 0 !important;
+            }
+
+            .table th {
+                background-color: #0f172a !important;
+                color: #ffffff !important;
+                border: 1px solid #0f172a !important;
+                font-weight: 700 !important;
+                padding: 5px 6px !important;
+                font-size: 7.5pt !important;
+                text-transform: uppercase;
+                letter-spacing: 0.03em;
+            }
+
+            .table td {
+                border: 1px solid #cbd5e1 !important;
+                color: #1e293b !important;
+                padding: 4px 6px !important;
+                font-size: 8pt !important;
+            }
+
+            .table tr {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+
+            .table tr:nth-child(even) td {
+                background-color: #f8fafc !important;
+            }
+
+            .sku-tag {
+                background: #f1f5f9 !important;
+                color: #0f172a !important;
+                border: 1px solid #cbd5e1 !important;
+                font-weight: 700;
+                padding: 1px 4px;
+                border-radius: 4px;
+                font-size: 7.5pt !important;
+            }
+
+            .badge {
+                border-radius: 4px !important;
+                padding: 2px 5px !important;
+                font-size: 6.5pt !important;
+                font-weight: 700 !important;
+                letter-spacing: 0.02em;
+            }
+
+            .badge-venta       { background-color: #ecfdf5 !important; color: #065f46 !important; border: 1px solid #a7f3d0 !important; }
+            .badge-alta        { background-color: #eff6ff !important; color: #1e40af !important; border: 1px solid #bfdbfe !important; }
+            .badge-entrada     { background-color: #f0f9ff !important; color: #0369a1 !important; border: 1px solid #bae6fd !important; }
+            .badge-salida      { background-color: #fefce8 !important; color: #854d0e !important; border: 1px solid #fef08a !important; }
+            .badge-eliminacion { background-color: #fef2f2 !important; color: #991b1b !important; border: 1px solid #fecaca !important; }
+            .badge-edicion     { background-color: #faf5ff !important; color: #6b21a8 !important; border: 1px solid #e9d5ff !important; }
+
+            .badge-tipo-normal   { background-color: #eff6ff !important; color: #1e40af !important; border: 1px solid #93c5fd !important; }
+            .badge-tipo-insumo   { background-color: #fefce8 !important; color: #854d0e !important; border: 1px solid #fde047 !important; }
+            .badge-tipo-servicio { background-color: #f0f9ff !important; color: #0369a1 !important; border: 1px solid #7dd3fc !important; }
+            .badge-tipo-kit      { background-color: #f3e8ff !important; color: #6b21a8 !important; border: 1px solid #c084fc !important; }
+
+            .kit-inline-box {
+                background: #f8fafc !important;
+                border: 1px solid #cbd5e1 !important;
+                color: #1e293b !important;
+                padding: 4px 6px !important;
+                margin-top: 3px !important;
+            }
+            .kit-inline-header {
+                color: #475569 !important;
+                font-weight: 700 !important;
+                font-size: 7pt !important;
+            }
+            .kit-insumo-pill {
+                background: #ffffff !important;
+                border: 1px solid #cbd5e1 !important;
+                color: #1e293b !important;
+                font-size: 6.5pt !important;
+            }
+            .kit-insumo-qty {
+                background: #f1f5f9 !important;
+                color: #0f172a !important;
+            }
+            .kit-insumo-name { color: #1e293b !important; font-weight: 600 !important; }
             .kit-insumo-sku { color: #64748b !important; }
-            h1 { color: #000 !important; font-size: 1.4rem !important; }
-            p { color: #475569 !important; }
-            input, select { border: none !important; background: none !important; color: #000 !important; }
+
+            /* Pie de página profesional */
+            .print-signature-footer {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: flex-end !important;
+                margin-top: auto !important;
+                padding-top: 15px !important;
+                width: 100% !important;
+                background: #ffffff !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .print-footer-left {
+                font-size: 7.5pt;
+                color: #64748b;
+                text-align: left;
+            }
+
+            .print-footer-right {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                text-align: right;
+            }
+
+            .print-signature-box {
+                width: 210px;
+                text-align: center;
+                border-top: 1px solid #94a3b8;
+                padding-top: 4px;
+                color: #334155;
+                font-weight: 600;
+                font-size: 7.5pt;
+            }
+        }
+
+        .print-header, .print-kpis, .print-signature-footer {
+            display: none;
         }
     </style>
 </head>
@@ -325,7 +599,44 @@ $filtroSkuJs = json_encode($filtroSku);
         <?php $activePage = 'historial'; require_once __DIR__ . '/partials/sidebar.php'; ?>
 
         <main class="main-content">
-            <header style="margin-bottom: 2rem;">
+            <!-- Encabezado exclusivo de Impresión con Logo -->
+            <div class="print-header">
+                <div class="print-header-brand">
+                    <img src="img/Logo.jpeg" alt="Logo Lavandería" class="print-logo">
+                    <div class="print-header-titles">
+                        <h1>HISTORIAL DE MOVIMIENTOS</h1>
+                        <p>Auditoría y Registro de Movimientos de Inventario</p>
+                    </div>
+                </div>
+                <div class="print-meta-box">
+                    <div><strong>LAVANDERÍA VERA</strong></div>
+                    <div><strong>Fecha:</strong> <?= date('d/m/Y H:i') ?></div>
+                    <div><strong>Generado por:</strong> <?= htmlspecialchars($_SESSION['nombre'] ?? 'Administrador') ?></div>
+                    <div id="print-filtro-info" style="font-size:0.72rem;color:#475569;margin-top:2px;"></div>
+                </div>
+            </div>
+
+            <!-- Resumen KPI para Impresión -->
+            <div class="print-kpis">
+                <div class="print-kpi-item">
+                    <span class="print-kpi-label">Total Movimientos</span>
+                    <span class="print-kpi-val" id="print-kpi-total">0</span>
+                </div>
+                <div class="print-kpi-item">
+                    <span class="print-kpi-label">Entradas / Altas</span>
+                    <span class="print-kpi-val" id="print-kpi-entradas" style="color: #0284c7 !important;">0</span>
+                </div>
+                <div class="print-kpi-item">
+                    <span class="print-kpi-label">Ventas POS</span>
+                    <span class="print-kpi-val" id="print-kpi-ventas" style="color: #059669 !important;">0</span>
+                </div>
+                <div class="print-kpi-item">
+                    <span class="print-kpi-label">Salidas / Bajas</span>
+                    <span class="print-kpi-val" id="print-kpi-salidas" style="color: #dc2626 !important;">0</span>
+                </div>
+            </div>
+
+            <header style="margin-bottom: 2rem;" class="no-print">
                 <div>
                     <h1 style="font-size: 1.8rem; color: #fff;">Historial de Movimientos</h1>
                     <p style="color: var(--text-muted); font-size: 0.9rem;">Registro global de altas, entradas, salidas y bajas de productos.</p>
@@ -365,7 +676,7 @@ $filtroSkuJs = json_encode($filtroSku);
             <div class="card" style="padding: 1.5rem; border-radius: 12px; background: rgba(30, 41, 59, 0.7); border: 1px solid var(--border);">
                 
                 <!-- Barra de Búsqueda y Filtros -->
-                <div style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 0.75rem;">
+                <div class="no-print" style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 0.75rem;">
                     <div style="display: flex; gap: 0.75rem; flex: 1; min-width: 300px; flex-wrap: wrap; align-items: center;">
                         <div style="position: relative; flex: 1; min-width: 200px;">
                             <input type="text" id="searchInput" class="form-control" placeholder="Buscar por SKU, producto, movimiento o usuario..." style="width: 100%; padding: 0.4rem 0.75rem 0.4rem 2.2rem; background: rgba(15, 23, 42, 0.6); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; height: 38px; font-size: 0.85rem; line-height: 1.2; box-sizing: border-box;">
@@ -427,7 +738,7 @@ $filtroSkuJs = json_encode($filtroSku);
                 </div>
 
                 <!-- Filtro por Rango de Fechas -->
-                <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 0.75rem 1rem; background: rgba(15,23,42,0.4); border: 1px solid var(--border); border-radius: 10px;">
+                <div class="no-print" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 0.75rem 1rem; background: rgba(15,23,42,0.4); border: 1px solid var(--border); border-radius: 10px;">
                     <!-- Icono calendario -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -575,6 +886,16 @@ $filtroSkuJs = json_encode($filtroSku);
                     </div>
                 </div>
 
+            </div>
+
+            <!-- Pie del Reporte para Impresión -->
+            <div class="print-signature-footer">
+                <div class="print-footer-left">
+                    Documento impreso desde el Sistema de Gestión - Lavandería Vera
+                </div>
+                <div class="print-footer-right">
+                    <div class="print-signature-box">Firma / Supervisor de Almacén</div>
+                </div>
             </div>
         </main>
     </div>
@@ -1441,7 +1762,78 @@ $filtroSkuJs = json_encode($filtroSku);
             document.body.removeChild(link);
         }
 
+        function actualizarKPIsImpresion() {
+            const total = filteredData.length;
+            let entradas = 0;
+            let ventas = 0;
+            let salidas = 0;
+
+            filteredData.forEach(item => {
+                const mov = (item.tipo_movimiento || '').toUpperCase();
+                if (mov === 'ENTRADA STOCK' || mov === 'ALTA PRODUCTO') {
+                    entradas++;
+                } else if (mov === 'VENTA POS' || mov === 'KIT_CONSUMO' || mov === 'CONSUMO KIT') {
+                    ventas++;
+                } else if (mov === 'SALIDA STOCK' || mov === 'ELIMINACION PRODUCTO') {
+                    salidas++;
+                }
+            });
+
+            const elTotal = document.getElementById('print-kpi-total');
+            const elEntradas = document.getElementById('print-kpi-entradas');
+            const elVentas = document.getElementById('print-kpi-ventas');
+            const elSalidas = document.getElementById('print-kpi-salidas');
+
+            if (elTotal) elTotal.textContent = total;
+            if (elEntradas) elEntradas.textContent = entradas;
+            if (elVentas) elVentas.textContent = ventas;
+            if (elSalidas) elSalidas.textContent = salidas;
+
+            // Filtro info en encabezado de impresión
+            const elFiltroInfo = document.getElementById('print-filtro-info');
+            if (elFiltroInfo) {
+                const fIni = document.getElementById('fechaInicio') ? document.getElementById('fechaInicio').value : '';
+                const fFin = document.getElementById('fechaFin') ? document.getElementById('fechaFin').value : '';
+                const uFiltro = document.getElementById('usuarioFilter') ? document.getElementById('usuarioFilter').value : '';
+                const searchQ = document.getElementById('searchInput') ? document.getElementById('searchInput').value.trim() : '';
+                const partes = [];
+                if (fIni || fFin) partes.push(`Rango: ${fIni || 'Inicio'} al ${fFin || 'Hoy'}`);
+                if (uFiltro) partes.push(`Usuario: ${uFiltro}`);
+                if (searchQ) partes.push(`Búsqueda: "${searchQ}"`);
+                elFiltroInfo.textContent = partes.length > 0 ? partes.join(' • ') : 'Mostrando todos los registros';
+            }
+        }
+
+        let isPrintingAll = false;
+        let savedPageSize = 10;
+        let savedCurrentPage = 1;
+
+        function prepararParaImprimir() {
+            actualizarKPIsImpresion();
+            if (!isPrintingAll) {
+                isPrintingAll = true;
+                savedPageSize = pageSize;
+                savedCurrentPage = currentPage;
+                pageSize = filteredData.length > 0 ? filteredData.length : 1;
+                currentPage = 1;
+                renderTable();
+            }
+        }
+
+        function restaurarDespuesDeImprimir() {
+            if (isPrintingAll) {
+                pageSize = savedPageSize;
+                currentPage = savedCurrentPage;
+                isPrintingAll = false;
+                renderTable();
+            }
+        }
+
+        window.addEventListener('beforeprint', prepararParaImprimir);
+        window.addEventListener('afterprint', restaurarDespuesDeImprimir);
+
         function imprimirHistorial() {
+            prepararParaImprimir();
             window.print();
         }
 
