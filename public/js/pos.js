@@ -1439,17 +1439,16 @@ const POS = {
         const hiddenInp = document.getElementById('pos-selected-cliente-id');
         const q = (query || '').trim();
 
-        if (clearBtn) clearBtn.style.display = q !== '' ? 'flex' : 'none';
+        if (clearBtn) clearBtn.style.display = (query !== '') ? 'flex' : 'none';
 
         if (q === '') {
-            // Al borrar todo, volver a Mostrador
-            this.selectCliente('MOSTRADOR', 'Público General / Mostrador');
-            if (dropdown) dropdown.style.display = 'none';
+            if (hiddenInp) hiddenInp.value = '';
+            this._renderClienteDropdown('');
             return;
         }
 
         // Al escribir, deseleccionar cliente previo para forzar nueva selección
-        if (hiddenInp && hiddenInp.value && hiddenInp.value !== 'MOSTRADOR') {
+        if (hiddenInp) {
             hiddenInp.value = '';
         }
 
@@ -1458,19 +1457,26 @@ const POS = {
 
     onSearchClienteFocus() {
         const inp = document.getElementById('pos-cliente-search-input');
+        const clearBtn = document.getElementById('pos-btn-clear-cliente');
         if (inp) {
             inp.select(); // Seleccionar todo el texto para reemplazo inmediato
+            if (clearBtn) clearBtn.style.display = inp.value ? 'flex' : 'none';
         }
-        const q = (inp ? inp.value : '').trim();
-        this._renderClienteDropdown(q);
+        // Desplegar siempre los resultados (dropdown tipo combobox)
+        this._renderClienteDropdown('');
     },
 
     onSearchClienteKeydown(event) {
         const dropdown = document.getElementById('pos-cliente-dropdown-results');
-        if (!dropdown || dropdown.style.display === 'none') return;
-        const items = Array.from(dropdown.querySelectorAll('.pos-prod-drop-item'));
+        if (!dropdown || dropdown.style.display === 'none') {
+            if (event.key === 'ArrowDown') {
+                this._renderClienteDropdown('');
+            }
+            return;
+        }
+        const items = Array.from(dropdown.querySelectorAll('.pos-prod-dropdown-item'));
         if (!items.length) return;
-        const active = dropdown.querySelector('.pos-prod-drop-item.active');
+        const active = dropdown.querySelector('.pos-prod-dropdown-item.active');
         let idx = items.indexOf(active);
         if (event.key === 'ArrowDown') {
             event.preventDefault();
@@ -1486,7 +1492,11 @@ const POS = {
             items[idx].scrollIntoView({ block: 'nearest' });
         } else if (event.key === 'Enter') {
             event.preventDefault();
-            if (active) active.click();
+            if (active) {
+                active.click();
+            } else if (items.length > 0) {
+                items[0].click();
+            }
         } else if (event.key === 'Escape') {
             dropdown.style.display = 'none';
         }
@@ -1497,28 +1507,51 @@ const POS = {
         if (!dropdown) return;
 
         // Siempre incluir Mostrador como primera opción
-        const mostrador = { id: 'MOSTRADOR', nombre: 'Público General / Mostrador', telefono: '' };
+        const mostrador = { id: 'MOSTRADOR', nombre: 'Público General / Mostrador', telefono: '', direccion: '' };
         const pool = [mostrador, ...this.clients];
 
-        const ql = q.toLowerCase();
-        const matches = q
-            ? pool.filter(c => c.nombre.toLowerCase().includes(ql) || (c.telefono && c.telefono.includes(ql))).slice(0, 15)
-            : pool.slice(0, 15);
+        const ql = (q || '').toLowerCase().trim();
+        const matches = ql
+            ? pool.filter(c => c.nombre.toLowerCase().includes(ql) || (c.telefono && c.telefono.includes(ql))).slice(0, 20)
+            : pool.slice(0, 20);
 
         if (matches.length === 0) {
-            dropdown.innerHTML = '<div style="padding:0.75rem; text-align:center; color:#64748b; font-size:0.83rem;">Sin resultados</div>';
+            dropdown.innerHTML = `
+                <div style="padding:1rem; text-align:center; color:var(--pos-text-muted); font-size:0.83rem;">
+                    🔍 No se encontraron clientes con "${this.escapeHtml(q)}".
+                </div>
+            `;
         } else {
-            dropdown.innerHTML = matches.map(c => {
+            dropdown.innerHTML = matches.map((c, idx) => {
                 const cId = this.escapeHtml(String(c.id || 'MOSTRADOR'));
                 const cNombre = this.escapeHtml(c.nombre || '');
-                const cTel = c.telefono ? ` <span style="font-size:0.75rem; color:#64748b; margin-left:0.5rem;">📞 ${this.escapeHtml(c.telefono)}</span>` : '';
-                return `<div class="pos-prod-drop-item" data-cliente-id="${cId}" data-cliente-nombre="${cNombre}">` +
-                    `<span style="font-weight:600;">${cNombre}</span>${cTel}` +
-                    `</div>`;
+                const esMostrador = (c.id === 'MOSTRADOR');
+                const badgeTipo = esMostrador
+                    ? '<span style="font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(99,102,241,0.2); color:#a5b4fc; font-weight:700;">MOSTRADOR</span>'
+                    : '<span style="font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(59,130,246,0.2); color:#60a5fa; font-weight:700;">CLIENTE</span>';
+                
+                const telInfo = c.telefono ? `<span> | 📞 ${this.escapeHtml(c.telefono)}</span>` : '';
+                const dirInfo = c.direccion ? `<span> | 📍 ${this.escapeHtml(c.direccion)}</span>` : '';
+
+                return `
+                    <div class="pos-prod-dropdown-item ${idx === 0 ? 'active' : ''}" data-cliente-id="${cId}" data-cliente-nombre="${cNombre}">
+                        <div class="pos-prod-dropdown-info">
+                            <div class="pos-prod-dropdown-title">${cNombre}</div>
+                            <div class="pos-prod-dropdown-meta">
+                                ${badgeTipo}
+                                ${telInfo}
+                                ${dirInfo}
+                            </div>
+                        </div>
+                        <div class="pos-prod-dropdown-price" style="font-size:0.75rem; color:#60a5fa; font-weight:700; font-family:inherit;">
+                            ${esMostrador ? 'Mostrador' : 'Seleccionar ↵'}
+                        </div>
+                    </div>
+                `;
             }).join('');
 
             // Asociar eventos click
-            dropdown.querySelectorAll('.pos-prod-drop-item').forEach(item => {
+            dropdown.querySelectorAll('.pos-prod-dropdown-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const id = item.getAttribute('data-cliente-id');
                     const nombre = item.getAttribute('data-cliente-nombre');
@@ -1538,16 +1571,26 @@ const POS = {
         if (inp) inp.value = nombre || '';
         if (hiddenInp) hiddenInp.value = clienteId || '';
         if (dropdown) dropdown.style.display = 'none';
-        // Mostrar botón limpiar solo si no es Mostrador
-        if (clearBtn) clearBtn.style.display = (clienteId && clienteId !== 'MOSTRADOR') ? 'flex' : 'none';
+        if (clearBtn) clearBtn.style.display = (inp && inp.value) ? 'flex' : 'none';
 
         this.onClienteSelectChange(clienteId);
     },
 
     clearClienteSeleccionado() {
         const inp = document.getElementById('pos-cliente-search-input');
-        if (inp) inp.value = '';
-        this.selectCliente('MOSTRADOR', 'Público General / Mostrador');
+        const hiddenInp = document.getElementById('pos-selected-cliente-id');
+        const clearBtn = document.getElementById('pos-btn-clear-cliente');
+
+        if (inp) {
+            inp.value = '';
+            inp.focus();
+        }
+        if (hiddenInp) hiddenInp.value = '';
+        if (clearBtn) clearBtn.style.display = 'none';
+
+        this.selectedClient = null;
+        // Abrir inmediatamente la lista de clientes desplegada para elegir o escribir
+        this._renderClienteDropdown('');
     },
 
     async buscarClientes(query) {

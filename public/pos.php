@@ -170,7 +170,7 @@ $isAdmin  = $auth->isPosAdmin();
                             <!-- Dropdown flotante con resultados de clientes -->
                             <div id="pos-cliente-dropdown-results" class="pos-prod-dropdown-results" style="display:none;"></div>
                         </div>
-                        <div id="pos-selected-client-hint" style="font-size:0.75rem; color:#60a5fa; font-weight:600; margin-top:0.3rem;"></div>
+                        <div id="pos-selected-client-hint" style="display:none;"></div>
                     </div>
 
                     <!-- 2. Buscar Producto o Servicio por Nombre o Código de Barras -->
