@@ -818,7 +818,7 @@ const POS = {
 
         const kilos = inputKg ? (parseFloat(inputKg.value) || 0) : 0;
 
-        if (this.currentCategory === 'KIT') {
+        if (this.selectedKit || this.currentCategory === 'KIT') {
             const kit = this.selectedKit || this.products.find(p => p.tipo === 'KIT');
             if (!kit) {
                 previewEl.textContent = '🎁 Modo Kits: Selecciona un kit del catálogo';
@@ -908,8 +908,8 @@ const POS = {
             return;
         }
 
-        // Manejo especial cuando estamos en la categoría de Kits y Paquetes
-        if (this.currentCategory === 'KIT') {
+        // Manejo especial cuando estamos en un Kit (pestaña Kits o Kit seleccionado en Todos)
+        if (this.selectedKit || this.currentCategory === 'KIT') {
             const kit = this.selectedKit || this.products.find(p => p.tipo === 'KIT');
             if (!kit) {
                 alert('No hay ningún Kit disponible en el catálogo.');
