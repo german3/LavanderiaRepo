@@ -1494,3 +1494,35 @@ input[type=number] {
     opacity: 0.85;
     font-size: 0.75rem;
 }
+/* Botón WhatsApp Ticket */
+.pos-btn-whatsapp {
+    background: linear-gradient(135deg, #25d366, #128c7e);
+    color: #fff;
+    border: none;
+    border-radius: var(--pos-radius);
+    padding: 0.85rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(37, 211, 102, 0.35);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+}
+
+.pos-btn-whatsapp:hover:not(:disabled) {
+    background: linear-gradient(135deg, #128c7e, #075e54);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(37, 211, 102, 0.5);
+}
+
+.pos-btn-whatsapp:disabled {
+    background: #374151 !important;
+    color: #9ca3af !important;
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    transform: none !important;
+}

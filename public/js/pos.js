@@ -1749,6 +1749,7 @@ const POS = {
             }
         }
 
+        this.clientePrevioInfo = this.selectedClient ? { ...this.selectedClient } : null;
         let clienteIdParaVenta = this.selectedClient ? this.selectedClient.id : null;
         if (!clienteIdParaVenta && this.cart.length > 0) {
             const primerItemConCliente = this.cart.find(it => it.cliente_id);
@@ -1788,6 +1789,12 @@ const POS = {
 
                 // Mostrar ticket
                 if (data.ticket) {
+                    if (this.clientePrevioInfo && this.clientePrevioInfo.telefono && !data.ticket.cliente_telefono) {
+                        data.ticket.cliente_telefono = this.clientePrevioInfo.telefono;
+                    }
+                    if (this.clientePrevioInfo && this.clientePrevioInfo.nombre && (!data.ticket.cliente_nombre || data.ticket.cliente_nombre === 'Público General')) {
+                        data.ticket.cliente_nombre = this.clientePrevioInfo.nombre;
+                    }
                     this.mostrarTicket(data.ticket);
                 } else {
                     alert('Venta procesada con éxito. Folio: ' + data.folio);
@@ -1805,8 +1812,35 @@ const POS = {
     // Ticket Térmico y Reimpresión
     // ─────────────────────────────────────────────────────────────
     mostrarTicket(ticket) {
+        this.ultimoTicket = ticket;
         const bodyEl = document.getElementById('pos-ticket-content');
         if (!bodyEl) return;
+
+        // Actualizar estado de botón Enviar Ticket (WhatsApp)
+        const btnWsp = document.getElementById('pos-btn-send-whatsapp');
+        if (btnWsp) {
+            const clienteNombre = (ticket.cliente_nombre || '').trim();
+            const esPublicoGeneral = !ticket.cliente_id || 
+                                     ticket.cliente_id === 'MOSTRADOR' || 
+                                     !clienteNombre || 
+                                     clienteNombre.toLowerCase().includes('público general') || 
+                                     clienteNombre.toLowerCase().includes('publico general') || 
+                                     clienteNombre.toLowerCase().includes('mostrador');
+            
+            const telLimpio = (ticket.cliente_telefono || '').replace(/\D/g, '');
+            const tieneTelefono = telLimpio.length >= 10;
+
+            if (esPublicoGeneral) {
+                btnWsp.disabled = true;
+                btnWsp.title = "No disponible para Público General";
+            } else if (!tieneTelefono) {
+                btnWsp.disabled = true;
+                btnWsp.title = "El cliente no tiene teléfono registrado";
+            } else {
+                btnWsp.disabled = false;
+                btnWsp.title = `Enviar ticket por WhatsApp al ${ticket.cliente_telefono}`;
+            }
+        }
 
         const isPagado = ticket.estado_pago === 'PAGADO';
         const detalles = ticket.detalles || [];
@@ -1899,6 +1933,67 @@ const POS = {
         window.print();
     },
 
+    enviarTicketWhatsapp() {
+        if (!this.ultimoTicket) {
+            alert('No hay información de ticket disponible.');
+            return;
+        }
+
+        const ticket = this.ultimoTicket;
+        let tel = (ticket.cliente_telefono || '').replace(/\D/g, '');
+        if (!tel || tel.length < 10) {
+            alert('El cliente no tiene un número telefónico válido registrado.');
+            return;
+        }
+
+        // Si tiene 10 dígitos (formato estándar de México), prefijar con 52
+        if (tel.length === 10) {
+            tel = '52' + tel;
+        }
+
+        const isPagado = ticket.estado_pago === 'PAGADO';
+        const detalles = ticket.detalles || [];
+
+        // Generar líneas de detalle
+        const lineasDetalle = detalles.map(d => {
+            const cant = parseFloat(d.cantidad || 1);
+            const desc = d.descripcion || '';
+            const subt = parseFloat(d.subtotal || 0).toFixed(2);
+            let extra = '';
+            if (d.ropa_kg > 0) extra += ` (${d.ropa_kg} kg)`;
+            return `• ${cant}x ${desc}${extra} - $${subt}`;
+        }).join('\n');
+
+        // Construir mensaje automático
+        let msg = `🧺 *LAVANDERÍA VERA*\n`;
+        msg += `✨ *Su Carga de Ropa fue Recibida*\n\n`;
+        msg += `📄 *Folio:* ${ticket.folio}\n`;
+        if (ticket.numero_carga) {
+            msg += `🏷️ *Carga de Lavado:* ${ticket.numero_carga}\n`;
+        }
+        msg += `📅 *Fecha:* ${ticket.fecha_venta}\n`;
+        msg += `👤 *Cliente:* ${ticket.cliente_nombre || 'Cliente'}\n`;
+        if (ticket.cajero_nombre) {
+            msg += `🧑‍💼 *Atendido por:* ${ticket.cajero_nombre}\n`;
+        }
+        msg += `\n*Detalle del Servicio:*\n`;
+        msg += lineasDetalle ? lineasDetalle : '• Servicios varios';
+        msg += `\n\n`;
+        msg += `💰 *TOTAL:* $${parseFloat(ticket.total || 0).toFixed(2)}\n`;
+        msg += `📌 *Estado:* ${isPagado ? '✅ PAGADO' : '⏳ PENDIENTE DE PAGO'}\n`;
+        msg += `💳 *Método:* ${ticket.metodo_pago || 'EFECTIVO'}\n`;
+        if (isPagado && ticket.metodo_pago === 'EFECTIVO' && ticket.monto_recibido) {
+            msg += `💵 *Recibido:* $${parseFloat(ticket.monto_recibido).toFixed(2)}\n`;
+            if (ticket.cambio) {
+                msg += `🪙 *Cambio:* $${parseFloat(ticket.cambio).toFixed(2)}\n`;
+            }
+        }
+        msg += `\n¡Gracias por su preferencia!\nConserve este mensaje para recoger sus prendas.`;
+
+        const wspUrl = `https://api.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(msg)}`;
+        window.open(wspUrl, '_blank');
+    },
+
     // ─────────────────────────────────────────────────────────────
     // Cobros Pendientes (Pago Posterior)
     // ─────────────────────────────────────────────────────────────
@@ -1989,6 +2084,12 @@ const POS = {
                 alert('Cobro registrado exitosamente.');
                 this.closeModal('modal-pendientes');
                 if (data.ticket) {
+                    if (this.clientePrevioInfo && this.clientePrevioInfo.telefono && !data.ticket.cliente_telefono) {
+                        data.ticket.cliente_telefono = this.clientePrevioInfo.telefono;
+                    }
+                    if (this.clientePrevioInfo && this.clientePrevioInfo.nombre && (!data.ticket.cliente_nombre || data.ticket.cliente_nombre === 'Público General')) {
+                        data.ticket.cliente_nombre = this.clientePrevioInfo.nombre;
+                    }
                     this.mostrarTicket(data.ticket);
                 }
                 this.loadInitialData();
