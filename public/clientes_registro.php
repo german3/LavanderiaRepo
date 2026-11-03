@@ -129,7 +129,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <span style="color:var(--primary);"><?= $modo === 'editar' ? '✏️' : '➕' ?></span>
                     <?= $modo === 'editar' ? 'Editar Cliente' : 'Nuevo Cliente' ?>
                 </h3>
-                <form method="POST">
+                <form id="form-cliente" method="POST" onsubmit="return confirmarGuardarCliente(event);">
                     <input type="hidden" name="action" value="<?= $modo === 'editar' ? 'actualizar' : 'crear' ?>">
                     <?php if ($modo === 'editar' && $clienteEditar): ?>
                         <input type="hidden" name="id" value="<?= htmlspecialchars($clienteEditar['id']) ?>">
@@ -191,6 +191,85 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </main>
 </div>
 
+    <!-- MODAL CONFIRMAR GUARDAR CLIENTE -->
+    <div id="modal-confirmar-guardar" class="modal-overlay" style="z-index: 10050;" onclick="cerrarModalConfirmar(event)">
+        <div class="modal-box" style="max-width: 480px;" onclick="event.stopPropagation()">
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: #60a5fa;">
+                    👤
+                </div>
+                <div>
+                    <h3 id="conf-titulo" style="font-size: 1.2rem; color: #fff; margin: 0;">Confirmar <?= $modo === 'editar' ? 'Cambios' : 'Registro' ?></h3>
+                    <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 0.15rem;">Revisa el resumen antes de guardar</p>
+                </div>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 0.75rem;">
+                ¿Estás seguro de que deseas <?= $modo === 'editar' ? 'guardar las modificaciones de este cliente' : 'registrar este nuevo cliente' ?>?
+            </p>
+
+            <div id="conf-resumen" style="color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; margin: 1rem 0; background: rgba(15,23,42,0.6); border: 1px solid var(--border); border-radius: 12px; padding: 1rem;">
+                <!-- Datos dinámicos del cliente -->
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+                <button type="button" class="btn-action" style="background: rgba(255,255,255,0.06); color: var(--text-main); padding: 0.65rem 1.25rem; border-radius: 8px; border: 1px solid var(--border); cursor: pointer;" onclick="cerrarModalConfirmar()">Cancelar</button>
+                <button type="button" class="btn-primary" style="width: auto; padding: 0.65rem 1.5rem; border-radius: 8px;" onclick="ejecutarGuardarCliente()">Sí, Guardar</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+let clienteFormConfirmado = false;
+
+function confirmarGuardarCliente(e) {
+    if (clienteFormConfirmado) return true;
+    e.preventDefault();
+
+    const form = document.getElementById('form-cliente');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return false;
+    }
+
+    const nombre = form.querySelector('[name="nombre"]')?.value.trim() || '';
+    const telefono = form.querySelector('[name="telefono"]')?.value.trim() || '';
+    const correo = form.querySelector('[name="correo"]')?.value.trim() || '';
+    const direccion = form.querySelector('[name="direccion"]')?.value.trim() || '';
+    const whatsapp = form.querySelector('[name="whatsapp_disponible"]')?.checked;
+
+    let resumenHtml = `
+        <div style="display:flex; flex-direction:column; gap:0.4rem;">
+            <div><strong style="color:#fff;">Nombre:</strong> <span style="color:#93c5fd; font-weight:600;">${escapeHtml(nombre)}</span></div>
+            <div><strong style="color:#fff;">Teléfono:</strong> <span style="color:#93c5fd;">${escapeHtml(telefono)}</span></div>
+            ${correo ? `<div><strong style="color:#fff;">Correo:</strong> ${escapeHtml(correo)}</div>` : ''}
+            ${direccion ? `<div><strong style="color:#fff;">Dirección:</strong> ${escapeHtml(direccion)}</div>` : ''}
+            <div><strong style="color:#fff;">WhatsApp:</strong> ${whatsapp ? '<span style="color:#25d366; font-weight:600;">📱 Notificaciones habilitadas</span>' : '<span style="color:#94a3b8;">Sin notificaciones</span>'}</div>
+        </div>
+    `;
+
+    document.getElementById('conf-resumen').innerHTML = resumenHtml;
+    document.getElementById('modal-confirmar-guardar').classList.add('active');
+    return false;
+}
+
+function cerrarModalConfirmar(e) {
+    if (e && e.target !== e.currentTarget) return;
+    document.getElementById('modal-confirmar-guardar').classList.remove('active');
+}
+
+function ejecutarGuardarCliente() {
+    clienteFormConfirmado = true;
+    document.getElementById('modal-confirmar-guardar').classList.remove('active');
+    document.getElementById('form-cliente').submit();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
 <script src="js/sidebar.js"></script>
 </body>
 </html>

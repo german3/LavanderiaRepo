@@ -1575,28 +1575,43 @@ const POS = {
 
     async guardarNuevoClienteExpress(form) {
         const formData = new FormData(form);
-        try {
-            const res = await fetch('api/pos_api.php?action=create_client', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-            if (data.success) {
-                // Añadir a lista local de clientes y repoblar el select
-                if (data.cliente) {
-                    this.clients.push(data.cliente);
-                    this.populateClientesSelect();
-                    this.setClient(data.cliente);
-                }
-                this.closeModal('modal-nuevo-cliente');
-                form.reset();
-                alert('Cliente registrado y seleccionado para el registro.');
-            } else {
-                alert(data.message || 'Error al registrar cliente');
-            }
-        } catch (e) {
-            alert('Error de conexión');
+        const nombre = (formData.get('nombre') || '').trim();
+        const telefono = (formData.get('telefono') || '').trim();
+
+        if (!nombre || !telefono) {
+            alert('Por favor completa el nombre y teléfono del cliente.');
+            return;
         }
+
+        this.mostrarConfirmacion({
+            titulo: '¿Registrar Cliente?',
+            mensaje: `¿Deseas registrar a <strong>${this.escapeHtml(nombre)}</strong> (${this.escapeHtml(telefono)}) en el sistema?`,
+            tipo: 'info',
+            btnConfirmar: 'Sí, Guardar',
+            colorConfirmar: '#3b82f6',
+            onConfirm: async () => {
+                try {
+                    const res = await fetch('api/pos_api.php?action=create_client', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        if (data.cliente) {
+                            this.clients.push(data.cliente);
+                            this.populateClientesSelect();
+                            this.setClient(data.cliente);
+                        }
+                        this.closeModal('modal-nuevo-cliente');
+                        form.reset();
+                    } else {
+                        alert(data.message || 'Error al registrar cliente');
+                    }
+                } catch (e) {
+                    alert('Error de conexión');
+                }
+            }
+        });
     },
 
     // ─────────────────────────────────────────────────────────────
