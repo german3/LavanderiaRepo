@@ -292,7 +292,7 @@ $isAdmin  = $auth->isPosAdmin();
                     <span>Artículos en orden:</span>
                     <strong id="pos-summary-items">0</strong>
                 </div>
-                <div class="pos-summary-row">
+                <div class="pos-summary-row" id="pos-row-summary-kg" style="display:none;">
                     <span>Peso total de ropa:</span>
                     <strong id="pos-summary-kg">0 kg</strong>
                 </div>

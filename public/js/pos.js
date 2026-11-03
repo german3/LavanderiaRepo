@@ -1356,17 +1356,55 @@ const POS = {
 
     renderCartSummaryOnly() {
         const totalItems = this.cart.reduce((acc, it) => acc + parseFloat(it.cantidad || 0), 0);
-        const totalKg = this.cart.reduce((acc, it) => acc + (parseFloat(it.ropa_kg || it.cantidad || 0)), 0);
+
+        // Sumar kilos solo de Kits, Servicios de lavandería, y elementos en Kilogramos o Gramos
+        // NO sumar elementos de unidad Pieza, Litros, etc.
+        let tieneElementosConPeso = false;
+        let totalKg = 0;
+
+        this.cart.forEach(it => {
+            const uMed = (it.unidad_medida || '').toUpperCase().trim();
+            const uSel = (it.unidad_seleccionada || '').toUpperCase().trim();
+
+            if (it.tipo === 'KIT') {
+                tieneElementosConPeso = true;
+                totalKg += parseFloat(it.ropa_kg || 0);
+            } else if (it.tipo === 'SERVICIO') {
+                tieneElementosConPeso = true;
+                totalKg += parseFloat(it.ropa_kg || it.cantidad || 0);
+            } else if (uMed === 'KG' || uMed === 'KILO' || uMed === 'KILOGRAMO' || uMed === 'KILOGRAMOS' || uSel === 'KG') {
+                tieneElementosConPeso = true;
+                totalKg += parseFloat(it.cantidad || 0);
+            } else if (uMed === 'GR' || uMed === 'G' || uMed === 'GRAMO' || uMed === 'GRAMOS' || uSel === 'GR') {
+                tieneElementosConPeso = true;
+                totalKg += parseFloat(it.cantidad || 0);
+            }
+        });
+
         const granTotal = this.cart.reduce((acc, it) => acc + parseFloat(it.subtotal || 0), 0);
 
         const itemsEl = document.getElementById('pos-summary-items');
         const kgEl = document.getElementById('pos-summary-kg');
+        const rowKg = document.getElementById('pos-row-summary-kg') || kgEl?.closest('.pos-summary-row');
         const totalEl = document.getElementById('pos-total-display');
         const payBtn = document.getElementById('pos-btn-pay');
         const pendBtn = document.getElementById('pos-btn-pending');
 
         if (itemsEl) itemsEl.textContent = `${this.cart.length} registro(s)`;
-        if (kgEl) kgEl.textContent = totalKg > 0 ? `${totalKg.toFixed(2)} kg` : '0 kg';
+
+        // Mostrar fila de peso total únicamente cuando hay elementos de tipo Kit, Kilogramos o Gramos
+        if (rowKg) {
+            if (tieneElementosConPeso && totalKg > 0) {
+                rowKg.style.display = 'flex';
+                if (kgEl) kgEl.textContent = `${totalKg.toFixed(2)} kg`;
+            } else {
+                rowKg.style.display = 'none';
+                if (kgEl) kgEl.textContent = '0 kg';
+            }
+        } else if (kgEl) {
+            kgEl.textContent = totalKg > 0 ? `${totalKg.toFixed(2)} kg` : '0 kg';
+        }
+
         if (totalEl) totalEl.textContent = `$${granTotal.toFixed(2)}`;
 
         const hasItems = this.cart.length > 0;
