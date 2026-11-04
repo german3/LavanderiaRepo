@@ -411,10 +411,12 @@ try {
                 "SELECT cg.*, 
                         c.nombre AS cliente_nombre,
                         c.telefono AS cliente_telefono,
-                        u.nombre AS cajero_nombre
+                        u.nombre AS cajero_nombre,
+                        v.folio AS venta_folio
                  FROM cargas cg
                  LEFT JOIN clientes c ON cg.cliente_id = c.id
                  LEFT JOIN usuarios u ON cg.usuario_registro_id = u.id
+                 LEFT JOIN ventas v ON cg.venta_id = v.id
                  WHERE cg.estado = 'LISTA_CONCLUIDA'
                    AND DATE(cg.fecha_conclusion) = CURDATE()
                  ORDER BY cg.fecha_conclusion DESC"
@@ -424,6 +426,30 @@ try {
             echo json_encode(['success' => true, 'cargas' => $hoy]);
             break;
 
+
+        // ─────────────────────────────────────────────────────────────
+        // 17. Cargas Entregadas
+        // ─────────────────────────────────────────────────────────────
+        case 'cargas_entregadas':
+            $entregadas = $cargaModel->obtenerCargasEntregadas(50);
+            echo json_encode(['success' => true, 'cargas' => $entregadas]);
+            break;
+
+        // ─────────────────────────────────────────────────────────────
+        // 18. Marcar carga como Entregada (LISTA_CONCLUIDA → ENTREGADA)
+        // ─────────────────────────────────────────────────────────────
+        case 'entregar_carga':
+            $cargaId = trim($_POST['carga_id'] ?? '');
+            if (!$cargaId) {
+                echo json_encode(['success' => false, 'message' => 'ID de carga requerido.']);
+                exit;
+            }
+            $ok = $cargaModel->entregarCarga($cargaId, $currentUserId);
+            echo json_encode([
+                'success' => $ok,
+                'message' => $ok ? 'Carga marcada como Entregada al cliente.' : 'No se pudo marcar como entregada. Verifica el estado de la carga.'
+            ]);
+            break;
         default:
             echo json_encode(['success' => false, 'message' => 'Acción no reconocida.']);
             break;

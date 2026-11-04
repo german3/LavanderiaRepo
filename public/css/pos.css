@@ -1534,8 +1534,8 @@ input[type=number] {
 
 /* Modal extra-wide */
 .pos-lavado-modal-card {
-    max-width: 980px !important;
-    width: 95vw !important;
+    max-width: 1300px !important;
+    width: 96vw !important;
     max-height: 92vh;
 }
 
@@ -1548,9 +1548,9 @@ input[type=number] {
 /* Kanban container */
 .pos-lavado-kanban {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 1rem;
-    padding: 1.25rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.85rem;
+    padding: 1rem;
     overflow-y: auto;
     max-height: calc(90vh - 180px);
 }
@@ -1820,4 +1820,103 @@ input[type=number] {
     text-align: center;
     margin-top: 0.35rem;
     letter-spacing: 0.02em;
+}
+
+/* 4ta Columna: Entregados */
+.pos-lavado-col-entregados { border-top: 3px solid #6366f1; }
+.pos-lavado-dot-entregados { background: #6366f1; }
+.pos-lavado-card-entregados { border-left: 4px solid #6366f1; opacity: 0.9; }
+
+/* Buscador en columna Finalizados */
+.pos-lavado-col-search {
+    padding: 0.5rem 0.65rem;
+    border-bottom: 1px solid var(--pos-border);
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.pos-lavado-search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.pos-lavado-search-icon {
+    position: absolute;
+    left: 8px;
+    width: 14px;
+    height: 14px;
+    color: var(--pos-text-muted);
+    pointer-events: none;
+}
+
+.pos-lavado-search-input {
+    width: 100%;
+    padding: 0.4rem 1.6rem 0.4rem 1.75rem;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--pos-border);
+    border-radius: 6px;
+    font-size: 0.78rem;
+    color: #f8fafc;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.pos-lavado-search-input:focus {
+    border-color: #38bdf8;
+    background: #0f172a;
+}
+
+.pos-lavado-search-clear {
+    position: absolute;
+    right: 6px;
+    background: none;
+    border: none;
+    color: var(--pos-text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 2px 4px;
+    line-height: 1;
+    display: none;
+}
+.pos-lavado-search-clear:hover {
+    color: #f87171;
+}
+
+/* Botón Entregar Carga */
+.pos-lavado-btn-entregar {
+    width: 100%;
+    padding: 0.55rem 0.85rem;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    transition: all 0.2s;
+    margin-top: 0.35rem;
+}
+
+.pos-lavado-btn-entregar:hover {
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.45);
+}
+
+.pos-lavado-badge-entregado {
+    margin-top: 0.5rem;
+    padding: 0.3rem 0.6rem;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    color: #a5b4fc;
+    font-size: 0.72rem;
+    font-weight: 800;
+    border-radius: 6px;
+    text-align: center;
+    letter-spacing: 0.05em;
 }

@@ -868,15 +868,34 @@ $isAdmin  = $auth->isPosAdmin();
                     </div>
                 </div>
 
-                <!-- Columna 3: Finalizados recientes -->
+                <!-- Columna 3: Finalizados recientes con Buscador -->
                 <div class="pos-lavado-col pos-lavado-col-finalizado">
                     <div class="pos-lavado-col-header">
                         <span class="pos-lavado-col-dot pos-lavado-dot-finalizado"></span>
                         <span class="pos-lavado-col-title">✅ Finalizados Hoy</span>
                         <span class="pos-lavado-col-count" id="count-finalizado">0</span>
                     </div>
+                    <div class="pos-lavado-col-search">
+                        <div class="pos-lavado-search-wrap">
+                            <svg class="pos-lavado-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" id="pos-search-finalizados" class="pos-lavado-search-input" placeholder="Buscar cliente o ticket..." oninput="POS.filtrarFinalizados(this.value)">
+                            <button type="button" id="pos-search-finalizados-clear" class="pos-lavado-search-clear" onclick="POS.limpiarFiltroFinalizados()" title="Limpiar búsqueda">✕</button>
+                        </div>
+                    </div>
                     <div class="pos-lavado-col-body" id="col-finalizado">
                         <div class="pos-lavado-empty">Sin cargas finalizadas hoy</div>
+                    </div>
+                </div>
+
+                <!-- Columna 4: Entregados -->
+                <div class="pos-lavado-col pos-lavado-col-entregados">
+                    <div class="pos-lavado-col-header">
+                        <span class="pos-lavado-col-dot pos-lavado-dot-entregados"></span>
+                        <span class="pos-lavado-col-title">📦 Entregados</span>
+                        <span class="pos-lavado-col-count" id="count-entregados">0</span>
+                    </div>
+                    <div class="pos-lavado-col-body" id="col-entregados">
+                        <div class="pos-lavado-empty">Sin cargas entregadas</div>
                     </div>
                 </div>
             </div>

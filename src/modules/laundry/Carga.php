@@ -253,4 +253,44 @@ class Carga
         return $row ?: null;
     }
 
+
+    /**
+     * Cambia estado de LISTA_CONCLUIDA → ENTREGADA (Entrega de ropa al cliente).
+     */
+    public function entregarCarga(string $cargaId, string $usuarioId): bool
+    {
+        $stmt = $this->conn->prepare(
+            "UPDATE cargas 
+             SET estado = 'ENTREGADA',
+                 fecha_entrega = NOW()
+             WHERE id = :id AND estado = 'LISTA_CONCLUIDA'"
+        );
+        $stmt->execute([':id' => $cargaId]);
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
+     * Retorna cargas entregadas recientemente.
+     */
+    public function obtenerCargasEntregadas(int $limite = 50): array
+    {
+        $stmt = $this->conn->prepare(
+            "SELECT cg.*, 
+                    c.nombre AS cliente_nombre, 
+                    c.telefono AS cliente_telefono,
+                    u.nombre AS cajero_nombre,
+                    v.folio AS venta_folio
+             FROM cargas cg
+             LEFT JOIN clientes c ON cg.cliente_id = c.id
+             LEFT JOIN usuarios u ON cg.usuario_registro_id = u.id
+             LEFT JOIN ventas v ON cg.venta_id = v.id
+             WHERE cg.estado = 'ENTREGADA'
+             ORDER BY cg.fecha_entrega DESC
+             LIMIT :limite"
+        );
+        $stmt->bindValue(':limite', $limite, \PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
 }

@@ -2436,13 +2436,14 @@ const POS = {
         const colEspera     = document.getElementById('col-espera');
         const colProceso    = document.getElementById('col-proceso');
         const colFinalizado = document.getElementById('col-finalizado');
+        const colEntregados = document.getElementById('col-entregados');
         const lastUpdate    = document.getElementById('pos-lavado-last-update');
         const badge         = document.getElementById('pos-lavado-badge');
 
         if (!colEspera) return;
 
         // Loading state
-        [colEspera, colProceso, colFinalizado].forEach(col => {
+        [colEspera, colProceso, colFinalizado, colEntregados].forEach(col => {
             if (col) col.innerHTML = '<div class="pos-lavado-loading">Cargando...</div>';
         });
 
@@ -2463,6 +2464,12 @@ const POS = {
             const finalizadas = (dataHoy.success && dataHoy.cargas) ? dataHoy.cargas : [];
             this.cargasFinalizadasHoy = finalizadas;
 
+            // Cargas entregadas
+            const resEntregadas = await fetch('api/pos_api.php?action=cargas_entregadas');
+            const dataEntregadas = await resEntregadas.json();
+            const entregadas = (dataEntregadas.success && dataEntregadas.cargas) ? dataEntregadas.cargas : [];
+            this.cargasEntregadas = entregadas;
+
             // Actualizar badges
             const totalActivas = espera.length + proceso.length;
             if (badge) {
@@ -2482,15 +2489,30 @@ const POS = {
                     proceso.map(c => `<option value="${c.id}" data-numero="${c.numero_carga}">${c.numero_carga} - ${c.cliente_nombre || 'Público General'} (${parseFloat(c.ropa_kg || 0).toFixed(2)} kg)</option>`).join('');
             }
 
+            // Aplicar filtro de búsqueda si existe en Finalizados
+            let finalizadasVisibles = finalizadas;
+            if (this.filtroFinalizados && this.filtroFinalizados.trim() !== '') {
+                const q = this.filtroFinalizados.toLowerCase().trim();
+                finalizadasVisibles = finalizadasVisibles.filter(c => {
+                    const cli = (c.cliente_nombre || '').toLowerCase();
+                    const folio = (c.venta_folio || '').toLowerCase();
+                    const num = (c.numero_carga || '').toLowerCase();
+                    return cli.includes(q) || folio.includes(q) || num.includes(q);
+                });
+            }
+
             // Actualizar contadores de columna
             document.getElementById('count-espera').textContent     = espera.length;
             document.getElementById('count-proceso').textContent    = proceso.length;
-            document.getElementById('count-finalizado').textContent = finalizadas.length;
+            document.getElementById('count-finalizado').textContent = finalizadasVisibles.length;
+            const countEntregadosEl = document.getElementById('count-entregados');
+            if (countEntregadosEl) countEntregadosEl.textContent = entregadas.length;
 
             // Renderizar columnas
             colEspera.innerHTML   = this._renderCargaCards(espera, 'espera');
             colProceso.innerHTML  = this._renderCargaCards(proceso, 'proceso');
-            colFinalizado.innerHTML = this._renderCargaCards(finalizadas, 'finalizado');
+            colFinalizado.innerHTML = this._renderCargaCards(finalizadasVisibles, 'finalizado');
+            if (colEntregados) colEntregados.innerHTML = this._renderCargaCards(entregadas, 'entregado');
 
             if (lastUpdate) {
                 const now = new Date().toLocaleTimeString('es-MX', { hour12: false });
@@ -2510,7 +2532,8 @@ const POS = {
             const labels = {
                 espera: 'Sin cargas en espera',
                 proceso: 'Sin cargas en proceso',
-                finalizado: 'Sin cargas finalizadas hoy'
+                finalizado: 'Sin cargas finalizadas hoy',
+                entregado: 'Sin cargas entregadas'
             };
             return `<div class="pos-lavado-empty">${labels[tipo] || 'Vacío'}</div>`;
         }
@@ -2573,6 +2596,17 @@ const POS = {
                 accionBtn = `
                     <div style="font-size:0.68rem;color:#6ee7b7;margin-top:0.25rem;margin-bottom:0.25rem;">Lista desde: ${fechaFin}</div>
                     ${btnWspHtml}
+                    <button type="button" class="pos-lavado-btn-entregar" onclick="POS.entregarCarga('${this.escapeHtml(c.id)}', '${numCarga}', '${c.estado_pago || \'PAGADO\'}')">
+                        📦 Entregar
+                    </button>
+                `;
+            } else if (tipo === 'entregado') {
+                const fechaEnt = c.fecha_entrega ? c.fecha_entrega.substring(0, 16) : '';
+                const ticketFolio = c.venta_folio ? `<div style="font-size:0.68rem;color:#93c5fd;">Ticket: ${this.escapeHtml(c.venta_folio)}</div>` : '';
+                accionBtn = `
+                    ${ticketFolio}
+                    <div style="font-size:0.68rem;color:#94a3b8;margin-top:0.25rem;">Entregado: ${fechaEnt}</div>
+                    <div class="pos-lavado-badge-entregado">✓ ENTREGADA</div>
                 `;
             }
 
