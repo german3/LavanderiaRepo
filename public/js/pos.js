@@ -2461,6 +2461,7 @@ const POS = {
             const resHoy = await fetch('api/pos_api.php?action=cargas_finalizadas_hoy');
             const dataHoy = await resHoy.json();
             const finalizadas = (dataHoy.success && dataHoy.cargas) ? dataHoy.cargas : [];
+            this.cargasFinalizadasHoy = finalizadas;
 
             // Actualizar badges
             const totalActivas = espera.length + proceso.length;
@@ -2541,7 +2542,38 @@ const POS = {
                     </button>`;
             } else if (tipo === 'finalizado') {
                 const fechaFin = c.fecha_conclusion ? c.fecha_conclusion.substring(0, 16) : '';
-                accionBtn = `<div style="font-size:0.68rem;color:#6ee7b7;margin-top:0.3rem;">Lista desde: ${fechaFin}</div>`;
+                const telLimpio = (c.cliente_telefono || '').replace(/\D/g, '');
+                const clienteNombre = (c.cliente_nombre || '').trim();
+                const esPublicoGeneral = !c.cliente_id || 
+                                         c.cliente_id === 'MOSTRADOR' || 
+                                         !clienteNombre || 
+                                         clienteNombre.toLowerCase().includes('público general') || 
+                                         clienteNombre.toLowerCase().includes('publico general') || 
+                                         clienteNombre.toLowerCase().includes('mostrador');
+                const tieneTelefono = !esPublicoGeneral && telLimpio.length >= 10;
+
+                let btnWspHtml = '';
+                if (tieneTelefono) {
+                    btnWspHtml = `
+                        <button type="button" class="pos-lavado-btn-whatsapp" onclick="POS.notificarWhatsappCarga('${this.escapeHtml(c.id)}')" title="Enviar WhatsApp al ${this.escapeHtml(c.cliente_telefono)}">
+                            <svg style="width:15px;height:15px;fill:currentColor;flex-shrink:0;" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                            <span>Notificar por WhatsApp</span>
+                        </button>
+                    `;
+                } else {
+                    btnWspHtml = `
+                        <button type="button" class="pos-lavado-btn-whatsapp" disabled title="${esPublicoGeneral ? 'No disponible para Público General' : 'Cliente sin teléfono registrado'}">
+                            <svg style="width:15px;height:15px;fill:currentColor;flex-shrink:0;" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                            <span>Notificar por WhatsApp</span>
+                        </button>
+                        <div class="pos-lavado-no-tel">Sin Teléfono Registrado</div>
+                    `;
+                }
+
+                accionBtn = `
+                    <div style="font-size:0.68rem;color:#6ee7b7;margin-top:0.25rem;margin-bottom:0.25rem;">Lista desde: ${fechaFin}</div>
+                    ${btnWspHtml}
+                `;
             }
 
             return `
@@ -2638,7 +2670,57 @@ const POS = {
         });
     },
 
-        openModal(id) {
+        notificarWhatsappCarga(cargaId) {
+        const carga = (this.cargasFinalizadasHoy || []).find(c => c.id === cargaId);
+        if (!carga) {
+            alert('No se encontró la información de la carga.');
+            return;
+        }
+
+        let tel = (carga.cliente_telefono || '').replace(/\D/g, '');
+        if (!tel || tel.length < 10) {
+            this.mostrarMensaje({
+                tipo: 'warning',
+                titulo: 'Sin Teléfono Registrado',
+                mensaje: 'Esta carga no tiene un número telefónico registrado para notificaciones.'
+            });
+            return;
+        }
+
+        if (tel.length === 10) {
+            tel = '52' + tel;
+        }
+
+        const clienteNombre = carga.cliente_nombre || 'Estimado(a) Cliente';
+        const numCarga = carga.numero_carga || 'CRG';
+        const kg = parseFloat(carga.ropa_kg || 0).toFixed(2);
+        const isPagado = carga.estado_pago === 'PAGADO';
+        const total = parseFloat(carga.total || 0).toFixed(2);
+
+        // Mensaje automático requerido con la frase solicitada
+        let msg = `🧺 *LAVANDERÍA VERA*\n`;
+        msg += `✨ *Su Ropa se Termino de Lavar, puede pasar por ella*\n\n`;
+        msg += `🏷️ *Carga de Lavado:* ${numCarga}\n`;
+        msg += `👤 *Cliente:* ${clienteNombre}\n`;
+        if (kg > 0) {
+            msg += `⚖️ *Peso:* ${kg} kg de ropa\n`;
+        }
+        msg += `💰 *Estado:* ${isPagado ? '✅ PAGADO' : `⏳ PENDIENTE DE PAGO ($` + total + `)`}\n\n`;
+        msg += `¡Esperamos su visita para recoger sus prendas!\n`;
+        msg += `_Tu ropa limpia, fresca y a tiempo._`;
+
+        const wspUrl = `https://api.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(msg)}`;
+        window.open(wspUrl, '_blank');
+
+        // Notificación llamativa requerida
+        this.mostrarMensaje({
+            tipo: 'success',
+            titulo: 'Notificación Enviada',
+            mensaje: `El mensaje de WhatsApp ha sido generado para <strong>${this.escapeHtml(clienteNombre)}</strong> (📞 ${this.escapeHtml(carga.cliente_telefono)}) exitosamente.`
+        });
+    },
+
+    openModal(id) {
         const modal = document.getElementById(id);
         if (modal) {
             modal.classList.add('active');
@@ -2661,6 +2743,14 @@ const POS = {
 
     notifCallback: null,
 
+
+    mostrarNotificacion(tipo, mensaje, titulo) {
+        this.mostrarMensaje({
+            tipo: tipo || 'info',
+            titulo: titulo || (tipo === 'success' ? 'Éxito' : (tipo === 'error' ? 'Error' : 'Aviso')),
+            mensaje: mensaje
+        });
+    },
     mostrarMensaje({ tipo = 'success', titulo = 'Aviso', mensaje = '', onConfirm = null }) {
         this.notifCallback = onConfirm;
         const modal = document.getElementById('modal-notificacion-pos');
@@ -2676,7 +2766,7 @@ const POS = {
         }
 
         if (titleEl) titleEl.textContent = titulo;
-        if (msgEl) msgEl.textContent = mensaje;
+        if (msgEl) msgEl.innerHTML = mensaje;
 
         if (tipo === 'success') {
             if (iconWrap) iconWrap.style.background = 'rgba(16, 185, 129, 0.15)';
@@ -2756,7 +2846,7 @@ const POS = {
         }
 
         if (titleEl) titleEl.textContent = titulo;
-        if (msgEl) msgEl.textContent = mensaje;
+        if (msgEl) msgEl.innerHTML = mensaje;
 
         if (tipo === 'warning' || tipo === 'danger') {
             if (iconWrap) iconWrap.style.background = 'rgba(239, 68, 68, 0.15)';

@@ -410,6 +410,7 @@ try {
             $stmt = $db->prepare(
                 "SELECT cg.*, 
                         c.nombre AS cliente_nombre,
+                        c.telefono AS cliente_telefono,
                         u.nombre AS cajero_nombre
                  FROM cargas cg
                  LEFT JOIN clientes c ON cg.cliente_id = c.id
