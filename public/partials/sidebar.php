@@ -44,6 +44,17 @@ $userInitial = mb_substr(mb_strtoupper($userName), 0, 1);
         </div>
     </div>
 
+    <!-- Botón de cambio de tema ☀/☾ -->
+    <div style="display:flex; align-items:center; justify-content:flex-end; gap:0.5rem; margin-bottom:0.5rem; padding:0 0.25rem;">
+        <button class="theme-switch-btn" id="theme-switch-backoffice" onclick="ThemeManager.toggle()" title="Cambiar tema claro/oscuro">
+            <span class="ts-track">
+                <span class="ts-icon icon-sun">☀️</span>
+                <span class="ts-knob"></span>
+                <span class="ts-icon icon-moon">🌙</span>
+            </span>
+        </button>
+    </div>
+
     <button class="sidebar-toggle" onclick="toggleSidebar()" title="Colapsar menú">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
@@ -174,6 +185,7 @@ $userInitial = mb_substr(mb_strtoupper($userName), 0, 1);
 }
 </style>
 
+<script src="js/theme.js"></script>
 <script>
 function confirmarCerrarSesion() {
     const modal = document.getElementById('modal-logout');

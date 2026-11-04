@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../src/config/Database.php';
 require_once __DIR__ . '/../src/modules/auth/Usuario.php';
 require_once __DIR__ . '/../src/modules/auth/AuthService.php';
@@ -246,6 +246,7 @@ $hoyTexto = $diasEsp[(int)date('w')] . ', ' . date('d') . ' de ' . $mesesEsp[(in
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard General | Lavandería Vera</title>
     <link rel="stylesheet" href="css/index.css">
+    <script src="js/theme.js"></script>
     <link rel="icon" type="image/jpeg" href="img/Logo.jpeg">
     <!-- Chart.js 4 (dist UMD para navegadores) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../src/config/Database.php';
 require_once __DIR__ . '/../src/modules/auth/Usuario.php';
 require_once __DIR__ . '/../src/modules/auth/AuthService.php';
@@ -29,6 +29,7 @@ $isAdmin  = $auth->isPosAdmin();
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Punto de Venta | FrontOffice | Lavandería Vera</title>
     <link rel="stylesheet" href="css/pos.css">
+    <script src="js/theme.js"></script>
     <link rel="icon" type="image/jpeg" href="img/Logo.jpeg">
     <style>
         .pos-prod-card.pos-insumo-selected {
@@ -110,6 +111,15 @@ $isAdmin  = $auth->isPosAdmin();
             <button class="pos-btn-head" onclick="POS.abrirModalHistorial()" title="Historial del día y Cancelaciones">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                 <span>Historial Hoy</span>
+            </button>
+
+            <!-- Boton Tema Claro/Oscuro -->
+            <button class="pos-theme-btn" id="pos-theme-btn" onclick="ThemeManager.toggle()" title="Cambiar tema claro / oscuro">
+                <span class="ts-track">
+                    <span class="ts-icon icon-sun">&#9728;&#65039;</span>
+                    <span class="ts-knob"></span>
+                    <span class="ts-icon icon-moon">&#127769;</span>
+                </span>
             </button>
 
             <!-- Reloj Digital -->

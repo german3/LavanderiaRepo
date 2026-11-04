@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../src/config/Database.php';
 require_once __DIR__ . '/../src/modules/auth/Usuario.php';
 require_once __DIR__ . '/../src/modules/auth/AuthService.php';
@@ -251,6 +251,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro de Producto | Lavandería</title>
     <link rel="stylesheet" href="css/index.css">
+    <script src="js/theme.js"></script>
     <style>
         /* SKU display */
         .sku-display {

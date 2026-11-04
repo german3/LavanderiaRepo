@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../src/config/Database.php';
 require_once __DIR__ . '/../src/modules/auth/Usuario.php';
 require_once __DIR__ . '/../src/modules/auth/AuthService.php';
@@ -183,6 +183,7 @@ $inventario = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Entradas / Salidas | Lavandería</title>
     <link rel="stylesheet" href="css/index.css">
+    <script src="js/theme.js"></script>
     <style>
         .table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; color: var(--text-main); }
         .table th { padding: 0.75rem 1rem; text-align: left; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); border-bottom: 2px solid var(--border); }

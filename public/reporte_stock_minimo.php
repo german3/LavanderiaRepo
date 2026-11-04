@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../src/config/Database.php';
 require_once __DIR__ . '/../src/modules/auth/Usuario.php';
 require_once __DIR__ . '/../src/modules/auth/AuthService.php';
@@ -34,6 +34,7 @@ $productosJson = json_encode($productos);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reporte de Stock Mínimo | Lavandería</title>
     <link rel="stylesheet" href="css/index.css">
+    <script src="js/theme.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         .stats-grid {

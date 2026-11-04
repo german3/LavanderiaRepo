@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../src/config/Database.php';
 require_once __DIR__ . '/../src/modules/auth/Usuario.php';
 require_once __DIR__ . '/../src/modules/auth/AuthService.php';
@@ -66,6 +66,7 @@ $entradas          = $entradaModel->listarEntradas(200);
     <title>Entradas de Compra | Lavandería</title>
     <meta name="description" content="Registro de entradas de compra y recepción de insumos con folio automático.">
     <link rel="stylesheet" href="css/index.css">
+    <script src="js/theme.js"></script>
     <style>
         .table { width:100%; border-collapse:collapse; color:var(--text-main); }
         .table th { padding:0.75rem 1rem; text-align:left; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); border-bottom:2px solid var(--border); }

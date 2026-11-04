@@ -1,6 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-:root {
+/* ══════════════════════════════════════════════════════════════════
+   VARIABLES DE TEMA
+   ══════════════════════════════════════════════════════════════════ */
+
+/* --- Tema OSCURO (por defecto) --------------------------------- */
+:root,
+[data-theme="dark"] {
     --bg-dark: #0f172a;
     --bg-card: rgba(30, 41, 59, 0.7);
     --text-main: #f8fafc;
@@ -10,6 +16,51 @@
     --accent: #8b5cf6;
     --border: rgba(255, 255, 255, 0.1);
     --glass-blur: blur(12px);
+    --surface: #1e293b;
+    --input-bg: rgba(15, 23, 42, 0.6);
+    --input-bg-light: rgba(15, 23, 42, 0.4);
+    --card-shadow: 0 4px 32px rgba(0, 0, 0, 0.45);
+    --sidebar-bg: rgba(30, 41, 59, 0.7);
+    --modal-bg: #1e293b;
+    --modal-border: rgba(255, 255, 255, 0.1);
+    --submenu-hover-color: #60a5fa;
+    --body-bg-grad1: rgba(59, 130, 246, 0.15);
+    --body-bg-grad2: rgba(139, 92, 246, 0.15);
+    --spin-bg: rgba(255, 255, 255, 0.08);
+    --spin-border: rgba(255, 255, 255, 0.12);
+    --spin-color: #94a3b8;
+    --arrow-btn-bg: rgba(255, 255, 255, 0.08);
+    --arrow-btn-border: rgba(255, 255, 255, 0.12);
+    --modal-overlay-bg: rgba(15, 23, 42, 0.75);
+}
+
+/* --- Tema CLARO ------------------------------------------------- */
+[data-theme="light"] {
+    --bg-dark: #eef2f7;
+    --bg-card: rgba(255, 255, 255, 0.88);
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --accent: #7c3aed;
+    --border: rgba(100, 116, 139, 0.2);
+    --glass-blur: blur(12px);
+    --surface: #ffffff;
+    --input-bg: rgba(241, 245, 249, 0.95);
+    --input-bg-light: rgba(226, 232, 240, 0.7);
+    --card-shadow: 0 4px 24px rgba(100, 116, 139, 0.15);
+    --sidebar-bg: rgba(255, 255, 255, 0.92);
+    --modal-bg: #ffffff;
+    --modal-border: rgba(100, 116, 139, 0.2);
+    --submenu-hover-color: #2563eb;
+    --body-bg-grad1: rgba(59, 130, 246, 0.06);
+    --body-bg-grad2: rgba(139, 92, 246, 0.06);
+    --spin-bg: rgba(100, 116, 139, 0.1);
+    --spin-border: rgba(100, 116, 139, 0.2);
+    --spin-color: #64748b;
+    --arrow-btn-bg: rgba(100, 116, 139, 0.1);
+    --arrow-btn-border: rgba(100, 116, 139, 0.2);
+    --modal-overlay-bg: rgba(15, 23, 42, 0.5);
 }
 
 * {
@@ -21,13 +72,14 @@
 
 body {
     background-color: var(--bg-dark);
-    background-image: 
-        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+    background-image:
+        radial-gradient(at 0% 0%, var(--body-bg-grad1) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, var(--body-bg-grad2) 0px, transparent 50%);
     color: var(--text-main);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    transition: background-color 0.35s ease, color 0.35s ease;
 }
 
 .login-body {
@@ -37,7 +89,84 @@ body {
     background-attachment: fixed;
 }
 
-/* Auth Layout */
+/* ══════════════════════════════════════════════════════════════════
+   BOTÓN INTERRUPTOR DE TEMA  ☀ / ☾
+   ══════════════════════════════════════════════════════════════════ */
+.theme-switch-btn {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    width: 68px;
+    height: 30px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    padding: 0;
+    overflow: hidden;
+    flex-shrink: 0;
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+.theme-switch-btn:hover {
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+    border-color: rgba(59, 130, 246, 0.45);
+}
+[data-theme="light"] .theme-switch-btn {
+    background: rgba(100, 116, 139, 0.1);
+}
+
+/* track interior con íconos */
+.theme-switch-btn .ts-track {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0 6px;
+    pointer-events: none;
+}
+.theme-switch-btn .ts-icon {
+    font-size: 0.85rem;
+    line-height: 1;
+    transition: opacity 0.3s;
+    z-index: 1;
+}
+/* Por defecto (oscuro): sol apagado, luna encendida */
+.theme-switch-btn .ts-icon.icon-sun  { opacity: 0.45; }
+.theme-switch-btn .ts-icon.icon-moon { opacity: 1; }
+/* Modo claro: sol encendido, luna apagada */
+.theme-switch-btn.is-light .ts-icon.icon-sun  { opacity: 1; }
+.theme-switch-btn.is-light .ts-icon.icon-moon { opacity: 0.35; }
+/* Modo oscuro: igual al defecto */
+.theme-switch-btn.is-dark  .ts-icon.icon-sun  { opacity: 0.45; }
+.theme-switch-btn.is-dark  .ts-icon.icon-moon { opacity: 1; }
+
+/* perilla deslizante */
+.theme-switch-btn .ts-knob {
+    position: absolute;
+    top: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #6366f1;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.6);
+    transition: left 0.32s cubic-bezier(0.4, 0, 0.2, 1), background 0.32s;
+    left: calc(100% - 27px); /* modo oscuro: perilla a la derecha */
+    z-index: 2;
+}
+.theme-switch-btn.is-light .ts-knob {
+    left: 3px;
+    background: #f59e0b;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.65);
+}
+.theme-switch-btn.is-dark .ts-knob {
+    left: calc(100% - 27px);
+    background: #6366f1;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.6);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   AUTH LAYOUT
+   ══════════════════════════════════════════════════════════════════ */
 .auth-container {
     display: flex;
     justify-content: center;
@@ -78,7 +207,9 @@ body {
     font-size: 0.95rem;
 }
 
-/* Forms */
+/* ══════════════════════════════════════════════════════════════════
+   FORMS
+   ══════════════════════════════════════════════════════════════════ */
 .form-group {
     margin-bottom: 1.5rem;
 }
@@ -94,12 +225,12 @@ body {
 .form-control {
     width: 100%;
     padding: 0.875rem 1rem;
-    background: rgba(15, 23, 42, 0.6);
+    background: var(--input-bg);
     border: 1px solid var(--border);
     border-radius: 12px;
     color: var(--text-main);
     font-size: 1rem;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.3s;
 }
 
 .form-control:focus {
@@ -109,12 +240,12 @@ body {
 }
 
 .form-control:read-only {
-    background: rgba(15, 23, 42, 0.4);
+    background: var(--input-bg-light);
     opacity: 0.85;
 }
 
 .form-control:disabled {
-    background: rgba(15, 23, 42, 0.4);
+    background: var(--input-bg-light);
     opacity: 0.85;
     cursor: not-allowed !important;
 }
@@ -128,7 +259,7 @@ select.form-control {
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    background-color: rgba(15, 23, 42, 0.6);
+    background-color: var(--input-bg);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.75rem center;
@@ -158,7 +289,7 @@ select.form-control:disabled {
 .select-wrapper select.form-control {
     width: 100%;
     padding-right: 2.2rem !important;
-    background-image: none !important; /* El botón .select-arrow-btn provee la flecha */
+    background-image: none !important;
 }
 
 .select-arrow-btn {
@@ -167,10 +298,10 @@ select.form-control:disabled {
     top: 5px;
     bottom: 5px;
     width: 24px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--arrow-btn-bg);
+    border: 1px solid var(--arrow-btn-border);
     border-radius: 4px;
-    color: #94a3b8;
+    color: var(--spin-color);
     font-size: 0.65rem;
     display: flex;
     align-items: center;
@@ -189,7 +320,7 @@ select.form-control:disabled {
 
 .select-wrapper select:disabled + .select-arrow-btn {
     opacity: 0.4;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--input-bg-light);
 }
 
 .btn-primary {
@@ -229,7 +360,9 @@ select.form-control:disabled {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Dashboard / App Layout */
+/* ══════════════════════════════════════════════════════════════════
+   DASHBOARD / APP LAYOUT
+   ══════════════════════════════════════════════════════════════════ */
 .app-container {
     display: flex;
     min-height: 100vh;
@@ -238,10 +371,10 @@ select.form-control:disabled {
 .sidebar {
     width: 260px;
     min-width: 260px;
-    background: var(--bg-card);
+    background: var(--sidebar-bg);
     border-right: 1px solid var(--border);
     padding: 1.25rem 1rem;
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease, background 0.35s, border-color 0.35s;
     overflow: hidden;
     position: relative;
     display: flex;
@@ -318,6 +451,10 @@ select.form-control:disabled {
     flex-shrink: 0;
 }
 
+[data-theme="light"] .sidebar-toggle {
+    background: rgba(100, 116, 139, 0.1);
+}
+
 .sidebar-toggle:hover {
     background: rgba(59, 130, 246, 0.15);
     color: var(--primary);
@@ -364,10 +501,19 @@ select.form-control:disabled {
     color: #e2e8f0;
 }
 
+[data-theme="light"] .sidebar .nav-link:hover {
+    background: rgba(37, 99, 235, 0.07);
+    color: var(--primary);
+}
+
 .sidebar .nav-link.active {
     background: rgba(59, 130, 246, 0.12);
     color: var(--primary);
     font-weight: 600;
+}
+
+[data-theme="light"] .sidebar .nav-link.active {
+    background: rgba(37, 99, 235, 0.1);
 }
 
 .sidebar .nav-link .nav-icon {
@@ -441,8 +587,12 @@ select.form-control:disabled {
 }
 
 .submenu a:hover {
-    color: #60a5fa;
+    color: var(--submenu-hover-color);
     background: rgba(59, 130, 246, 0.06);
+}
+
+[data-theme="light"] .submenu a:hover {
+    background: rgba(37, 99, 235, 0.06);
 }
 
 .submenu a.active {
@@ -474,6 +624,14 @@ select.form-control:disabled {
     color: #fca5a5;
 }
 
+[data-theme="light"] .sidebar .nav-link-logout {
+    color: #ef4444;
+}
+[data-theme="light"] .sidebar .nav-link-logout:hover {
+    background: rgba(239, 68, 68, 0.08);
+    color: #dc2626;
+}
+
 .main-content {
     flex: 1;
     padding: 2rem 3rem;
@@ -481,7 +639,9 @@ select.form-control:disabled {
     min-width: 0;
 }
 
-/* Custom styled number input spinners */
+/* ══════════════════════════════════════════════════════════════════
+   CUSTOM NUMBER INPUT SPINNERS
+   ══════════════════════════════════════════════════════════════════ */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
     -webkit-appearance: none;
@@ -516,10 +676,10 @@ input[type=number] {
 
 .spin-btn {
     flex: 1;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--spin-bg);
+    border: 1px solid var(--spin-border);
     border-radius: 4px;
-    color: #94a3b8;
+    color: var(--spin-color);
     font-size: 0.65rem;
     cursor: pointer;
     display: flex;
@@ -542,11 +702,13 @@ input[type=number] {
     background: rgba(59, 130, 246, 0.5);
 }
 
-/* Modales Globales */
+/* ══════════════════════════════════════════════════════════════════
+   MODALES GLOBALES
+   ══════════════════════════════════════════════════════════════════ */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(15, 23, 42, 0.75);
+    background: var(--modal-overlay-bg);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     display: none;
@@ -560,8 +722,8 @@ input[type=number] {
 }
 
 .modal-box {
-    background: #1e293b;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--modal-bg);
+    border: 1px solid var(--modal-border);
     border-radius: 20px;
     padding: 2rem;
     width: 100%;
@@ -570,8 +732,11 @@ input[type=number] {
     animation: modalSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+[data-theme="light"] .modal-box {
+    box-shadow: 0 25px 50px -12px rgba(100, 116, 139, 0.2);
+}
+
 @keyframes modalSlide {
     from { opacity: 0; transform: scale(0.95) translateY(10px); }
     to { opacity: 1; transform: scale(1) translateY(0); }
 }
-

@@ -1,6 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 
-:root {
+/* --- Tema OSCURO (por defecto) --------------------------------- */
+:root,
+[data-theme="dark"] {
     --pos-bg: #0b0f19;
     --pos-surface: #111827;
     --pos-surface-card: rgba(17, 24, 39, 0.85);
@@ -21,7 +23,113 @@
     --pos-radius-lg: 18px;
     --pos-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
     --pos-glass: blur(14px);
+    --pos-modal-bg: #0f172a;
+    --pos-input-bg: rgba(15, 23, 42, 0.95);
+    --pos-card-bg: #1e293b;
+    --pos-modal-overlay: rgba(0, 0, 0, 0.6);
+    --pos-clock-color: #9ca3af;
+    --pos-btn-idle-bg: rgba(31, 41, 55, 0.6);
+    --pos-btn-idle-hover: #1f2937;
+    --pos-prod-card-bg: rgba(17, 24, 39, 0.5);
+    --pos-controls-bg: rgba(17, 24, 39, 0.5);
 }
+
+/* --- Tema CLARO ------------------------------------------------- */
+[data-theme="light"] {
+    --pos-bg: #f0f4f8;
+    --pos-surface: #ffffff;
+    --pos-surface-card: rgba(255, 255, 255, 0.9);
+    --pos-surface-hover: #f1f5f9;
+    --pos-border: rgba(100, 116, 139, 0.18);
+    --pos-border-focus: #2563eb;
+    --pos-text: #1e293b;
+    --pos-text-muted: #64748b;
+    --pos-primary: #2563eb;
+    --pos-primary-hover: #1d4ed8;
+    --pos-emerald: #059669;
+    --pos-emerald-hover: #047857;
+    --pos-amber: #d97706;
+    --pos-rose: #dc2626;
+    --pos-purple: #7c3aed;
+    --pos-cyan: #0891b2;
+    --pos-radius: 12px;
+    --pos-radius-lg: 18px;
+    --pos-shadow: 0 4px 20px rgba(100, 116, 139, 0.2), 0 2px 6px rgba(100, 116, 139, 0.12);
+    --pos-glass: blur(14px);
+    --pos-modal-bg: #f8fafc;
+    --pos-input-bg: rgba(255, 255, 255, 0.95);
+    --pos-card-bg: #ffffff;
+    --pos-modal-overlay: rgba(30, 41, 59, 0.45);
+    --pos-clock-color: #64748b;
+    --pos-btn-idle-bg: rgba(241, 245, 249, 0.8);
+    --pos-btn-idle-hover: #e2e8f0;
+    --pos-prod-card-bg: rgba(248, 250, 252, 0.8);
+    --pos-controls-bg: rgba(255, 255, 255, 0.85);
+}
+
+/* Boton tema para POS */
+.pos-theme-btn {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    width: 62px;
+    height: 28px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid var(--pos-border);
+    cursor: pointer;
+    padding: 0;
+    overflow: hidden;
+    flex-shrink: 0;
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+.pos-theme-btn:hover {
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+[data-theme="light"] .pos-theme-btn { background: rgba(100, 116, 139, 0.1); }
+.pos-theme-btn .ts-track {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0 5px;
+    pointer-events: none;
+}
+.pos-theme-btn .ts-icon { font-size: 0.8rem; line-height: 1; transition: opacity 0.3s; z-index: 1; }
+.pos-theme-btn .ts-icon.icon-sun  { opacity: 0.45; }
+.pos-theme-btn .ts-icon.icon-moon { opacity: 1; }
+.pos-theme-btn.is-light .ts-icon.icon-sun  { opacity: 1; }
+.pos-theme-btn.is-light .ts-icon.icon-moon { opacity: 0.35; }
+.pos-theme-btn.is-dark  .ts-icon.icon-sun  { opacity: 0.45; }
+.pos-theme-btn.is-dark  .ts-icon.icon-moon { opacity: 1; }
+.pos-theme-btn .ts-knob {
+    position: absolute;
+    top: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #6366f1;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.6);
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
+    left: calc(100% - 25px);
+    z-index: 2;
+}
+.pos-theme-btn.is-light .ts-knob { left: 3px; background: #f59e0b; box-shadow: 0 2px 6px rgba(245, 158, 11, 0.65); }
+.pos-theme-btn.is-dark  .ts-knob { left: calc(100% - 25px); }
+
+/* Adaptaciones POS tema claro */
+[data-theme="light"] .pos-header { background: var(--pos-surface); border-bottom-color: var(--pos-border); }
+[data-theme="light"] .pos-btn-head { background: var(--pos-btn-idle-bg); border-color: var(--pos-border); color: var(--pos-text); }
+[data-theme="light"] .pos-btn-head:hover { background: var(--pos-btn-idle-hover); color: var(--pos-text); border-color: rgba(37, 99, 235, 0.3); }
+[data-theme="light"] .pos-caja-pill { background: rgba(241, 245, 249, 0.8); border-color: var(--pos-border); color: var(--pos-text); }
+[data-theme="light"] .pos-caja-pill.abierta { border-color: rgba(5, 150, 105, 0.4); background: rgba(5, 150, 105, 0.08); color: #047857; }
+[data-theme="light"] .pos-caja-pill.cerrada { border-color: rgba(217, 119, 6, 0.4); background: rgba(217, 119, 6, 0.08); color: #b45309; }
+[data-theme="light"] .pos-clock { color: var(--pos-clock-color); }
+[data-theme="light"] .pos-catalog-panel { border-right-color: var(--pos-border); background: none; }
+[data-theme="light"] .pos-catalog-controls { background: var(--pos-controls-bg); border-bottom-color: var(--pos-border); }
+[data-theme="light"] .pos-quick-entry-card { background: var(--pos-surface); border-color: var(--pos-border); }
+[data-theme="light"] .pos-right-panel { background: var(--pos-surface); border-left-color: var(--pos-border); }
 
 * {
     margin: 0;

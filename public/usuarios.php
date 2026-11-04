@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../src/config/Database.php';
 require_once __DIR__ . '/../src/modules/auth/Usuario.php';
 require_once __DIR__ . '/../src/modules/auth/AuthService.php';
@@ -96,6 +96,7 @@ $usuarios = $usuarioModel->obtenerTodos();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Usuarios | Lavandería</title>
     <link rel="stylesheet" href="css/index.css">
+    <script src="js/theme.js"></script>
     <style>
         .table { width: 100%; border-collapse: collapse; margin-top: 2rem; color: var(--text-main); }
         .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border); }
