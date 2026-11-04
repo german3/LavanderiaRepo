@@ -64,6 +64,538 @@ $isAdmin  = $auth->isPosAdmin();
             box-sizing: border-box;
             cursor: pointer;
         }
+            /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           DISEÃ‘O CLARO REFINADO PARA EL POS (Alta Legibilidad y Contraste)
+           â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        [data-theme="light"] {
+            --pos-bg: #eef2f7;
+            --pos-surface: #ffffff;
+            --pos-surface-card: #ffffff;
+            --pos-surface-hover: #f1f5f9;
+            --pos-border: #cbd5e1;
+            --pos-border-focus: #2563eb;
+            --pos-text: #0f172a;
+            --pos-text-muted: #64748b;
+            --pos-primary: #2563eb;
+            --pos-primary-hover: #1d4ed8;
+            --pos-emerald: #059669;
+            --pos-emerald-hover: #047857;
+            --pos-amber: #d97706;
+            --pos-rose: #dc2626;
+            --pos-purple: #7c3aed;
+            --pos-cyan: #0891b2;
+        }
+
+        [data-theme="light"] body {
+            background-color: #eef2f7 !important;
+            color: #0f172a !important;
+        }
+
+        /* â”€â”€ Header Top Bar â”€â”€ */
+        [data-theme="light"] .pos-header {
+            background: #ffffff !important;
+            border-bottom: 1px solid #cbd5e1 !important;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+        }
+        [data-theme="light"] .pos-brand {
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-brand h1 {
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-logo {
+            border-color: #cbd5e1 !important;
+        }
+        [data-theme="light"] .pos-btn-head {
+            background: #f1f5f9 !important;
+            border-color: #cbd5e1 !important;
+            color: #1e293b !important;
+        }
+        [data-theme="light"] .pos-btn-head:hover {
+            background: #e2e8f0 !important;
+            color: #0f172a !important;
+            border-color: #94a3b8 !important;
+        }
+        [data-theme="light"] .pos-btn-head.pos-user-badge,
+        [data-theme="light"] .pos-user-badge {
+            background: #f1f5f9 !important;
+            border-color: #cbd5e1 !important;
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-user-badge strong {
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-clock {
+            background: #f8fafc !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 8px !important;
+            color: #0f172a !important;
+            font-weight: 700 !important;
+        }
+        [data-theme="light"] .pos-caja-pill.abierta {
+            background: #ecfdf5 !important;
+            border-color: #a7f3d0 !important;
+            color: #065f46 !important;
+        }
+        [data-theme="light"] .pos-caja-pill.cerrada {
+            background: #fffbeb !important;
+            border-color: #fde68a !important;
+            color: #92400e !important;
+        }
+
+        /* â”€â”€ CatÃ¡logo y Panel Izquierdo â”€â”€ */
+        [data-theme="light"] .pos-catalog-panel {
+            background: #eef2f7 !important;
+            border-right: 1px solid #cbd5e1 !important;
+        }
+        [data-theme="light"] .pos-catalog-controls {
+            background: #ffffff !important;
+            border-bottom: 1px solid #cbd5e1 !important;
+        }
+
+        /* Panel de SelecciÃ³n RÃ¡pida */
+        [data-theme="light"] .pos-quick-entry-card {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04) !important;
+        }
+        [data-theme="light"] .pos-entry-header {
+            border-bottom: 1px solid #f1f5f9 !important;
+        }
+        [data-theme="light"] #pos-entry-title-text {
+            color: #0f172a !important;
+            font-weight: 800 !important;
+        }
+        [data-theme="light"] .pos-entry-label {
+            color: #334155 !important;
+            font-weight: 700 !important;
+        }
+        [data-theme="light"] .pos-form-input,
+        [data-theme="light"] .pos-search-input-field,
+        [data-theme="light"] #pos-cliente-search-input,
+        [data-theme="light"] #pos-search-producto-input,
+        [data-theme="light"] #pos-input-kilos {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+            font-weight: 600 !important;
+        }
+        [data-theme="light"] .pos-form-input::placeholder,
+        [data-theme="light"] .pos-search-input-field::placeholder {
+            color: #94a3b8 !important;
+        }
+        [data-theme="light"] .pos-form-input:focus,
+        [data-theme="light"] .pos-search-input-field:focus {
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+            background: #ffffff !important;
+        }
+        [data-theme="light"] .pos-unit-select,
+        [data-theme="light"] #pos-select-unidad-insumo {
+            background: #ffffff !important;
+            color: #b45309 !important;
+            border: 1px solid #f59e0b !important;
+        }
+        [data-theme="light"] .pos-search-prod-icon {
+            color: #64748b !important;
+        }
+        [data-theme="light"] .pos-btn-clear-prod {
+            color: #94a3b8 !important;
+        }
+        [data-theme="light"] .pos-btn-clear-prod:hover {
+            color: #ef4444 !important;
+        }
+        [data-theme="light"] .pos-entry-preview-badge {
+            background: #ecfdf5 !important;
+            border: 1px solid #a7f3d0 !important;
+            color: #065f46 !important;
+        }
+
+        /* Resultados flotantes autocomplete */
+        [data-theme="light"] .pos-prod-dropdown-results {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15) !important;
+        }
+        [data-theme="light"] .pos-prod-dropdown-item {
+            border-bottom: 1px solid #f1f5f9 !important;
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-prod-dropdown-item:hover,
+        [data-theme="light"] .pos-prod-dropdown-item.active {
+            background: #f1f5f9 !important;
+        }
+
+        /* PestaÃ±as de categorÃ­a */
+        [data-theme="light"] .pos-tab {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #475569 !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+        }
+        [data-theme="light"] .pos-tab:hover {
+            background: #f8fafc !important;
+            border-color: #94a3b8 !important;
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-tab.active {
+            background: #2563eb !important;
+            border-color: #2563eb !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
+        }
+
+        /* Tarjetas de Producto en CatÃ¡logo */
+        [data-theme="light"] .pos-prod-card {
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+        }
+        [data-theme="light"] .pos-prod-card:hover {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.12) !important;
+        }
+        [data-theme="light"] .pos-prod-name {
+            color: #0f172a !important;
+            font-weight: 700 !important;
+        }
+        [data-theme="light"] .pos-prod-price {
+            color: #059669 !important;
+        }
+        [data-theme="light"] .pos-prod-stock {
+            color: #64748b !important;
+        }
+        [data-theme="light"] .pos-prod-card.pos-prod-selected {
+            background: #f0fdf4 !important;
+            border-color: #10b981 !important;
+        }
+
+        /* â”€â”€ Panel Derecho: Carrito / Ticket y Cobro â”€â”€ */
+        [data-theme="light"] .pos-cart-panel {
+            background: #ffffff !important;
+            border-left: 1px solid #cbd5e1 !important;
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.05) !important;
+        }
+        [data-theme="light"] .pos-customer-bar {
+            background: #f8fafc !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+        }
+        [data-theme="light"] .pos-cust-label {
+            color: #64748b !important;
+            font-weight: 700 !important;
+        }
+        [data-theme="light"] .pos-cust-name {
+            color: #0f172a !important;
+            font-weight: 800 !important;
+        }
+        [data-theme="light"] .pos-btn-cust {
+            background: #e0f2fe !important;
+            border: 1px solid #bae6fd !important;
+            color: #0369a1 !important;
+        }
+        [data-theme="light"] .pos-btn-cust:hover {
+            background: #bae6fd !important;
+        }
+        [data-theme="light"] .pos-cart-client-header {
+            background: #f8fafc !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+        }
+        [data-theme="light"] #pos-cart-client-name {
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-empty-cart {
+            color: #64748b !important;
+        }
+        [data-theme="light"] .pos-empty-cart svg {
+            color: #cbd5e1 !important;
+        }
+        [data-theme="light"] .pos-empty-cart p:first-of-type {
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-items-list {
+            background: #ffffff !important;
+        }
+        [data-theme="light"] .pos-cart-item {
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-cart-item:hover {
+            background: #f1f5f9 !important;
+        }
+        [data-theme="light"] .pos-item-title {
+            color: #0f172a !important;
+            font-weight: 700 !important;
+        }
+        [data-theme="light"] .pos-item-subtotal {
+            color: #0f172a !important;
+            font-weight: 800 !important;
+        }
+
+        /* Footer Carrito / Totales */
+        [data-theme="light"] .pos-cart-footer {
+            background: #f8fafc !important;
+            border-top: 1px solid #cbd5e1 !important;
+        }
+        [data-theme="light"] .pos-summary-row {
+            color: #475569 !important;
+        }
+        [data-theme="light"] .pos-summary-row strong {
+            color: #0f172a !important;
+            font-weight: 800 !important;
+        }
+        [data-theme="light"] .pos-summary-total {
+            border-top: 1px solid #e2e8f0 !important;
+        }
+        [data-theme="light"] .pos-total-label {
+            color: #0f172a !important;
+            font-weight: 800 !important;
+        }
+        [data-theme="light"] .pos-total-amount,
+        [data-theme="light"] #pos-total-display {
+            color: #059669 !important;
+            text-shadow: none !important;
+            font-weight: 900 !important;
+        }
+        [data-theme="light"] .pos-btn-pending {
+            background: #fef3c7 !important;
+            border: 1px solid #fde68a !important;
+            color: #b45309 !important;
+            font-weight: 700 !important;
+        }
+        [data-theme="light"] .pos-btn-pending:hover:not(:disabled) {
+            background: #fde68a !important;
+        }
+        [data-theme="light"] .pos-btn-clear {
+            background: #fee2e2 !important;
+            border: 1px solid #fecaca !important;
+            color: #dc2626 !important;
+            font-weight: 700 !important;
+        }
+        [data-theme="light"] .pos-btn-clear:hover {
+            background: #fecaca !important;
+        }
+
+        /* â”€â”€ MODAL DE CONTROL DE LAVADO DE CARGAS (Imagen 2) â”€â”€ */
+        [data-theme="light"] .pos-lavado-modal-card {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #0f172a !important;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.18) !important;
+        }
+        [data-theme="light"] .pos-lavado-modal-head {
+            background: #f8fafc !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+        }
+        [data-theme="light"] .pos-lavado-modal-head h3 {
+            color: #0f172a !important;
+            font-weight: 800 !important;
+        }
+        [data-theme="light"] .pos-lavado-modal-head p {
+            color: #64748b !important;
+        }
+        [data-theme="light"] .pos-lavado-quick-bar {
+            background: #f1f5f9 !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+        }
+        [data-theme="light"] .pos-lavado-quick-label {
+            color: #1e293b !important;
+            font-weight: 700 !important;
+        }
+        [data-theme="light"] .pos-lavado-select {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-lavado-select:focus {
+            border-color: #2563eb !important;
+        }
+        [data-theme="light"] .pos-lavado-kanban {
+            background: #f8fafc !important;
+        }
+        [data-theme="light"] .pos-lavado-col {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+        }
+        [data-theme="light"] .pos-lavado-col-header {
+            background: #f1f5f9 !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-lavado-col-title {
+            color: #0f172a !important;
+            font-weight: 800 !important;
+        }
+        [data-theme="light"] .pos-lavado-col-count {
+            background: #e2e8f0 !important;
+            color: #1e293b !important;
+            font-weight: 800 !important;
+        }
+        [data-theme="light"] .pos-lavado-col-search {
+            background: #f8fafc !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+        }
+        [data-theme="light"] .pos-lavado-search-input {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+        }
+        [data-theme="light"] .pos-lavado-search-input::placeholder {
+            color: #94a3b8 !important;
+        }
+        [data-theme="light"] .pos-lavado-empty {
+            color: #64748b !important;
+            font-weight: 600 !important;
+            font-size: 0.85rem !important;
+        }
+        [data-theme="light"] .pos-lavado-card {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+        }
+        [data-theme="light"] .pos-lavado-card:hover {
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1) !important;
+        }
+        [data-theme="light"] .pos-lavado-numero {
+            color: #0f172a !important;
+            font-weight: 800 !important;
+        }
+        [data-theme="light"] .pos-lavado-cliente {
+            color: #1e293b !important;
+            font-weight: 700 !important;
+        }
+        [data-theme="light"] .pos-lavado-kg {
+            color: #475569 !important;
+            font-weight: 600 !important;
+        }
+        [data-theme="light"] .pos-lavado-btn-whatsapp:disabled {
+            background: #e2e8f0 !important;
+            color: #94a3b8 !important;
+            border: 1px solid #cbd5e1 !important;
+        }
+        [data-theme="light"] .pos-lavado-no-tel {
+            color: #ef4444 !important;
+            font-weight: 700 !important;
+        }
+        [data-theme="light"] .pos-lavado-badge-entregado {
+            background: #e0e7ff !important;
+            color: #4338ca !important;
+            border: 1px solid #c7d2fe !important;
+        }
+        [data-theme="light"] #pos-lavado-last-update {
+            color: #64748b !important;
+            font-weight: 600 !important;
+        }
+
+        /* â”€â”€ Modales Generales â”€â”€ */
+        [data-theme="light"] .pos-modal-overlay {
+            background: rgba(15, 23, 42, 0.45) !important;
+            backdrop-filter: blur(6px) !important;
+        }
+        [data-theme="light"] .pos-modal-card {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #0f172a !important;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.18) !important;
+        }
+        [data-theme="light"] .pos-modal-head {
+            background: #f8fafc !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-modal-head h3 {
+            color: #0f172a !important;
+            font-weight: 800 !important;
+        }
+        [data-theme="light"] .pos-modal-close {
+            color: #64748b !important;
+        }
+        [data-theme="light"] .pos-modal-close:hover {
+            color: #ef4444 !important;
+            background: #fee2e2 !important;
+        }
+        [data-theme="light"] .pos-modal-body {
+            background: #ffffff !important;
+            color: #1e293b !important;
+        }
+        [data-theme="light"] .pos-modal-foot {
+            background: #f8fafc !important;
+            border-top: 1px solid #e2e8f0 !important;
+        }
+        [data-theme="light"] .pos-search-input,
+        [data-theme="light"] textarea.pos-search-input {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+        }
+        [data-theme="light"] .pos-search-input:focus,
+        [data-theme="light"] textarea.pos-search-input:focus {
+            border-color: #2563eb !important;
+            background: #ffffff !important;
+        }
+        [data-theme="light"] .pos-pay-opt {
+            background: #f8fafc !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #334155 !important;
+        }
+        [data-theme="light"] .pos-pay-opt:hover {
+            background: #f1f5f9 !important;
+            color: #0f172a !important;
+        }
+        [data-theme="light"] .pos-pay-opt.selected {
+            background: #eff6ff !important;
+            border-color: #2563eb !important;
+            color: #1d4ed8 !important;
+        }
+        [data-theme="light"] .pos-denom-btn {
+            background: #f1f5f9 !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #1e293b !important;
+            font-weight: 700 !important;
+        }
+        [data-theme="light"] .pos-denom-btn:hover {
+            background: #e2e8f0 !important;
+        }
+        [data-theme="light"] .pos-change-box {
+            background: #ecfdf5 !important;
+            border: 1px solid #a7f3d0 !important;
+        }
+        [data-theme="light"] .pos-change-label {
+            color: #065f46 !important;
+        }
+        [data-theme="light"] .pos-change-val {
+            color: #047857 !important;
+        }
+
+        /* Modales de ConfirmaciÃ³n y NotificaciÃ³n */
+        [data-theme="light"] #modal-logout-pos > div:last-child,
+        [data-theme="light"] #modal-backoffice-confirm > div:last-child,
+        [data-theme="light"] #modal-notificacion-pos > div:last-child,
+        [data-theme="light"] #modal-confirmacion-pos > div:last-child {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.18) !important;
+        }
+        [data-theme="light"] #modal-logout-pos h3,
+        [data-theme="light"] #modal-backoffice-confirm h3,
+        [data-theme="light"] #notif-pos-titulo,
+        [data-theme="light"] #confirm-pos-titulo {
+            color: #0f172a !important;
+        }
+        [data-theme="light"] #modal-logout-pos p,
+        [data-theme="light"] #modal-backoffice-confirm p,
+        [data-theme="light"] #notif-pos-mensaje,
+        [data-theme="light"] #confirm-pos-mensaje {
+            color: #475569 !important;
+        }
+        [data-theme="light"] #btn-logout-pos-cancel,
+        [data-theme="light"] #modal-backoffice-confirm button[onclick="cancelarIngresoBackoffice()"],
+        [data-theme="light"] #confirm-pos-btn-no {
+            background: #f1f5f9 !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #475569 !important;
+        }
     </style>
 </head>
 <body>
@@ -126,7 +658,7 @@ $isAdmin  = $auth->isPosAdmin();
             <div id="pos-clock" class="pos-clock">--:--:--</div>
 
             <!-- Cajero en turno -->
-            <div class="pos-btn-head" style="cursor:default; background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#f3f4f6;" title="Cajero autenticado en el POS">
+            <div class="pos-btn-head pos-user-badge" style="cursor:default;" title="Cajero autenticado en el POS">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                 <span><strong><?= htmlspecialchars($userName) ?></strong></span>
             </div>
