@@ -820,6 +820,28 @@ $isAdmin  = $auth->isPosAdmin();
                 </div>
             </div>
 
+            <!-- Barra de Selección Rápida DropDownList -->
+            <div class="pos-lavado-quick-bar">
+                <div class="pos-lavado-quick-item">
+                    <span class="pos-lavado-quick-label">⏳ Carga en Espera:</span>
+                    <select id="pos-select-carga-espera" class="pos-lavado-select">
+                        <option value="">-- Seleccionar Carga para Iniciar --</option>
+                    </select>
+                    <button type="button" class="pos-lavado-btn-iniciar" style="width:auto; padding:0.45rem 0.9rem; margin:0; white-space:nowrap;" onclick="POS.iniciarLavadoDesdeSelect()">
+                        🚀 Inicio de lavado
+                    </button>
+                </div>
+                <div class="pos-lavado-quick-item">
+                    <span class="pos-lavado-quick-label">⚙️ Carga en Proceso:</span>
+                    <select id="pos-select-carga-proceso" class="pos-lavado-select">
+                        <option value="">-- Seleccionar Carga para Finalizar --</option>
+                    </select>
+                    <button type="button" class="pos-lavado-btn-finalizar" style="width:auto; padding:0.45rem 0.9rem; margin:0; white-space:nowrap;" onclick="POS.finalizarLavadoDesdeSelect()">
+                        ✅ Finalizado
+                    </button>
+                </div>
+            </div>
+
             <!-- Kanban Board -->
             <div class="pos-lavado-kanban" id="pos-lavado-kanban">
                 <!-- Columna 1: En Espera -->

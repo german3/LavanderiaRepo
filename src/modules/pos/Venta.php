@@ -281,7 +281,7 @@ class Venta
                     throw new Exception("El producto con ID {$productoId} no existe.");
                 }
 
-                if ($productoInfo['tipo'] === 'SERVICIO' || $ropaKg > 0) {
+                if ($productoInfo['tipo'] === 'SERVICIO' || $productoInfo['tipo'] === 'KIT' || $ropaKg > 0) {
                     $tieneServicioLavanderia = true;
                 }
 

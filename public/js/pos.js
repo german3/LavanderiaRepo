@@ -61,6 +61,7 @@ const POS = {
             this.renderCajaStatus();
             this.renderProducts();
             this.updatePendingBadge(data.total_pendientes || 0);
+            this.updateLavadoBadge(data.total_lavado_activo || 0);
 
             // Si la caja está cerrada, sugerir abrir turno
             if (!this.caja) {
@@ -100,6 +101,26 @@ const POS = {
             badge.style.display = count > 0 ? 'inline-block' : 'none';
         }
     },
+    updateLavadoBadge(count) {
+        const badge = document.getElementById('pos-lavado-badge');
+        if (badge) {
+            badge.textContent = count;
+            badge.style.display = count > 0 ? 'inline-block' : 'none';
+        }
+    },
+
+    async actualizarBadgeLavado() {
+        try {
+            const res = await fetch('api/pos_api.php?action=cargas_activas');
+            const data = await res.json();
+            if (data.success && data.cargas) {
+                this.updateLavadoBadge(data.cargas.length);
+            }
+        } catch (e) {
+            // Silencioso
+        }
+    },
+
 
     // ─────────────────────────────────────────────────────────────
     // Renderizado de Catálogo de Productos
@@ -2401,6 +2422,7 @@ const POS = {
     async abrirModalLavado() {
         this.openModal('modal-lavado');
         await this.cargarPanelLavado();
+                        this.actualizarBadgeLavado();
         // Auto-refresh cada 60 segundos mientras el modal está abierto
         clearInterval(this._lavadoTimer);
         this._lavadoTimer = setInterval(() => {
@@ -2445,6 +2467,18 @@ const POS = {
             if (badge) {
                 badge.textContent = totalActivas;
                 badge.style.display = totalActivas > 0 ? 'inline-block' : 'none';
+            }
+
+            // Actualizar DropDownLists de selección rápida
+            const selectEspera = document.getElementById('pos-select-carga-espera');
+            if (selectEspera) {
+                selectEspera.innerHTML = '<option value="">-- Cargas en Espera (' + espera.length + ') --</option>' +
+                    espera.map(c => `<option value="${c.id}" data-numero="${c.numero_carga}">${c.numero_carga} - ${c.cliente_nombre || 'Público General'} (${parseFloat(c.ropa_kg || 0).toFixed(2)} kg)</option>`).join('');
+            }
+            const selectProceso = document.getElementById('pos-select-carga-proceso');
+            if (selectProceso) {
+                selectProceso.innerHTML = '<option value="">-- Cargas en Proceso (' + proceso.length + ') --</option>' +
+                    proceso.map(c => `<option value="${c.id}" data-numero="${c.numero_carga}">${c.numero_carga} - ${c.cliente_nombre || 'Público General'} (${parseFloat(c.ropa_kg || 0).toFixed(2)} kg)</option>`).join('');
             }
 
             // Actualizar contadores de columna
@@ -2524,6 +2558,28 @@ const POS = {
         }).join('');
     },
 
+    iniciarLavadoDesdeSelect() {
+        const sel = document.getElementById('pos-select-carga-espera');
+        if (!sel || !sel.value) {
+            alert('Por favor selecciona una carga de la lista en espera.');
+            return;
+        }
+        const opt = sel.options[sel.selectedIndex];
+        const num = opt.getAttribute('data-numero') || opt.textContent;
+        this.iniciarLavado(sel.value, num);
+    },
+
+    finalizarLavadoDesdeSelect() {
+        const sel = document.getElementById('pos-select-carga-proceso');
+        if (!sel || !sel.value) {
+            alert('Por favor selecciona una carga de la lista en proceso.');
+            return;
+        }
+        const opt = sel.options[sel.selectedIndex];
+        const num = opt.getAttribute('data-numero') || opt.textContent;
+        this.finalizarLavado(sel.value, num);
+    },
+
     iniciarLavado(cargaId, numeroCarga) {
         this.mostrarConfirmacion({
             tipo: 'warning',
@@ -2542,6 +2598,7 @@ const POS = {
                     if (data.success) {
                         this.mostrarNotificacion('success', `✅ Lavado iniciado: ${numeroCarga}`);
                         await this.cargarPanelLavado();
+                        this.actualizarBadgeLavado();
                     } else {
                         this.mostrarNotificacion('error', data.message || 'Error al iniciar lavado');
                     }
@@ -2570,6 +2627,7 @@ const POS = {
                     if (data.success) {
                         this.mostrarNotificacion('success', `🎉 Carga lista: ${numeroCarga}`);
                         await this.cargarPanelLavado();
+                        this.actualizarBadgeLavado();
                     } else {
                         this.mostrarNotificacion('error', data.message || 'Error al finalizar');
                     }

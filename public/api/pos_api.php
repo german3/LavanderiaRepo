@@ -104,7 +104,8 @@ try {
                 'clientes'          => $clientes,
                 'clients'           => $clientes,
                 'ventas_recientes'  => $ventasRecientes,
-                'total_pendientes'  => count($pendientes)
+                'total_pendientes'  => count($pendientes),
+                'total_lavado_activo' => count($cargaModel->obtenerCargasActivas())
             ]);
             break;
 
