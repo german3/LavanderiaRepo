@@ -1526,3 +1526,212 @@ input[type=number] {
     box-shadow: none !important;
     transform: none !important;
 }
+
+
+/* ═══════════════════════════════════════════════════════
+   Panel de Lavado - Kanban Board
+   ═══════════════════════════════════════════════════════ */
+
+/* Modal extra-wide */
+.pos-lavado-modal-card {
+    max-width: 980px !important;
+    width: 95vw !important;
+    max-height: 92vh;
+}
+
+.pos-lavado-modal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Kanban container */
+.pos-lavado-kanban {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    padding: 1.25rem;
+    overflow-y: auto;
+    max-height: calc(90vh - 180px);
+}
+
+@media (max-width: 800px) {
+    .pos-lavado-kanban {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Kanban columns */
+.pos-lavado-col {
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 180px;
+    overflow: hidden;
+}
+
+.pos-lavado-col-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--pos-border);
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.pos-lavado-col-espera   { border-top: 3px solid #f59e0b; }
+.pos-lavado-col-proceso  { border-top: 3px solid #3b82f6; }
+.pos-lavado-col-finalizado { border-top: 3px solid #10b981; }
+
+.pos-lavado-col-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+    animation: pos-dot-pulse-anim 2s ease-in-out infinite;
+}
+.pos-lavado-dot-espera    { background: #f59e0b; }
+.pos-lavado-dot-proceso   { background: #3b82f6; animation-play-state: running; }
+.pos-lavado-dot-finalizado { background: #10b981; animation-play-state: paused; }
+
+@keyframes pos-dot-pulse-anim {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.pos-lavado-col-title { flex: 1; }
+
+.pos-lavado-col-count {
+    background: rgba(255,255,255,0.1);
+    border-radius: 999px;
+    padding: 0.1rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    min-width: 24px;
+    text-align: center;
+}
+
+.pos-lavado-col-body {
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Cards */
+.pos-lavado-card {
+    background: rgba(30, 41, 59, 0.9);
+    border-radius: 10px;
+    padding: 0.85rem;
+    border: 1px solid var(--pos-border);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.pos-lavado-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+.pos-lavado-card-espera    { border-left: 4px solid #f59e0b; }
+.pos-lavado-card-proceso   { border-left: 4px solid #3b82f6; }
+.pos-lavado-card-finalizado { border-left: 4px solid #10b981; opacity: 0.85; }
+
+.pos-lavado-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+}
+
+.pos-lavado-numero {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: #e0f2fe;
+}
+
+.pos-lavado-cliente {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pos-lavado-kg {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    margin-bottom: 0.25rem;
+}
+
+.pos-lavado-pago {
+    font-size: 0.72rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Action buttons */
+.pos-lavado-btn-iniciar {
+    width: 100%;
+    padding: 0.55rem 1rem;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 0.3rem;
+}
+.pos-lavado-btn-iniciar:hover {
+    background: linear-gradient(135deg, #d97706, #b45309);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.pos-lavado-btn-finalizar {
+    width: 100%;
+    padding: 0.55rem 1rem;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 0.3rem;
+}
+.pos-lavado-btn-finalizar:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+/* Loading / empty */
+.pos-lavado-loading {
+    text-align: center;
+    color: var(--pos-text-muted);
+    font-size: 0.8rem;
+    padding: 1.5rem 0;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+.pos-lavado-empty {
+    text-align: center;
+    color: var(--pos-text-muted);
+    font-size: 0.8rem;
+    padding: 1.5rem 0;
+    font-style: italic;
+}
+
+/* Badge on header button */
+.pos-btn-lavado-head {
+    position: relative;
+}

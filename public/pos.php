@@ -93,7 +93,14 @@ $isAdmin  = $auth->isPosAdmin();
                 <span id="pos-pendientes-count" class="pos-badge-count" style="display:none;">0</span>
             </button>
 
-            <!-- Botón Corte de Caja -->
+            <!-- Botón Panel de Lavado de Cargas -->
+            <button class="pos-btn-head pos-btn-lavado-head" id="pos-btn-lavado-head" onclick="POS.abrirModalLavado()" title="Panel de seguimiento de lavado de cargas">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                <span>Lavado</span>
+                <span id="pos-lavado-badge" class="pos-badge-count" style="display:none; background:#3b82f6;">0</span>
+            </button>
+
+                        <!-- Botón Corte de Caja -->
             <button class="pos-btn-head" onclick="POS.abrirModalCorte()" title="Arqueo y Cierre de Turno (F9)">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M12 8v8m-4-4h8"/></svg>
                 <span>Corte de Caja</span>
@@ -791,6 +798,75 @@ $isAdmin  = $auth->isPosAdmin();
         history.pushState(null, document.title, location.href);
     });
     </script>
+
+    <!-- ═════════════════════════════════════════════════════════════
+         MODAL LAVADO: Panel Kanban de Seguimiento de Cargas
+         ═════════════════════════════════════════════════════════════ -->
+    <div id="modal-lavado" class="pos-modal-overlay">
+        <div class="pos-modal-card pos-lavado-modal-card">
+            <div class="pos-modal-head pos-lavado-modal-head">
+                <div style="display:flex;align-items:center;gap:0.75rem;">
+                    <svg style="width:22px;height:22px;color:#38bdf8;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                    <div>
+                        <h3 style="margin:0;font-size:1.05rem;">🧺 Control de Lavado de Cargas</h3>
+                        <p style="margin:0;font-size:0.72rem;color:var(--pos-text-muted);">Seguimiento en tiempo real del proceso de lavandería</p>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <button class="pos-btn-clear" style="padding:0.4rem 0.8rem;font-size:0.8rem;" onclick="POS.cargarPanelLavado()" title="Actualizar">
+                        🔄 Actualizar
+                    </button>
+                    <button class="pos-modal-close" onclick="POS.closeModal('modal-lavado')">✕</button>
+                </div>
+            </div>
+
+            <!-- Kanban Board -->
+            <div class="pos-lavado-kanban" id="pos-lavado-kanban">
+                <!-- Columna 1: En Espera -->
+                <div class="pos-lavado-col pos-lavado-col-espera">
+                    <div class="pos-lavado-col-header">
+                        <span class="pos-lavado-col-dot pos-lavado-dot-espera"></span>
+                        <span class="pos-lavado-col-title">⏳ En Espera</span>
+                        <span class="pos-lavado-col-count" id="count-espera">0</span>
+                    </div>
+                    <div class="pos-lavado-col-body" id="col-espera">
+                        <div class="pos-lavado-empty">Sin cargas en espera</div>
+                    </div>
+                </div>
+
+                <!-- Columna 2: En Proceso -->
+                <div class="pos-lavado-col pos-lavado-col-proceso">
+                    <div class="pos-lavado-col-header">
+                        <span class="pos-lavado-col-dot pos-lavado-dot-proceso"></span>
+                        <span class="pos-lavado-col-title">⚙️ En Proceso</span>
+                        <span class="pos-lavado-col-count" id="count-proceso">0</span>
+                    </div>
+                    <div class="pos-lavado-col-body" id="col-proceso">
+                        <div class="pos-lavado-empty">Sin cargas en proceso</div>
+                    </div>
+                </div>
+
+                <!-- Columna 3: Finalizados recientes -->
+                <div class="pos-lavado-col pos-lavado-col-finalizado">
+                    <div class="pos-lavado-col-header">
+                        <span class="pos-lavado-col-dot pos-lavado-dot-finalizado"></span>
+                        <span class="pos-lavado-col-title">✅ Finalizados Hoy</span>
+                        <span class="pos-lavado-col-count" id="count-finalizado">0</span>
+                    </div>
+                    <div class="pos-lavado-col-body" id="col-finalizado">
+                        <div class="pos-lavado-empty">Sin cargas finalizadas hoy</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pos-modal-foot" style="justify-content:space-between;align-items:center;">
+                <span style="font-size:0.75rem;color:var(--pos-text-muted);" id="pos-lavado-last-update">
+                    Presiona Actualizar para cargar datos
+                </span>
+                <button class="pos-btn-clear" onclick="POS.closeModal('modal-lavado')">Cerrar</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="js/pos.js"></script>

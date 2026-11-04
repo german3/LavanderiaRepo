@@ -19,6 +19,7 @@ use App\Modules\Catalog\Producto;
 use App\Modules\Customers\Cliente;
 use App\Modules\Pos\Venta;
 use App\Modules\Pos\CajaCorte;
+use App\Modules\Laundry\Carga;
 
 $db = (new Database())->getConnection();
 $auth = new AuthService($db);
@@ -36,6 +37,7 @@ $currentUserRole = $_SESSION['pos_rol'] ?? $_SESSION['rol'] ?? 'EMPLEADO_CAJERO'
 $isAdmin = $auth->isPosAdmin() || $auth->isAdmin();
 
 $ventaModel = new Venta($db);
+$cargaModel  = new Carga($db);
 $cajaModel = new CajaCorte($db);
 $clienteModel = new Cliente($db);
 
@@ -356,6 +358,68 @@ try {
         case 'ventas_recientes':
             $ventas = $ventaModel->obtenerVentasRecientes(50);
             echo json_encode(['success' => true, 'ventas' => $ventas]);
+            break;
+
+
+        // ─────────────────────────────────────────────────────────────
+        // 13. Cargas activas para el panel de lavado
+        // ─────────────────────────────────────────────────────────────
+        case 'cargas_activas':
+            $cargas = $cargaModel->obtenerCargasActivas();
+            echo json_encode(['success' => true, 'cargas' => $cargas]);
+            break;
+
+        // ─────────────────────────────────────────────────────────────
+        // 14. Iniciar lavado de una carga (RECIBIDA → EN_PROCESO)
+        // ─────────────────────────────────────────────────────────────
+        case 'iniciar_lavado':
+            $cargaId = trim($_POST['carga_id'] ?? '');
+            if (!$cargaId) {
+                echo json_encode(['success' => false, 'message' => 'ID de carga requerido.']);
+                exit;
+            }
+            $ok = $cargaModel->iniciarLavado($cargaId, $currentUserId);
+            echo json_encode([
+                'success' => $ok,
+                'message' => $ok ? 'Lavado iniciado correctamente.' : 'No se pudo iniciar. Verifica que la carga esté en estado RECIBIDA.'
+            ]);
+            break;
+
+        // ─────────────────────────────────────────────────────────────
+        // 15. Finalizar lavado (EN_PROCESO → LISTA_CONCLUIDA)
+        // ─────────────────────────────────────────────────────────────
+        case 'finalizar_carga':
+            $cargaId = trim($_POST['carga_id'] ?? '');
+            if (!$cargaId) {
+                echo json_encode(['success' => false, 'message' => 'ID de carga requerido.']);
+                exit;
+            }
+            $ok = $cargaModel->finalizarCarga($cargaId, $currentUserId);
+            echo json_encode([
+                'success' => $ok,
+                'message' => $ok ? 'Carga marcada como Finalizada (Lista).' : 'No se pudo finalizar. Verifica que esté EN PROCESO.'
+            ]);
+            break;
+
+
+        // ─────────────────────────────────────────────────────────────
+        // 16. Cargas finalizadas hoy
+        // ─────────────────────────────────────────────────────────────
+        case 'cargas_finalizadas_hoy':
+            $stmt = $db->prepare(
+                "SELECT cg.*, 
+                        c.nombre AS cliente_nombre,
+                        u.nombre AS cajero_nombre
+                 FROM cargas cg
+                 LEFT JOIN clientes c ON cg.cliente_id = c.id
+                 LEFT JOIN usuarios u ON cg.usuario_registro_id = u.id
+                 WHERE cg.estado = 'LISTA_CONCLUIDA'
+                   AND DATE(cg.fecha_conclusion) = CURDATE()
+                 ORDER BY cg.fecha_conclusion DESC"
+            );
+            $stmt->execute();
+            $hoy = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['success' => true, 'cargas' => $hoy]);
             break;
 
         default:

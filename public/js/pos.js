@@ -2395,7 +2395,192 @@ const POS = {
     // ─────────────────────────────────────────────────────────────
     // Manejo de Modales
     // ─────────────────────────────────────────────────────────────
-    openModal(id) {
+    // ─────────────────────────────────────────────────────────────
+    // Panel de Seguimiento de Lavado de Cargas
+    // ─────────────────────────────────────────────────────────────
+    async abrirModalLavado() {
+        this.openModal('modal-lavado');
+        await this.cargarPanelLavado();
+        // Auto-refresh cada 60 segundos mientras el modal está abierto
+        clearInterval(this._lavadoTimer);
+        this._lavadoTimer = setInterval(() => {
+            if (document.getElementById('modal-lavado').classList.contains('active')) {
+                this.cargarPanelLavado();
+            }
+        }, 60000);
+    },
+
+    async cargarPanelLavado() {
+        const colEspera     = document.getElementById('col-espera');
+        const colProceso    = document.getElementById('col-proceso');
+        const colFinalizado = document.getElementById('col-finalizado');
+        const lastUpdate    = document.getElementById('pos-lavado-last-update');
+        const badge         = document.getElementById('pos-lavado-badge');
+
+        if (!colEspera) return;
+
+        // Loading state
+        [colEspera, colProceso, colFinalizado].forEach(col => {
+            if (col) col.innerHTML = '<div class="pos-lavado-loading">Cargando...</div>';
+        });
+
+        try {
+            // Cargas activas (RECIBIDA + EN_PROCESO)
+            const res = await fetch('api/pos_api.php?action=cargas_activas');
+            const data = await res.json();
+
+            if (!data.success) throw new Error(data.message || 'Error al cargar');
+
+            const cargas = data.cargas || [];
+            const espera   = cargas.filter(c => c.estado === 'RECIBIDA');
+            const proceso  = cargas.filter(c => c.estado === 'EN_PROCESO');
+
+            // Cargas finalizadas hoy (LISTA_CONCLUIDA del día de hoy)
+            const resHoy = await fetch('api/pos_api.php?action=cargas_finalizadas_hoy');
+            const dataHoy = await resHoy.json();
+            const finalizadas = (dataHoy.success && dataHoy.cargas) ? dataHoy.cargas : [];
+
+            // Actualizar badges
+            const totalActivas = espera.length + proceso.length;
+            if (badge) {
+                badge.textContent = totalActivas;
+                badge.style.display = totalActivas > 0 ? 'inline-block' : 'none';
+            }
+
+            // Actualizar contadores de columna
+            document.getElementById('count-espera').textContent     = espera.length;
+            document.getElementById('count-proceso').textContent    = proceso.length;
+            document.getElementById('count-finalizado').textContent = finalizadas.length;
+
+            // Renderizar columnas
+            colEspera.innerHTML   = this._renderCargaCards(espera, 'espera');
+            colProceso.innerHTML  = this._renderCargaCards(proceso, 'proceso');
+            colFinalizado.innerHTML = this._renderCargaCards(finalizadas, 'finalizado');
+
+            if (lastUpdate) {
+                const now = new Date().toLocaleTimeString('es-MX', { hour12: false });
+                lastUpdate.textContent = `Última actualización: ${now}`;
+            }
+
+        } catch (err) {
+            console.error(err);
+            [colEspera, colProceso, colFinalizado].forEach(col => {
+                if (col) col.innerHTML = '<div class="pos-lavado-empty" style="color:#ef4444;">Error al cargar datos</div>';
+            });
+        }
+    },
+
+    _renderCargaCards(cargas, tipo) {
+        if (!cargas || cargas.length === 0) {
+            const labels = {
+                espera: 'Sin cargas en espera',
+                proceso: 'Sin cargas en proceso',
+                finalizado: 'Sin cargas finalizadas hoy'
+            };
+            return `<div class="pos-lavado-empty">${labels[tipo] || 'Vacío'}</div>`;
+        }
+
+        return cargas.map(c => {
+            const clienteNombre = this.escapeHtml(c.cliente_nombre || 'Público General');
+            const numCarga = this.escapeHtml(c.numero_carga);
+            const kg = parseFloat(c.ropa_kg || 0).toFixed(2);
+            const fecha = c.fecha_recepcion ? c.fecha_recepcion.substring(0, 16) : '';
+            const fechaInicio = c.fecha_inicio_lavado ? c.fecha_inicio_lavado.substring(0, 16) : null;
+            const pago = c.estado_pago === 'PAGADO'
+                ? '<span style="color:#10b981;font-weight:700;">✅ PAGADO</span>'
+                : '<span style="color:#f59e0b;font-weight:700;">⏳ PENDIENTE</span>';
+
+            let accionBtn = '';
+            if (tipo === 'espera') {
+                accionBtn = `
+                    <button class="pos-lavado-btn-iniciar" onclick="POS.iniciarLavado('${this.escapeHtml(c.id)}', '${numCarga}')">
+                        🚀 Inicio de Lavado
+                    </button>`;
+            } else if (tipo === 'proceso') {
+                const tiempoInicio = fechaInicio
+                    ? `<div style="font-size:0.65rem;color:#94a3b8;margin-bottom:0.3rem;">Iniciado: ${fechaInicio}</div>`
+                    : '';
+                accionBtn = `
+                    ${tiempoInicio}
+                    <button class="pos-lavado-btn-finalizar" onclick="POS.finalizarLavado('${this.escapeHtml(c.id)}', '${numCarga}')">
+                        ✅ Finalizado
+                    </button>`;
+            } else if (tipo === 'finalizado') {
+                const fechaFin = c.fecha_conclusion ? c.fecha_conclusion.substring(0, 16) : '';
+                accionBtn = `<div style="font-size:0.68rem;color:#6ee7b7;margin-top:0.3rem;">Lista desde: ${fechaFin}</div>`;
+            }
+
+            return `
+            <div class="pos-lavado-card pos-lavado-card-${tipo}">
+                <div class="pos-lavado-card-header">
+                    <span class="pos-lavado-numero">${numCarga}</span>
+                    <span style="font-size:0.68rem;color:var(--pos-text-muted);">${fecha}</span>
+                </div>
+                <div class="pos-lavado-cliente">👤 ${clienteNombre}</div>
+                ${kg > 0 ? `<div class="pos-lavado-kg">⚖️ ${kg} kg de ropa</div>` : ''}
+                <div class="pos-lavado-pago">${pago}</div>
+                ${accionBtn}
+            </div>`;
+        }).join('');
+    },
+
+    iniciarLavado(cargaId, numeroCarga) {
+        this.mostrarConfirmacion({
+            tipo: 'warning',
+            titulo: '🚀 Iniciar Lavado',
+            mensaje: `¿Confirmas el inicio del proceso de lavado para la carga ${numeroCarga}?`,
+            btnConfirmar: 'Sí, Iniciar Lavado',
+            colorConfirmar: '#f59e0b',
+            onConfirm: async () => {
+                try {
+                    const res = await fetch('api/pos_api.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'iniciar_lavado', carga_id: cargaId })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.mostrarNotificacion('success', `✅ Lavado iniciado: ${numeroCarga}`);
+                        await this.cargarPanelLavado();
+                    } else {
+                        this.mostrarNotificacion('error', data.message || 'Error al iniciar lavado');
+                    }
+                } catch (e) {
+                    this.mostrarNotificacion('error', 'Error de conexión');
+                }
+            }
+        });
+    },
+
+    finalizarLavado(cargaId, numeroCarga) {
+        this.mostrarConfirmacion({
+            tipo: 'info',
+            titulo: '✅ Finalizar Carga',
+            mensaje: `¿Confirmas que la carga ${numeroCarga} está lista para entrega?`,
+            btnConfirmar: 'Sí, Marcar como Lista',
+            colorConfirmar: '#10b981',
+            onConfirm: async () => {
+                try {
+                    const res = await fetch('api/pos_api.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'finalizar_carga', carga_id: cargaId })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.mostrarNotificacion('success', `🎉 Carga lista: ${numeroCarga}`);
+                        await this.cargarPanelLavado();
+                    } else {
+                        this.mostrarNotificacion('error', data.message || 'Error al finalizar');
+                    }
+                } catch (e) {
+                    this.mostrarNotificacion('error', 'Error de conexión');
+                }
+            }
+        });
+    },
+
+        openModal(id) {
         const modal = document.getElementById(id);
         if (modal) {
             modal.classList.add('active');

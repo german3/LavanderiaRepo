@@ -41,14 +41,16 @@ class Carga
             numero_carga          VARCHAR(50) NOT NULL UNIQUE,
             venta_id              VARCHAR(36) NOT NULL,
             cliente_id            VARCHAR(36) NULL,
-            estado                ENUM('RECIBIDA', 'LISTA_CONCLUIDA', 'ENTREGADA', 'CANCELADA') NOT NULL DEFAULT 'RECIBIDA',
+            estado                ENUM('RECIBIDA','EN_PROCESO','LISTA_CONCLUIDA','ENTREGADA','CANCELADA') NOT NULL DEFAULT 'RECIBIDA',
             estado_pago           ENUM('PENDIENTE', 'PAGADO') NOT NULL DEFAULT 'PAGADO',
             total                 DECIMAL(12,2) NOT NULL DEFAULT 0.00,
             ropa_kg               DECIMAL(10,2) NOT NULL DEFAULT 0.00,
             fecha_recepcion       DATETIME DEFAULT CURRENT_TIMESTAMP,
+            fecha_inicio_lavado   DATETIME NULL,
             fecha_conclusion      DATETIME NULL,
             fecha_entrega         DATETIME NULL,
             usuario_registro_id   VARCHAR(36) NOT NULL,
+            usuario_inicio_lavado_id VARCHAR(36) NULL,
             usuario_conclusion_id VARCHAR(36) NULL,
             observaciones         TEXT NULL,
             INDEX (venta_id),
@@ -64,14 +66,16 @@ class Carga
             numero_carga          VARCHAR(50) NOT NULL UNIQUE,
             venta_id              VARCHAR(36) NOT NULL,
             cliente_id            VARCHAR(36) NULL,
-            estado                ENUM('RECIBIDA', 'LISTA_CONCLUIDA', 'ENTREGADA', 'CANCELADA') NOT NULL DEFAULT 'RECIBIDA',
+            estado                ENUM('RECIBIDA','EN_PROCESO','LISTA_CONCLUIDA','ENTREGADA','CANCELADA') NOT NULL DEFAULT 'RECIBIDA',
             estado_pago           ENUM('PENDIENTE', 'PAGADO') NOT NULL DEFAULT 'PAGADO',
             total                 DECIMAL(12,2) NOT NULL DEFAULT 0.00,
             ropa_kg               DECIMAL(10,2) NOT NULL DEFAULT 0.00,
             fecha_recepcion       DATETIME DEFAULT CURRENT_TIMESTAMP,
+            fecha_inicio_lavado   DATETIME NULL,
             fecha_conclusion      DATETIME NULL,
             fecha_entrega         DATETIME NULL,
             usuario_registro_id   VARCHAR(36) NOT NULL,
+            usuario_inicio_lavado_id VARCHAR(36) NULL,
             usuario_conclusion_id VARCHAR(36) NULL,
             observaciones         TEXT NULL,
             INDEX (venta_id),
@@ -89,6 +93,16 @@ class Carga
             } catch (\Throwable $e2) {
                 error_log("Carga::asegurarTabla (sin FK falló): " . $e2->getMessage());
             }
+        }
+
+        // Migraciones incrementales
+        $migraciones = [
+            "ALTER TABLE cargas MODIFY COLUMN estado ENUM('RECIBIDA','EN_PROCESO','LISTA_CONCLUIDA','ENTREGADA','CANCELADA') NOT NULL DEFAULT 'RECIBIDA'",
+            "ALTER TABLE cargas ADD COLUMN fecha_inicio_lavado DATETIME NULL AFTER fecha_recepcion",
+            "ALTER TABLE cargas ADD COLUMN usuario_inicio_lavado_id VARCHAR(36) NULL AFTER usuario_registro_id",
+        ];
+        foreach ($migraciones as $m) {
+            try { $this->conn->exec($m); } catch (\Throwable $e) { /* ya existe */ }
         }
 
         try {
@@ -165,4 +179,78 @@ class Carga
         $stmt = $this->conn->prepare("UPDATE cargas SET estado = 'CANCELADA' WHERE venta_id = :venta_id");
         return $stmt->execute([':venta_id' => $ventaId]);
     }
+
+    // ─── Métodos de flujo de lavado ────────────────────────────
+
+    /**
+     * Retorna cargas activas agrupables para el panel de lavado:
+     * estados RECIBIDA (Espera) y EN_PROCESO.
+     */
+    public function obtenerCargasActivas(): array
+    {
+        $stmt = $this->conn->prepare(
+            "SELECT cg.*, 
+                    c.nombre AS cliente_nombre, 
+                    c.telefono AS cliente_telefono,
+                    u.nombre AS cajero_nombre,
+                    ui.nombre AS inicio_lavado_por
+             FROM cargas cg
+             LEFT JOIN clientes c ON cg.cliente_id = c.id
+             LEFT JOIN usuarios u ON cg.usuario_registro_id = u.id
+             LEFT JOIN usuarios ui ON cg.usuario_inicio_lavado_id = ui.id
+             WHERE cg.estado IN ('RECIBIDA', 'EN_PROCESO')
+             ORDER BY cg.fecha_recepcion ASC"
+        );
+        $stmt->execute();
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Cambia estado de RECIBIDA → EN_PROCESO (Inicio de Lavado).
+     */
+    public function iniciarLavado(string $cargaId, string $usuarioId): bool
+    {
+        $stmt = $this->conn->prepare(
+            "UPDATE cargas 
+             SET estado = 'EN_PROCESO', 
+                 fecha_inicio_lavado = NOW(),
+                 usuario_inicio_lavado_id = :uid
+             WHERE id = :id AND estado = 'RECIBIDA'"
+        );
+        $stmt->execute(['id' => $cargaId, ':uid' => $usuarioId]);
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
+     * Cambia estado de EN_PROCESO → LISTA_CONCLUIDA (Finalizado).
+     */
+    public function finalizarCarga(string $cargaId, string $usuarioId): bool
+    {
+        $stmt = $this->conn->prepare(
+            "UPDATE cargas 
+             SET estado = 'LISTA_CONCLUIDA',
+                 fecha_conclusion = NOW(),
+                 usuario_conclusion_id = :uid
+             WHERE id = :id AND estado = 'EN_PROCESO'"
+        );
+        $stmt->execute(['id' => $cargaId, ':uid' => $usuarioId]);
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
+     * Busca una carga por su ID.
+     */
+    public function obtenerPorId(string $cargaId): ?array
+    {
+        $stmt = $this->conn->prepare(
+            "SELECT cg.*, c.nombre AS cliente_nombre, c.telefono AS cliente_telefono
+             FROM cargas cg
+             LEFT JOIN clientes c ON cg.cliente_id = c.id
+             WHERE cg.id = :id LIMIT 1"
+        );
+        $stmt->execute([':id' => $cargaId]);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
 }
