@@ -2596,7 +2596,7 @@ const POS = {
                 accionBtn = `
                     <div style="font-size:0.68rem;color:#6ee7b7;margin-top:0.25rem;margin-bottom:0.25rem;">Lista desde: ${fechaFin}</div>
                     ${btnWspHtml}
-                    <button type="button" class="pos-lavado-btn-entregar" onclick="POS.entregarCarga('${this.escapeHtml(c.id)}', '${numCarga}', '${c.estado_pago || \'PAGADO\'}')">
+                    <button type="button" class="pos-lavado-btn-entregar" onclick="POS.entregarCarga('${this.escapeHtml(c.id)}')">
                         📦 Entregar
                     </button>
                 `;
@@ -2704,7 +2704,85 @@ const POS = {
         });
     },
 
-        notificarWhatsappCarga(cargaId) {
+        filtroFinalizados: '',
+
+    filtrarFinalizados(query) {
+        this.filtroFinalizados = query || '';
+        const clearBtn = document.getElementById('pos-search-finalizados-clear');
+        if (clearBtn) {
+            clearBtn.style.display = (query || '').trim() !== '' ? 'block' : 'none';
+        }
+        const colFinalizado = document.getElementById('col-finalizado');
+        if (!colFinalizado || !this.cargasFinalizadasHoy) return;
+
+        let visibles = this.cargasFinalizadasHoy;
+        if ((query || '').trim() !== '') {
+            const q = query.toLowerCase().trim();
+            visibles = visibles.filter(c => {
+                const cli = (c.cliente_nombre || '').toLowerCase();
+                const folio = (c.venta_folio || '').toLowerCase();
+                const num = (c.numero_carga || '').toLowerCase();
+                return cli.includes(q) || folio.includes(q) || num.includes(q);
+            });
+        }
+
+        colFinalizado.innerHTML = this._renderCargaCards(visibles, 'finalizado');
+        const countEl = document.getElementById('count-finalizado');
+        if (countEl) countEl.textContent = visibles.length;
+    },
+
+    limpiarFiltroFinalizados() {
+        const input = document.getElementById('pos-search-finalizados');
+        if (input) input.value = '';
+        this.filtrarFinalizados('');
+    },
+
+    entregarCarga(cargaId) {
+        const carga = (this.cargasFinalizadasHoy || []).find(c => c.id === cargaId);
+        if (!carga) {
+            alert('No se encontró la información de la carga.');
+            return;
+        }
+
+        const numeroCarga = carga.numero_carga || 'CRG';
+        const clienteNombre = carga.cliente_nombre || 'Público General';
+        const isPagado = carga.estado_pago === 'PAGADO';
+        const total = parseFloat(carga.total || 0).toFixed(2);
+
+        let advertenciaPago = '';
+        if (!isPagado) {
+            advertenciaPago = '<br><div style="margin-top:0.6rem; padding:0.5rem; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.35); border-radius:6px; color:#fbbf24; font-size:0.8rem; font-weight:700;">⚠️ Advertencia: Esta carga está PENDIENTE DE PAGO ($' + total + '). Verifica el cobro al entregar.</div>';
+        }
+
+        this.mostrarConfirmacion({
+            tipo: 'info',
+            titulo: '📦 Entregar Carga de Ropa',
+            mensaje: '¿Deseas marcar como <strong>Entregada</strong> la carga <strong>' + this.escapeHtml(numeroCarga) + '</strong> al cliente <strong>' + this.escapeHtml(clienteNombre) + '</strong>?' + advertenciaPago,
+            btnConfirmar: 'Sí, Entregar Carga',
+            colorConfirmar: '#3b82f6',
+            onConfirm: async () => {
+                try {
+                    const res = await fetch('api/pos_api.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'entregar_carga', carga_id: cargaId })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.mostrarNotificacion('success', 'Carga ' + numeroCarga + ' marcada como entregada.');
+                        await this.cargarPanelLavado();
+                        this.actualizarBadgeLavado();
+                    } else {
+                        this.mostrarNotificacion('error', data.message || 'Error al entregar carga');
+                    }
+                } catch (e) {
+                    this.mostrarNotificacion('error', 'Error de conexión');
+                }
+            }
+        });
+    },
+
+    notificarWhatsappCarga(cargaId) {
         const carga = (this.cargasFinalizadasHoy || []).find(c => c.id === cargaId);
         if (!carga) {
             alert('No se encontró la información de la carga.');
