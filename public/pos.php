@@ -1460,6 +1460,76 @@ $isAdmin  = $auth->isPosAdmin();
         </div>
     </div>
 
+    <!-- ═════════════════════════════════════════════════════════════
+         MODAL COBRO CARGA: Modal de pago para cargas pendientes
+         (z-index 1100 para aparecer sobre el modal de lavado)
+         ═════════════════════════════════════════════════════════════ -->
+    <div id="modal-cobro-carga" class="pos-modal-overlay pos-modal-cobro-carga-overlay">
+        <div class="pos-modal-card" style="max-width:520px;">
+            <div class="pos-modal-head">
+                <h3 id="modal-cobro-carga-titulo">💳 Cobrar y Entregar Carga</h3>
+                <button class="pos-modal-close" onclick="POS.cerrarModalCobroCarga()">✕</button>
+            </div>
+            <div class="pos-modal-body" style="gap:1rem;">
+                <!-- Total -->
+                <div style="text-align:center; padding:0.5rem 0;">
+                    <div style="font-size:0.85rem; color:var(--pos-text-muted); font-weight:600; text-transform:uppercase;">Total a Cobrar</div>
+                    <div id="carga-pay-total" style="font-size:2.8rem; font-weight:900; color:#10b981; font-family:'JetBrains Mono',monospace;">$0.00</div>
+                </div>
+
+                <!-- Alerta pago pendiente -->
+                <div style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.9rem;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);border-radius:8px;color:#fbbf24;font-size:0.82rem;font-weight:700;">
+                    ⚠️ Esta carga tiene saldo pendiente. Selecciona el método de cobro para continuar con la entrega.
+                </div>
+
+                <!-- Métodos de pago (sin PENDIENTE) -->
+                <div>
+                    <label style="font-size:0.8rem; font-weight:700; color:var(--pos-text-muted); margin-bottom:0.5rem; display:block;">Método de Pago</label>
+                    <div class="pos-pay-methods" style="grid-template-columns:repeat(3,1fr);">
+                        <div class="pos-pay-opt selected" data-carga-method="EFECTIVO" onclick="POS.setCargaPayMethod('EFECTIVO')">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
+                            <span>Efectivo</span>
+                        </div>
+                        <div class="pos-pay-opt" data-carga-method="TARJETA" onclick="POS.setCargaPayMethod('TARJETA')">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                            <span>Tarjeta</span>
+                        </div>
+                        <div class="pos-pay-opt" data-carga-method="TRANSFERENCIA" onclick="POS.setCargaPayMethod('TRANSFERENCIA')">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                            <span>Transferencia</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monto recibido (efectivo) -->
+                <div id="carga-pay-cash-details">
+                    <label style="font-size:0.8rem; font-weight:700; color:var(--pos-text-muted); margin-bottom:0.4rem; display:block;">Monto Recibido</label>
+                    <input type="number" step="0.01" id="carga-pay-received" class="pos-search-input"
+                        style="font-size:1.5rem; font-weight:800; font-family:'JetBrains Mono',monospace; text-align:center; padding:0.6rem;"
+                        oninput="POS.calcCambioCarga()">
+                    <div class="pos-denominations" style="margin-top:0.5rem;">
+                        <button class="pos-denom-btn" onclick="POS.setCargaDenom('exact')">Exacto</button>
+                        <button class="pos-denom-btn" onclick="POS.setCargaDenom(50)">$50</button>
+                        <button class="pos-denom-btn" onclick="POS.setCargaDenom(100)">$100</button>
+                        <button class="pos-denom-btn" onclick="POS.setCargaDenom(200)">$200</button>
+                        <button class="pos-denom-btn" onclick="POS.setCargaDenom(500)">$500</button>
+                        <button class="pos-denom-btn" onclick="POS.setCargaDenom(1000)">$1000</button>
+                    </div>
+                    <div class="pos-change-box" style="margin-top:0.5rem;">
+                        <span class="pos-change-label">Cambio:</span>
+                        <span id="carga-pay-change" class="pos-change-val">$0.00</span>
+                    </div>
+                </div>
+            </div>
+            <div class="pos-modal-foot">
+                <button class="pos-btn-clear" onclick="POS.cerrarModalCobroCarga()">Cancelar</button>
+                <button id="carga-pay-confirm-btn" class="pos-btn-pay" style="padding:0.75rem 1.75rem; font-size:1rem;"
+                        onclick="POS.confirmarCobroCarga()">
+                    💳 Cobrar y Entregar
+                </button>
+            </div>
+        </div>
+    </div>
     <!-- Scripts -->
     <script src="js/pos.js"></script>
 </body>

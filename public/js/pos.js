@@ -2871,65 +2871,146 @@ const POS = {
     // Abre el modal de cobro reutilizable para liquidar una carga pendiente de pago
     // La opción "Pendiente de Pago" queda deshabilitada
     abrirModalCobroParaCarga(carga) {
+        this._pendingCarga = carga;
+        this._cargaSelectedMethod = 'EFECTIVO';
+
         const total = parseFloat(carga.total || 0);
-        const cargaId = carga.id;
         const numeroCarga = carga.numero_carga || 'CRG';
 
-        // Actualizar total en el modal
-        document.getElementById('pos-pay-total-due').textContent = '$' + total.toFixed(2);
+        // Titulo
+        const titulo = document.getElementById('modal-cobro-carga-titulo');
+        if (titulo) titulo.textContent = '💳 Cobrar y Entregar Carga ' + numeroCarga;
 
-        // Deshabilitar la opción PENDIENTE y agregar tooltip
-        const optPendiente = document.querySelector('.pos-pay-opt[data-method="PENDIENTE"]');
-        if (optPendiente) {
-            optPendiente.classList.add('pos-pay-opt-disabled');
-            optPendiente.setAttribute('disabled', 'true');
-            optPendiente.onclick = null;
-            optPendiente.title = 'Esta carga ya fue registrada como pendiente. Debes cobrarla ahora.';
+        // Total
+        const totalEl = document.getElementById('carga-pay-total');
+        if (totalEl) totalEl.textContent = '$' + total.toFixed(2);
+
+        // Seleccionar EFECTIVO
+        this.setCargaPayMethod('EFECTIVO');
+
+        // Monto recibido por defecto = total
+        const inp = document.getElementById('carga-pay-received');
+        if (inp) { inp.value = total.toFixed(2); }
+        this.calcCambioCarga();
+
+        // Habilitar botón confirmar
+        const btn = document.getElementById('carga-pay-confirm-btn');
+        if (btn) btn.disabled = false;
+
+        // Abrir modal (z-index 1100, encima del modal-lavado)
+        const modal = document.getElementById('modal-cobro-carga');
+        if (modal) {
+            modal.classList.add('active');
         }
-
-        // Seleccionar EFECTIVO por defecto
-        this.setPayMethod('EFECTIVO');
-        const inputRecibido = document.getElementById('pos-pay-received');
-        inputRecibido.value = total.toFixed(2);
-        this.calcCambio();
-
-        // Cambiar el título del modal para indicar que es cobro + entrega
-        const modalHead = document.querySelector('#modal-cobro .pos-modal-head h3');
-        if (modalHead) modalHead.textContent = '💳 Cobrar y Entregar Carga ' + numeroCarga;
-
-        // Cambiar el botón confirmar para que ejecute cobro + entrega
-        const confirmBtn = document.getElementById('pos-pay-confirm-btn');
-        if (confirmBtn) {
-            confirmBtn.innerHTML = '💳 Cobrar y Entregar Carga';
-            // Guardar el handler original y reemplazar temporalmente
-            confirmBtn._originalOnclick = confirmBtn.onclick;
-            confirmBtn.onclick = null;
-            confirmBtn.addEventListener('click', this._handlerCobroCarga = async (e) => {
-                e.stopImmediatePropagation();
-                await this._procesarCobroYEntrega(cargaId, numeroCarga, total);
-            }, { once: true });
-        }
-
-        // Registrar cleanup al cerrar el modal
-        this._cobrarCargaCleanup = () => {
-            if (optPendiente) {
-                optPendiente.classList.remove('pos-pay-opt-disabled');
-                optPendiente.removeAttribute('disabled');
-                optPendiente.onclick = () => POS.setPayMethod('PENDIENTE');
-                optPendiente.title = 'Dejar ropa o venta pendiente de pago para liquidar después';
-            }
-            if (modalHead) modalHead.textContent = '💳 Procesar Cobro de Venta';
-            if (confirmBtn) {
-                confirmBtn.innerHTML = 'Confirmar Cobro e Imprimir Ticket';
-                confirmBtn.onclick = () => POS.confirmarVenta(false);
-            }
-            this._cobrarCargaCleanup = null;
-        };
-
-        this.openModal('modal-cobro');
-        setTimeout(() => { inputRecibido.focus(); inputRecibido.select(); }, 100);
+        setTimeout(() => { if (inp) { inp.focus(); inp.select(); } }, 120);
     },
 
+    cerrarModalCobroCarga() {
+        const modal = document.getElementById('modal-cobro-carga');
+        if (modal) modal.classList.remove('active');
+        this._pendingCarga = null;
+        this._cargaSelectedMethod = 'EFECTIVO';
+    },
+
+    setCargaPayMethod(method) {
+        this._cargaSelectedMethod = method;
+        document.querySelectorAll('[data-carga-method]').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.cargaMethod === method);
+        });
+        const cashDiv = document.getElementById('carga-pay-cash-details');
+        if (cashDiv) cashDiv.style.display = method === 'EFECTIVO' ? 'block' : 'none';
+        this.calcCambioCarga();
+    },
+
+    setCargaDenom(amount) {
+        const carga = this._pendingCarga;
+        const total = parseFloat(carga ? carga.total : 0);
+        const inp = document.getElementById('carga-pay-received');
+        if (!inp) return;
+        inp.value = amount === 'exact' ? total.toFixed(2) : parseFloat(amount).toFixed(2);
+        this.calcCambioCarga();
+    },
+
+    calcCambioCarga() {
+        const carga = this._pendingCarga;
+        const total = parseFloat(carga ? carga.total : 0);
+        const inp = document.getElementById('carga-pay-received');
+        const cambioEl = document.getElementById('carga-pay-change');
+        const btn = document.getElementById('carga-pay-confirm-btn');
+
+        if (this._cargaSelectedMethod === 'EFECTIVO') {
+            const recibido = parseFloat(inp ? inp.value : 0) || 0;
+            const cambio = Math.max(0, recibido - total);
+            if (cambioEl) cambioEl.textContent = '$' + cambio.toFixed(2);
+            if (btn) btn.disabled = recibido < total;
+        } else {
+            if (cambioEl) cambioEl.textContent = '$0.00';
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    async confirmarCobroCarga() {
+        const carga = this._pendingCarga;
+        if (!carga) return;
+
+        const total = parseFloat(carga.total || 0);
+        const metodo = this._cargaSelectedMethod || 'EFECTIVO';
+        const cargaId = carga.id;
+        const numeroCarga = carga.numero_carga || 'CRG';
+        const ventaId = carga.venta_id;
+
+        let montoRecibido = total;
+        if (metodo === 'EFECTIVO') {
+            const inp = document.getElementById('carga-pay-received');
+            montoRecibido = parseFloat(inp ? inp.value : total) || total;
+            if (montoRecibido < total) {
+                alert('El monto recibido ($' + montoRecibido.toFixed(2) + ') no puede ser menor al total ($' + total.toFixed(2) + ').');
+                return;
+            }
+        }
+
+        if (!ventaId) {
+            this.mostrarNotificacion('error', 'No se encontró el ID de venta para esta carga.');
+            return;
+        }
+
+        const btn = document.getElementById('carga-pay-confirm-btn');
+        if (btn) { btn.disabled = true; btn.innerHTML = 'Procesando...'; }
+
+        try {
+            // 1. Liquidar venta
+            const resCobro = await fetch('api/pos_api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'pagar_pendiente',
+                    venta_id: ventaId,
+                    metodo_pago: metodo,
+                    monto_recibido: montoRecibido
+                })
+            });
+            const dataCobro = await resCobro.json();
+
+            if (!dataCobro.success) {
+                alert(dataCobro.message || 'Error al registrar el cobro.');
+                if (btn) { btn.disabled = false; btn.innerHTML = '💳 Cobrar y Entregar'; }
+                return;
+            }
+
+            // 2. Marcar como entregada
+            this.cerrarModalCobroCarga();
+            await this._ejecutarEntregaCarga(cargaId, numeroCarga);
+
+            // 3. Mostrar ticket
+            if (dataCobro.ticket) {
+                this.mostrarTicket(dataCobro.ticket);
+            }
+        } catch (err) {
+            this.mostrarNotificacion('error', 'Error de conexión al cobrar la carga.');
+            console.error(err);
+            if (btn) { btn.disabled = false; btn.innerHTML = '💳 Cobrar y Entregar'; }
+        }
+    },
     async _procesarCobroYEntrega(cargaId, numeroCarga, total) {
         const metodo = this.selectedPayMethod;
         if (metodo === 'PENDIENTE') {
