@@ -1734,11 +1734,14 @@ input[type=number] {
    Panel de Lavado - Kanban Board
    ═══════════════════════════════════════════════════════ */
 
-/* Modal extra-wide */
+/* Modal extra-wide extendido */
 .pos-lavado-modal-card {
-    max-width: 1300px !important;
+    max-width: 96vw !important;
     width: 96vw !important;
-    max-height: 92vh;
+    height: 92vh !important;
+    max-height: 92vh !important;
+    display: flex;
+    flex-direction: column;
 }
 
 .pos-lavado-modal-head {
@@ -1747,14 +1750,141 @@ input[type=number] {
     align-items: center;
 }
 
-/* Kanban container */
-.pos-lavado-kanban {
+/* Barra de Controles y Filtros por Categoría de Lavado */
+.pos-lavado-controls-bar {
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--pos-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    background: rgba(15, 23, 42, 0.4);
+}
+
+[data-theme="light"] .pos-lavado-controls-bar {
+    background: #f8fafc;
+}
+
+/* Badge de contador dentro de las pestañas */
+.pos-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(255, 255, 255, 0.15);
+    color: currentColor;
+    margin-left: 0.35rem;
+}
+
+.pos-tab.active .pos-tab-badge {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.pos-tab-badge.badge-espera { color: #f59e0b; }
+.pos-tab-badge.badge-proceso { color: #60a5fa; }
+.pos-tab-badge.badge-finalizado { color: #34d399; }
+.pos-tab-badge.badge-entregados { color: #a5b4fc; }
+
+.pos-tab.active .pos-tab-badge.badge-espera,
+.pos-tab.active .pos-tab-badge.badge-proceso,
+.pos-tab.active .pos-tab-badge.badge-finalizado,
+.pos-tab.active .pos-tab-badge.badge-entregados {
+    color: #ffffff;
+}
+
+/* Grid Amplio de Cargas (Expandido) */
+.pos-lavado-cards-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.85rem;
-    padding: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+    gap: 1.15rem;
+    padding: 1.25rem;
     overflow-y: auto;
-    max-height: calc(90vh - 180px);
+    flex: 1;
+    min-height: 280px;
+    background: rgba(15, 23, 42, 0.3);
+}
+
+[data-theme="light"] .pos-lavado-cards-grid {
+    background: #f1f5f9;
+}
+
+/* Tarjeta de Carga Ampliada */
+.pos-lavado-card {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid var(--pos-border);
+    border-radius: 14px;
+    padding: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.pos-lavado-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.35);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="light"] .pos-lavado-card {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .pos-lavado-card:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.pos-lavado-card-espera   { border-top: 4px solid #f59e0b; }
+.pos-lavado-card-proceso  { border-top: 4px solid #3b82f6; }
+.pos-lavado-card-finalizado { border-top: 4px solid #10b981; }
+.pos-lavado-card-entregado { border-top: 4px solid #6366f1; opacity: 0.92; }
+
+/* Estado badge */
+.pos-lavado-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.pos-lavado-status-espera {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.pos-lavado-status-proceso {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.pos-lavado-status-finalizado {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.pos-lavado-status-entregado {
+    background: rgba(99, 102, 241, 0.15);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
 @media (max-width: 800px) {

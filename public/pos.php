@@ -1393,62 +1393,47 @@ $isAdmin  = $auth->isPosAdmin();
                 </div>
             </div>
 
-            <!-- Kanban Board -->
-            <div class="pos-lavado-kanban" id="pos-lavado-kanban">
-                <!-- Columna 1: En Espera -->
-                <div class="pos-lavado-col pos-lavado-col-espera">
-                    <div class="pos-lavado-col-header">
-                        <span class="pos-lavado-col-dot pos-lavado-dot-espera"></span>
-                        <span class="pos-lavado-col-title">⏳ En Espera</span>
-                        <span class="pos-lavado-col-count" id="count-espera">0</span>
-                    </div>
-                    <div class="pos-lavado-col-body" id="col-espera">
-                        <div class="pos-lavado-empty">Sin cargas en espera</div>
-                    </div>
+            <!-- Barra de Filtro por Categoría / Estado (Mismo estilo que Productos y Kits) -->
+            <div class="pos-lavado-controls-bar">
+                <div class="pos-filter-tabs" id="pos-lavado-filter-tabs">
+                    <button class="pos-tab active" data-lavado-tab="ALL" onclick="POS.setLavadoTab('ALL', this)">
+                        <span>✨ Todas</span>
+                        <span class="pos-tab-badge" id="lavado-tab-count-all">0</span>
+                    </button>
+                    <button class="pos-tab" data-lavado-tab="RECIBIDA" onclick="POS.setLavadoTab('RECIBIDA', this)">
+                        <span>⏳ En Espera</span>
+                        <span class="pos-tab-badge badge-espera" id="lavado-tab-count-espera">0</span>
+                    </button>
+                    <button class="pos-tab" data-lavado-tab="EN_PROCESO" onclick="POS.setLavadoTab('EN_PROCESO', this)">
+                        <span>⚙️ En Proceso</span>
+                        <span class="pos-tab-badge badge-proceso" id="lavado-tab-count-proceso">0</span>
+                    </button>
+                    <button class="pos-tab" data-lavado-tab="LISTA_CONCLUIDA" onclick="POS.setLavadoTab('LISTA_CONCLUIDA', this)">
+                        <span>✅ Finalizados Hoy</span>
+                        <span class="pos-tab-badge badge-finalizado" id="lavado-tab-count-finalizado">0</span>
+                    </button>
+                    <button class="pos-tab" data-lavado-tab="ENTREGADA" onclick="POS.setLavadoTab('ENTREGADA', this)">
+                        <span>📦 Entregados</span>
+                        <span class="pos-tab-badge badge-entregados" id="lavado-tab-count-entregados">0</span>
+                    </button>
                 </div>
 
-                <!-- Columna 2: En Proceso -->
-                <div class="pos-lavado-col pos-lavado-col-proceso">
-                    <div class="pos-lavado-col-header">
-                        <span class="pos-lavado-col-dot pos-lavado-dot-proceso"></span>
-                        <span class="pos-lavado-col-title">⚙️ En Proceso</span>
-                        <span class="pos-lavado-col-count" id="count-proceso">0</span>
-                    </div>
-                    <div class="pos-lavado-col-body" id="col-proceso">
-                        <div class="pos-lavado-empty">Sin cargas en proceso</div>
-                    </div>
+                <!-- Buscador en tiempo real para cargas -->
+                <div class="pos-search-prod-wrapper" style="position:relative; width:340px; margin:0;">
+                    <svg class="pos-search-prod-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <input type="text" id="pos-search-lavado-input" class="pos-form-input pos-search-input-field"
+                        placeholder="Buscar cliente, folio, carga o teléfono..."
+                        autocomplete="off"
+                        oninput="POS.filtrarCargasLavado(this.value)">
+                    <button type="button" id="pos-btn-clear-lavado-search" class="pos-btn-clear-prod" style="display:none;" onclick="POS.limpiarFiltroLavado()" title="Limpiar búsqueda">✕</button>
                 </div>
+            </div>
 
-                <!-- Columna 3: Finalizados recientes con Buscador -->
-                <div class="pos-lavado-col pos-lavado-col-finalizado">
-                    <div class="pos-lavado-col-header">
-                        <span class="pos-lavado-col-dot pos-lavado-dot-finalizado"></span>
-                        <span class="pos-lavado-col-title">✅ Finalizados Hoy</span>
-                        <span class="pos-lavado-col-count" id="count-finalizado">0</span>
-                    </div>
-                    <div class="pos-lavado-col-search">
-                        <div class="pos-lavado-search-wrap">
-                            <svg class="pos-lavado-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                            <input type="text" id="pos-search-finalizados" class="pos-lavado-search-input" placeholder="Buscar cliente o ticket..." oninput="POS.filtrarFinalizados(this.value)">
-                            <button type="button" id="pos-search-finalizados-clear" class="pos-lavado-search-clear" onclick="POS.limpiarFiltroFinalizados()" title="Limpiar búsqueda">✕</button>
-                        </div>
-                    </div>
-                    <div class="pos-lavado-col-body" id="col-finalizado">
-                        <div class="pos-lavado-empty">Sin cargas finalizadas hoy</div>
-                    </div>
-                </div>
-
-                <!-- Columna 4: Entregados -->
-                <div class="pos-lavado-col pos-lavado-col-entregados">
-                    <div class="pos-lavado-col-header">
-                        <span class="pos-lavado-col-dot pos-lavado-dot-entregados"></span>
-                        <span class="pos-lavado-col-title">📦 Entregados</span>
-                        <span class="pos-lavado-col-count" id="count-entregados">0</span>
-                    </div>
-                    <div class="pos-lavado-col-body" id="col-entregados">
-                        <div class="pos-lavado-empty">Sin cargas entregadas</div>
-                    </div>
-                </div>
+            <!-- Grid Amplio de Tarjetas de Cargas (Expandido como Productos y Kits) -->
+            <div id="pos-lavado-cards-grid" class="pos-lavado-cards-grid">
+                <div class="pos-lavado-empty">Cargando cargas...</div>
             </div>
 
             <div class="pos-modal-foot" style="justify-content:space-between;align-items:center;">

@@ -2507,46 +2507,67 @@ const POS = {
         }, 60000);
     },
 
-    async cargarPanelLavado() {
-        const colEspera     = document.getElementById('col-espera');
-        const colProceso    = document.getElementById('col-proceso');
-        const colFinalizado = document.getElementById('col-finalizado');
-        const colEntregados = document.getElementById('col-entregados');
-        const lastUpdate    = document.getElementById('pos-lavado-last-update');
-        const badge         = document.getElementById('pos-lavado-badge');
+    currentLavadoTab: 'ALL',
+    filtroLavadoQuery: '',
+    cargasEspera: [],
+    cargasProceso: [],
+    cargasFinalizadasHoy: [],
+    cargasEntregadas: [],
 
-        if (!colEspera) return;
-
-        // Loading state
-        [colEspera, colProceso, colFinalizado, colEntregados].forEach(col => {
-            if (col) col.innerHTML = '<div class="pos-lavado-loading">Cargando...</div>';
+    setLavadoTab(tab, btn) {
+        this.currentLavadoTab = tab;
+        document.querySelectorAll('#pos-lavado-filter-tabs .pos-tab').forEach(b => {
+            b.classList.toggle('active', b === btn || b.dataset.lavadoTab === tab);
         });
+        this.renderLavadoGrid();
+    },
+
+    filtrarCargasLavado(query) {
+        this.filtroLavadoQuery = (query || '').trim();
+        const clearBtn = document.getElementById('pos-btn-clear-lavado-search');
+        if (clearBtn) {
+            clearBtn.style.display = this.filtroLavadoQuery !== '' ? 'block' : 'none';
+        }
+        this.renderLavadoGrid();
+    },
+
+    limpiarFiltroLavado() {
+        const inp = document.getElementById('pos-search-lavado-input');
+        if (inp) inp.value = '';
+        this.filtrarCargasLavado('');
+    },
+
+    async cargarPanelLavado() {
+        const grid = document.getElementById('pos-lavado-cards-grid');
+        const lastUpdate = document.getElementById('pos-lavado-last-update');
+        const badge = document.getElementById('pos-lavado-badge');
+
+        if (grid && (!this.cargasEspera || this.cargasEspera.length === 0)) {
+            grid.innerHTML = '<div class="pos-lavado-loading" style="grid-column:1/-1;text-align:center;padding:3rem;">Cargando cargas de lavado...</div>';
+        }
 
         try {
-            // Cargas activas (RECIBIDA + EN_PROCESO)
+            // 1. Cargas activas (RECIBIDA + EN_PROCESO)
             const res = await fetch('api/pos_api.php?action=cargas_activas');
             const data = await res.json();
-
             if (!data.success) throw new Error(data.message || 'Error al cargar');
 
             const cargas = data.cargas || [];
-            const espera   = cargas.filter(c => c.estado === 'RECIBIDA');
-            const proceso  = cargas.filter(c => c.estado === 'EN_PROCESO');
+            this.cargasEspera  = cargas.filter(c => c.estado === 'RECIBIDA');
+            this.cargasProceso = cargas.filter(c => c.estado === 'EN_PROCESO');
 
-            // Cargas finalizadas hoy (LISTA_CONCLUIDA del día de hoy)
+            // 2. Cargas finalizadas hoy
             const resHoy = await fetch('api/pos_api.php?action=cargas_finalizadas_hoy');
             const dataHoy = await resHoy.json();
-            const finalizadas = (dataHoy.success && dataHoy.cargas) ? dataHoy.cargas : [];
-            this.cargasFinalizadasHoy = finalizadas;
+            this.cargasFinalizadasHoy = (dataHoy.success && dataHoy.cargas) ? dataHoy.cargas : [];
 
-            // Cargas entregadas
-            const resEntregadas = await fetch('api/pos_api.php?action=cargas_entregadas');
-            const dataEntregadas = await resEntregadas.json();
-            const entregadas = (dataEntregadas.success && dataEntregadas.cargas) ? dataEntregadas.cargas : [];
-            this.cargasEntregadas = entregadas;
+            // 3. Cargas entregadas
+            const resEnt = await fetch('api/pos_api.php?action=cargas_entregadas');
+            const dataEnt = await resEnt.json();
+            this.cargasEntregadas = (dataEnt.success && dataEnt.cargas) ? dataEnt.cargas : [];
 
-            // Actualizar badges
-            const totalActivas = espera.length + proceso.length;
+            // Actualizar badge del header
+            const totalActivas = this.cargasEspera.length + this.cargasProceso.length;
             if (badge) {
                 badge.textContent = totalActivas;
                 badge.style.display = totalActivas > 0 ? 'inline-block' : 'none';
@@ -2555,39 +2576,30 @@ const POS = {
             // Actualizar DropDownLists de selección rápida
             const selectEspera = document.getElementById('pos-select-carga-espera');
             if (selectEspera) {
-                selectEspera.innerHTML = '<option value="">-- Cargas en Espera (' + espera.length + ') --</option>' +
-                    espera.map(c => `<option value="${c.id}" data-numero="${c.numero_carga}">${c.numero_carga} - ${c.cliente_nombre || 'Público General'} (${parseFloat(c.ropa_kg || 0).toFixed(2)} kg)</option>`).join('');
+                selectEspera.innerHTML = '<option value="">-- Cargas en Espera (' + this.cargasEspera.length + ') --</option>' +
+                    this.cargasEspera.map(c => `<option value="${c.id}" data-numero="${c.numero_carga}">${c.numero_carga} - ${c.cliente_nombre || 'Público General'} (${parseFloat(c.ropa_kg || 0).toFixed(2)} kg)</option>`).join('');
             }
             const selectProceso = document.getElementById('pos-select-carga-proceso');
             if (selectProceso) {
-                selectProceso.innerHTML = '<option value="">-- Cargas en Proceso (' + proceso.length + ') --</option>' +
-                    proceso.map(c => `<option value="${c.id}" data-numero="${c.numero_carga}">${c.numero_carga} - ${c.cliente_nombre || 'Público General'} (${parseFloat(c.ropa_kg || 0).toFixed(2)} kg)</option>`).join('');
+                selectProceso.innerHTML = '<option value="">-- Cargas en Proceso (' + this.cargasProceso.length + ') --</option>' +
+                    this.cargasProceso.map(c => `<option value="${c.id}" data-numero="${c.numero_carga}">${c.numero_carga} - ${c.cliente_nombre || 'Público General'} (${parseFloat(c.ropa_kg || 0).toFixed(2)} kg)</option>`).join('');
             }
 
-            // Aplicar filtro de búsqueda si existe en Finalizados
-            let finalizadasVisibles = finalizadas;
-            if (this.filtroFinalizados && this.filtroFinalizados.trim() !== '') {
-                const q = this.filtroFinalizados.toLowerCase().trim();
-                finalizadasVisibles = finalizadasVisibles.filter(c => {
-                    const cli = (c.cliente_nombre || '').toLowerCase();
-                    const folio = (c.venta_folio || '').toLowerCase();
-                    const num = (c.numero_carga || '').toLowerCase();
-                    return cli.includes(q) || folio.includes(q) || num.includes(q);
-                });
-            }
+            // Actualizar badges de los botones de pestañas
+            const totalCargas = this.cargasEspera.length + this.cargasProceso.length + this.cargasFinalizadasHoy.length + this.cargasEntregadas.length;
+            const elAll = document.getElementById('lavado-tab-count-all');
+            const elEsp = document.getElementById('lavado-tab-count-espera');
+            const elPro = document.getElementById('lavado-tab-count-proceso');
+            const elFin = document.getElementById('lavado-tab-count-finalizado');
+            const elEnt = document.getElementById('lavado-tab-count-entregados');
+            if (elAll) elAll.textContent = totalCargas;
+            if (elEsp) elEsp.textContent = this.cargasEspera.length;
+            if (elPro) elPro.textContent = this.cargasProceso.length;
+            if (elFin) elFin.textContent = this.cargasFinalizadasHoy.length;
+            if (elEnt) elEnt.textContent = this.cargasEntregadas.length;
 
-            // Actualizar contadores de columna
-            document.getElementById('count-espera').textContent     = espera.length;
-            document.getElementById('count-proceso').textContent    = proceso.length;
-            document.getElementById('count-finalizado').textContent = finalizadasVisibles.length;
-            const countEntregadosEl = document.getElementById('count-entregados');
-            if (countEntregadosEl) countEntregadosEl.textContent = entregadas.length;
-
-            // Renderizar columnas
-            colEspera.innerHTML   = this._renderCargaCards(espera, 'espera');
-            colProceso.innerHTML  = this._renderCargaCards(proceso, 'proceso');
-            colFinalizado.innerHTML = this._renderCargaCards(finalizadasVisibles, 'finalizado');
-            if (colEntregados) colEntregados.innerHTML = this._renderCargaCards(entregadas, 'entregado');
+            // Renderizar la cuadrícula según la pestaña y búsqueda
+            this.renderLavadoGrid();
 
             if (lastUpdate) {
                 const now = new Date().toLocaleTimeString('es-MX', { hour12: false });
@@ -2596,115 +2608,166 @@ const POS = {
 
         } catch (err) {
             console.error(err);
-            [colEspera, colProceso, colFinalizado].forEach(col => {
-                if (col) col.innerHTML = '<div class="pos-lavado-empty" style="color:#ef4444;">Error al cargar datos</div>';
-            });
+            if (grid) {
+                grid.innerHTML = '<div class="pos-lavado-empty" style="grid-column:1/-1;color:#ef4444;text-align:center;padding:3rem;">Error al cargar datos de cargas.</div>';
+            }
         }
     },
 
-    _renderCargaCards(cargas, tipo) {
-        if (!cargas || cargas.length === 0) {
-            const labels = {
-                espera: 'Sin cargas en espera',
-                proceso: 'Sin cargas en proceso',
-                finalizado: 'Sin cargas finalizadas hoy',
-                entregado: 'Sin cargas entregadas'
-            };
-            return `<div class="pos-lavado-empty">${labels[tipo] || 'Vacío'}</div>`;
+    renderLavadoGrid() {
+        const grid = document.getElementById('pos-lavado-cards-grid');
+        if (!grid) return;
+
+        let items = [];
+        const tab = this.currentLavadoTab || 'ALL';
+
+        if (tab === 'ALL' || tab === 'RECIBIDA') {
+            (this.cargasEspera || []).forEach(c => items.push({ ...c, _tipo: 'espera' }));
+        }
+        if (tab === 'ALL' || tab === 'EN_PROCESO') {
+            (this.cargasProceso || []).forEach(c => items.push({ ...c, _tipo: 'proceso' }));
+        }
+        if (tab === 'ALL' || tab === 'LISTA_CONCLUIDA') {
+            (this.cargasFinalizadasHoy || []).forEach(c => items.push({ ...c, _tipo: 'finalizado' }));
+        }
+        if (tab === 'ALL' || tab === 'ENTREGADA') {
+            (this.cargasEntregadas || []).forEach(c => items.push({ ...c, _tipo: 'entregado' }));
         }
 
-        return cargas.map(c => {
-            const clienteNombre = this.escapeHtml(c.cliente_nombre || 'Público General');
-            const numCarga = this.escapeHtml(c.numero_carga);
-            const kg = parseFloat(c.ropa_kg || 0).toFixed(2);
-            const fecha = c.fecha_recepcion ? c.fecha_recepcion.substring(0, 16) : '';
-            const fechaInicio = c.fecha_inicio_lavado ? c.fecha_inicio_lavado.substring(0, 16) : null;
-            const pago = c.estado_pago === 'PAGADO'
-                ? '<span style="color:#10b981;font-weight:700;">✅ PAGADO</span>'
-                : '<span style="color:#f59e0b;font-weight:700;">⏳ PENDIENTE</span>';
+        // Aplicar búsqueda si existe
+        if (this.filtroLavadoQuery) {
+            const q = this.filtroLavadoQuery.toLowerCase();
+            items = items.filter(c => {
+                const cli = (c.cliente_nombre || '').toLowerCase();
+                const tel = (c.cliente_telefono || '').toLowerCase();
+                const folio = (c.venta_folio || '').toLowerCase();
+                const num = (c.numero_carga || '').toLowerCase();
+                return cli.includes(q) || tel.includes(q) || folio.includes(q) || num.includes(q);
+            });
+        }
 
-            let accionBtn = '';
-            if (tipo === 'espera') {
-                accionBtn = `
-                    <button class="pos-lavado-btn-iniciar" onclick="POS.iniciarLavado('${this.escapeHtml(c.id)}', '${numCarga}')">
-                        🚀 Inicio de Lavado
-                    </button>`;
-            } else if (tipo === 'proceso') {
-                const tiempoInicio = fechaInicio
-                    ? `<div style="font-size:0.65rem;color:#94a3b8;margin-bottom:0.3rem;">Iniciado: ${fechaInicio}</div>`
-                    : '';
-                accionBtn = `
-                    ${tiempoInicio}
-                    <button class="pos-lavado-btn-finalizar" onclick="POS.finalizarLavado('${this.escapeHtml(c.id)}', '${numCarga}')">
-                        ✅ Finalizado
-                    </button>`;
-            } else if (tipo === 'finalizado') {
-                const fechaFin = c.fecha_conclusion ? c.fecha_conclusion.substring(0, 16) : '';
-                const telLimpio = (c.cliente_telefono || '').replace(/\D/g, '');
-                const clienteNombre = (c.cliente_nombre || '').trim();
-                const esPublicoGeneral = !c.cliente_id || 
-                                         c.cliente_id === 'MOSTRADOR' || 
-                                         !clienteNombre || 
-                                         clienteNombre.toLowerCase().includes('público general') || 
-                                         clienteNombre.toLowerCase().includes('publico general') || 
-                                         clienteNombre.toLowerCase().includes('mostrador');
-                const tieneTelefono = !esPublicoGeneral && telLimpio.length >= 10;
+        if (items.length === 0) {
+            const msgs = {
+                ALL: 'No hay cargas registradas en el sistema.',
+                RECIBIDA: 'No hay cargas en espera de lavado.',
+                EN_PROCESO: 'No hay cargas en proceso de lavado.',
+                LISTA_CONCLUIDA: 'No hay cargas finalizadas pendientes de entrega hoy.',
+                ENTREGADA: 'No hay cargas entregadas registradas.'
+            };
+            const msg = this.filtroLavadoQuery ? 'No se encontraron cargas que coincidan con la búsqueda.' : (msgs[tab] || 'Sin registros');
+            grid.innerHTML = `
+                <div class="pos-lavado-empty" style="grid-column:1/-1; text-align:center; padding:3.5rem 1rem; color:var(--pos-text-muted);">
+                    <svg style="width:48px;height:48px;opacity:0.35;margin-bottom:0.75rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                    <div style="font-size:1.05rem; font-weight:700;">${msg}</div>
+                    <div style="font-size:0.8rem; margin-top:0.35rem; opacity:0.8;">Usa las pestañas superiores para ver otras categorías o el buscador para encontrar notas.</div>
+                </div>
+            `;
+            return;
+        }
 
-                let btnWspHtml = '';
-                if (tieneTelefono) {
-                    btnWspHtml = `
-                        <button type="button" class="pos-lavado-btn-whatsapp" onclick="POS.notificarWhatsappCarga('${this.escapeHtml(c.id)}')" title="Enviar WhatsApp al ${this.escapeHtml(c.cliente_telefono)}">
-                            <svg style="width:15px;height:15px;fill:currentColor;flex-shrink:0;" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
-                            <span>Notificar por WhatsApp</span>
-                        </button>
-                    `;
-                } else {
-                    btnWspHtml = `
-                        <button type="button" class="pos-lavado-btn-whatsapp" disabled title="${esPublicoGeneral ? 'No disponible para Público General' : 'Cliente sin teléfono registrado'}">
-                            <svg style="width:15px;height:15px;fill:currentColor;flex-shrink:0;" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
-                            <span>Notificar por WhatsApp</span>
-                        </button>
-                        <div class="pos-lavado-no-tel">Sin Teléfono Registrado</div>
-                    `;
-                }
+        grid.innerHTML = items.map(c => this._renderCargaCardGrande(c, c._tipo)).join('');
+    },
 
-                const isPendientePago = c.estado_pago !== 'PAGADO';
-            const badgePendientePago = isPendientePago
-                ? `<div class="pos-lavado-badge-pago-pendiente">💳 PAGO PENDIENTE — $${parseFloat(c.total || 0).toFixed(2)}</div>`
-                : '';
+    _renderCargaCardGrande(c, tipo) {
+        const clienteNombre = this.escapeHtml(c.cliente_nombre || 'Público General');
+        const numCarga = this.escapeHtml(c.numero_carga);
+        const kg = parseFloat(c.ropa_kg || 0).toFixed(2);
+        const fecha = c.fecha_recepcion ? c.fecha_recepcion.substring(0, 16) : '';
+        const fechaInicio = c.fecha_inicio_lavado ? c.fecha_inicio_lavado.substring(0, 16) : null;
+        const total = parseFloat(c.total || 0).toFixed(2);
+        const isPagado = c.estado_pago === 'PAGADO';
 
+        // Badge de Estado de Lavado
+        const statusMap = {
+            espera: '<span class="pos-lavado-status-pill pos-lavado-status-espera">⏳ En Espera</span>',
+            proceso: '<span class="pos-lavado-status-pill pos-lavado-status-proceso">⚙️ En Proceso</span>',
+            finalizado: '<span class="pos-lavado-status-pill pos-lavado-status-finalizado">✅ Lista para Entrega</span>',
+            entregado: '<span class="pos-lavado-status-pill pos-lavado-status-entregado">📦 Entregada</span>'
+        };
+        const statusBadge = statusMap[tipo] || '';
+
+        // Badge de Estado de Pago
+        const pagoBadge = isPagado
+            ? '<span style="color:#10b981;font-weight:700;font-size:0.8rem;">✅ PAGADO</span>'
+            : `<div class="pos-lavado-badge-pago-pendiente">💳 PAGO PENDIENTE — $${total}</div>`;
+
+        let accionBtn = '';
+        if (tipo === 'espera') {
             accionBtn = `
-                    <div style="font-size:0.68rem;color:#6ee7b7;margin-top:0.25rem;margin-bottom:0.25rem;">Lista desde: ${fechaFin}</div>
-                    ${badgePendientePago}
-                    ${btnWspHtml}
-                    <button type="button" class="pos-lavado-btn-entregar" onclick="POS.entregarCarga('${this.escapeHtml(c.id)}')">
-                        📦 Entregar
+                <div style="font-size:0.72rem;color:var(--pos-text-muted);margin-top:auto;">Recibida: ${fecha}</div>
+                <button type="button" class="pos-lavado-btn-iniciar" style="width:100%;padding:0.65rem 1rem;font-size:0.9rem;" onclick="POS.iniciarLavado('${this.escapeHtml(c.id)}', '${numCarga}')">
+                    🚀 Iniciar Lavado
+                </button>`;
+        } else if (tipo === 'proceso') {
+            const tiempoInicio = fechaInicio
+                ? `<div style="font-size:0.72rem;color:#94a3b8;margin-bottom:0.25rem;">Iniciado: ${fechaInicio}</div>`
+                : '';
+            accionBtn = `
+                <div style="margin-top:auto;">${tiempoInicio}</div>
+                <button type="button" class="pos-lavado-btn-finalizar" style="width:100%;padding:0.65rem 1rem;font-size:0.9rem;" onclick="POS.finalizarLavado('${this.escapeHtml(c.id)}', '${numCarga}')">
+                    ✅ Marcar como Finalizado
+                </button>`;
+        } else if (tipo === 'finalizado') {
+            const fechaFin = c.fecha_conclusion ? c.fecha_conclusion.substring(0, 16) : '';
+            const telLimpio = (c.cliente_telefono || '').replace(/\D/g, '');
+            const cliTrim = (c.cliente_nombre || '').trim().toLowerCase();
+            const esPublicoGeneral = !c.cliente_id || c.cliente_id === 'MOSTRADOR' || !cliTrim || cliTrim.includes('público general') || cliTrim.includes('publico general') || cliTrim.includes('mostrador');
+            const tieneTelefono = !esPublicoGeneral && telLimpio.length >= 10;
+
+            let btnWspHtml = '';
+            if (tieneTelefono) {
+                btnWspHtml = `
+                    <button type="button" class="pos-lavado-btn-whatsapp" style="width:100%;padding:0.5rem;" onclick="POS.notificarWhatsappCarga('${this.escapeHtml(c.id)}')" title="Enviar WhatsApp al ${this.escapeHtml(c.cliente_telefono)}">
+                        <svg style="width:15px;height:15px;fill:currentColor;flex-shrink:0;" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                        <span>Notificar por WhatsApp</span>
                     </button>
                 `;
-            } else if (tipo === 'entregado') {
-                const fechaEnt = c.fecha_entrega ? c.fecha_entrega.substring(0, 16) : '';
-                const ticketFolio = c.venta_folio ? `<div style="font-size:0.68rem;color:#93c5fd;">Ticket: ${this.escapeHtml(c.venta_folio)}</div>` : '';
-                accionBtn = `
-                    ${ticketFolio}
-                    <div style="font-size:0.68rem;color:#94a3b8;margin-top:0.25rem;">Entregado: ${fechaEnt}</div>
-                    <div class="pos-lavado-badge-entregado">✓ ENTREGADA</div>
+            } else {
+                btnWspHtml = `
+                    <button type="button" class="pos-lavado-btn-whatsapp" disabled style="width:100%;padding:0.5rem;" title="${esPublicoGeneral ? 'No disponible para Público General' : 'Cliente sin teléfono registrado'}">
+                        <svg style="width:15px;height:15px;fill:currentColor;flex-shrink:0;" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                        <span>Notificar por WhatsApp</span>
+                    </button>
+                    <div class="pos-lavado-no-tel" style="margin:0.25rem 0;">Sin Teléfono Registrado</div>
                 `;
             }
 
-            return `
-            <div class="pos-lavado-card pos-lavado-card-${tipo}">
-                <div class="pos-lavado-card-header">
-                    <span class="pos-lavado-numero">${numCarga}</span>
-                    <span style="font-size:0.68rem;color:var(--pos-text-muted);">${fecha}</span>
+            accionBtn = `
+                <div style="font-size:0.72rem;color:#6ee7b7;margin-top:auto;">Lista desde: ${fechaFin}</div>
+                ${btnWspHtml}
+                <button type="button" class="pos-lavado-btn-entregar" style="width:100%;padding:0.65rem 1rem;font-size:0.9rem;" onclick="POS.entregarCarga('${this.escapeHtml(c.id)}')">
+                    📦 Entregar Carga
+                </button>
+            `;
+        } else if (tipo === 'entregado') {
+            const fechaEnt = c.fecha_entrega ? c.fecha_entrega.substring(0, 16) : '';
+            const ticketFolio = c.venta_folio ? `<div style="font-size:0.75rem;color:#93c5fd;font-weight:700;">Ticket: ${this.escapeHtml(c.venta_folio)}</div>` : '';
+            accionBtn = `
+                <div style="margin-top:auto;">
+                    ${ticketFolio}
+                    <div style="font-size:0.72rem;color:#94a3b8;margin-top:0.2rem;">Entregado: ${fechaEnt}</div>
                 </div>
-                <div class="pos-lavado-cliente">👤 ${clienteNombre}</div>
-                ${kg > 0 ? `<div class="pos-lavado-kg">⚖️ ${kg} kg de ropa</div>` : ''}
-                <div class="pos-lavado-pago">${pago}</div>
-                ${accionBtn}
-            </div>`;
-        }).join('');
-    },
+                <div class="pos-lavado-badge-entregado" style="text-align:center;padding:0.6rem;font-size:0.85rem;">✓ ENTREGADA</div>
+            `;
+        }
 
+        return `
+        <div class="pos-lavado-card pos-lavado-card-${tipo}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;">
+                <span class="pos-lavado-numero" style="font-size:1.15rem;font-weight:900;">${numCarga}</span>
+                ${statusBadge}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.25rem;">
+                <div class="pos-lavado-cliente" style="font-size:0.92rem;font-weight:700;">👤 ${clienteNombre}</div>
+                ${c.cliente_telefono ? `<div style="font-size:0.75rem;color:var(--pos-text-muted);">📞 ${this.escapeHtml(c.cliente_telefono)}</div>` : ''}
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.35rem 0.6rem;background:rgba(0,0,0,0.15);border-radius:8px;">
+                ${kg > 0 ? `<div class="pos-lavado-kg" style="font-size:0.85rem;font-weight:700;">⚖️ ${kg} kg</div>` : '<div></div>'}
+                <div class="pos-lavado-pago">${pagoBadge}</div>
+            </div>
+            ${accionBtn}
+        </div>`;
+    },
     iniciarLavadoDesdeSelect() {
         const sel = document.getElementById('pos-select-carga-espera');
         if (!sel || !sel.value) {
