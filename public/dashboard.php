@@ -706,21 +706,63 @@ $hoyTexto = $diasEsp[(int)date('w')] . ', ' . date('d') . ' de ' . $mesesEsp[(in
                     </div>
 
 
-                    <!-- KPI 4: Estado de Lavado Hoy -->
+                    <!-- KPI 3: Control de Lavado de Cargas (4 Estatus) -->
                     <div class="dash-kpi-card kpi-amber">
                         <div class="kpi-head">
-                            <span class="kpi-label">Flujo de Lavado</span>
-                            <div class="kpi-icon">⚙️</div>
+                            <span class="kpi-label">Control de Lavado</span>
+                            <div class="kpi-icon">🧺</div>
                         </div>
-                        <div class="kpi-value" style="display:flex;align-items:center;gap:0.75rem;font-size:1.6rem;">
-                            <span title="En Proceso" style="color:#38bdf8;"><?= $kpiCargas['en_proceso'] ?> <small style="font-size:0.75rem;color:var(--text-muted);">proc</small></span>
-                            <span style="color:var(--text-muted);font-size:1rem;">|</span>
-                            <span title="Listas para Entrega" style="color:#34d399;"><?= $kpiCargas['listas'] ?> <small style="font-size:0.75rem;color:var(--text-muted);">listas</small></span>
-                            <span style="color:var(--text-muted);font-size:1rem;">|</span>
-                            <span title="Entregadas" style="color:#a78bfa;"><?= $kpiCargas['entregadas'] ?> <small style="font-size:0.75rem;color:var(--text-muted);">entr</small></span>
+                        <div class="kpi-value" style="display:flex;align-items:center;justify-content:space-between;gap:0.4rem;padding:0.25rem 0;">
+                            <!-- 1. En Espera -->
+                            <div style="text-align:center;flex:1;">
+                                <div style="color:#f59e0b;font-weight:900;font-size:1.6rem;line-height:1.2;font-family:'JetBrains Mono',monospace;">
+                                    <?= $kpiCargas['en_espera'] ?>
+                                </div>
+                                <div style="font-size:0.7rem;font-weight:700;color:var(--text-muted);margin-top:2px;">
+                                    <span>⏳ Espera</span>
+                                </div>
+                            </div>
+
+                            <span style="color:var(--border);font-size:1.1rem;opacity:0.6;">|</span>
+
+                            <!-- 2. En Proceso -->
+                            <div style="text-align:center;flex:1;">
+                                <div style="color:#38bdf8;font-weight:900;font-size:1.6rem;line-height:1.2;font-family:'JetBrains Mono',monospace;">
+                                    <?= $kpiCargas['en_proceso'] ?>
+                                </div>
+                                <div style="font-size:0.7rem;font-weight:700;color:var(--text-muted);margin-top:2px;">
+                                    <span>⚙️ Proceso</span>
+                                </div>
+                            </div>
+
+                            <span style="color:var(--border);font-size:1.1rem;opacity:0.6;">|</span>
+
+                            <!-- 3. Finalizados / Listas -->
+                            <div style="text-align:center;flex:1;">
+                                <div style="color:#34d399;font-weight:900;font-size:1.6rem;line-height:1.2;font-family:'JetBrains Mono',monospace;">
+                                    <?= $kpiCargas['listas'] ?>
+                                </div>
+                                <div style="font-size:0.7rem;font-weight:700;color:var(--text-muted);margin-top:2px;">
+                                    <span>✅ Listas</span>
+                                </div>
+                            </div>
+
+                            <span style="color:var(--border);font-size:1.1rem;opacity:0.6;">|</span>
+
+                            <!-- 4. Entregadas -->
+                            <div style="text-align:center;flex:1;">
+                                <div style="color:#a78bfa;font-weight:900;font-size:1.6rem;line-height:1.2;font-family:'JetBrains Mono',monospace;">
+                                    <?= $kpiCargas['entregadas'] ?>
+                                </div>
+                                <div style="font-size:0.7rem;font-weight:700;color:var(--text-muted);margin-top:2px;">
+                                    <span>📦 Entregadas</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="kpi-subtext">
-                            <span><?= $kpiCargas['en_espera'] ?> cargas en espera de lavado</span>
+                        <div class="kpi-subtext" style="display:flex;justify-content:space-between;align-items:center;">
+                            <span><strong><?= $kpiCargas['total'] ?></strong> cargas hoy</span>
+                            <span>•</span>
+                            <span><strong><?= number_format($kpiCargas['total_kg'], 1) ?> kg</strong> procesados</span>
                         </div>
                     </div>
                 </section>
