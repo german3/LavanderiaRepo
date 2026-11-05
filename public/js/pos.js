@@ -1710,6 +1710,16 @@ const POS = {
         if (cashDetails) {
             cashDetails.style.display = method === 'EFECTIVO' ? 'flex' : 'none';
         }
+
+        const submitBtn = document.getElementById('pos-pay-confirm-btn');
+        if (submitBtn) {
+            if (method === 'PENDIENTE') {
+                submitBtn.innerHTML = '🕒 Registrar Venta (Pendiente de Pago)';
+            } else {
+                submitBtn.innerHTML = 'Confirmar Cobro e Imprimir Ticket';
+            }
+        }
+
         this.calcCambio();
     },
 
@@ -1750,11 +1760,12 @@ const POS = {
         let montoRecibido = granTotal;
         let metodo = this.selectedPayMethod;
 
-        if (isPagoPosterior) {
+        if (isPagoPosterior || metodo === 'PENDIENTE') {
+            isPagoPosterior = true;
             metodo = 'PENDIENTE';
             montoRecibido = 0;
             if (!this.selectedClient) {
-                const conf = confirm('No has seleccionado un cliente para esta ropa en recepción. ¿Deseas asignarlo para facilitar el reclamo y entrega?');
+                const conf = confirm('No has seleccionado un cliente para esta orden pendiente de cobro. ¿Deseas asignarlo para facilitar el reclamo y entrega?');
                 if (conf) {
                     this.openModal('modal-buscar-cliente');
                     return;

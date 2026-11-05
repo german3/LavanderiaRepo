@@ -988,8 +988,18 @@ body {
 /* Pay Modal Elements */
 .pos-pay-methods {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.75rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.65rem;
+}
+
+@media (max-width: 580px) {
+    .pos-pay-methods {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+#modal-cobro .pos-modal-card {
+    max-width: 620px;
 }
 
 .pos-pay-opt {
@@ -1025,6 +1035,13 @@ body {
     background: rgba(59, 130, 246, 0.15);
     color: #fff;
     box-shadow: 0 0 15px rgba(59, 130, 246, 0.25);
+}
+
+.pos-pay-opt[data-method="PENDIENTE"].selected {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.25);
 }
 
 .pos-denominations {

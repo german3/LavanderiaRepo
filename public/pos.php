@@ -548,6 +548,11 @@ $isAdmin  = $auth->isPosAdmin();
             border-color: #2563eb !important;
             color: #1d4ed8 !important;
         }
+        [data-theme="light"] .pos-pay-opt[data-method="PENDIENTE"].selected {
+            background: #fffbeb !important;
+            border-color: #f59e0b !important;
+            color: #b45309 !important;
+        }
         [data-theme="light"] .pos-denom-btn {
             background: #f1f5f9 !important;
             border: 1px solid #cbd5e1 !important;
@@ -902,6 +907,10 @@ $isAdmin  = $auth->isPosAdmin();
                         <div class="pos-pay-opt" data-method="TRANSFERENCIA" onclick="POS.setPayMethod('TRANSFERENCIA')">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                             <span>Transferencia</span>
+                        </div>
+                        <div class="pos-pay-opt" data-method="PENDIENTE" onclick="POS.setPayMethod('PENDIENTE')" title="Dejar ropa o venta pendiente de pago para liquidar después">
+                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <span>Pendiente de Pago</span>
                         </div>
                     </div>
                 </div>
