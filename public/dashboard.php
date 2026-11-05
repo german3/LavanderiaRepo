@@ -705,17 +705,6 @@ $hoyTexto = $diasEsp[(int)date('w')] . ', ' . date('d') . ' de ' . $mesesEsp[(in
                         </div>
                     </div>
 
-                    <!-- KPI 3: Cargas de Lavado Hoy -->
-                    <div class="dash-kpi-card kpi-purple">
-                        <div class="kpi-head">
-                            <span class="kpi-label">Cargas de Lavado</span>
-                            <div class="kpi-icon">🧺</div>
-                        </div>
-                        <div class="kpi-value"><?= $kpiCargas['total'] ?> <span style="font-size:1.1rem;font-weight:600;color:var(--text-muted);">cargas</span></div>
-                        <div class="kpi-subtext">
-                            <span><strong><?= number_format($kpiCargas['total_kg'], 1) ?> kg</strong> de ropa procesada hoy</span>
-                        </div>
-                    </div>
 
                     <!-- KPI 4: Estado de Lavado Hoy -->
                     <div class="dash-kpi-card kpi-amber">
