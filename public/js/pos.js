@@ -2528,13 +2528,26 @@ const POS = {
         if (clearBtn) {
             clearBtn.style.display = this.filtroLavadoQuery !== '' ? 'block' : 'none';
         }
+
+        // Búsqueda general: si el usuario escribe y está en una pestaña específica que no tiene coincidencias,
+        // o para ver la búsqueda general, cambiar a 'ALL' para mostrar dónde se encuentra la carga
+        if (this.filtroLavadoQuery !== '' && this.currentLavadoTab !== 'ALL') {
+            this.currentLavadoTab = 'ALL';
+            document.querySelectorAll('#pos-lavado-filter-tabs .pos-tab').forEach(b => {
+                b.classList.toggle('active', b.dataset.lavadoTab === 'ALL');
+            });
+        }
+
         this.renderLavadoGrid();
     },
 
     limpiarFiltroLavado() {
         const inp = document.getElementById('pos-search-lavado-input');
         if (inp) inp.value = '';
-        this.filtrarCargasLavado('');
+        this.filtroLavadoQuery = '';
+        const clearBtn = document.getElementById('pos-btn-clear-lavado-search');
+        if (clearBtn) clearBtn.style.display = 'none';
+        this.renderLavadoGrid();
     },
 
     async cargarPanelLavado() {
@@ -2585,20 +2598,7 @@ const POS = {
                     this.cargasProceso.map(c => `<option value="${c.id}" data-numero="${c.numero_carga}">${c.numero_carga} - ${c.cliente_nombre || 'Público General'} (${parseFloat(c.ropa_kg || 0).toFixed(2)} kg)</option>`).join('');
             }
 
-            // Actualizar badges de los botones de pestañas
-            const totalCargas = this.cargasEspera.length + this.cargasProceso.length + this.cargasFinalizadasHoy.length + this.cargasEntregadas.length;
-            const elAll = document.getElementById('lavado-tab-count-all');
-            const elEsp = document.getElementById('lavado-tab-count-espera');
-            const elPro = document.getElementById('lavado-tab-count-proceso');
-            const elFin = document.getElementById('lavado-tab-count-finalizado');
-            const elEnt = document.getElementById('lavado-tab-count-entregados');
-            if (elAll) elAll.textContent = totalCargas;
-            if (elEsp) elEsp.textContent = this.cargasEspera.length;
-            if (elPro) elPro.textContent = this.cargasProceso.length;
-            if (elFin) elFin.textContent = this.cargasFinalizadasHoy.length;
-            if (elEnt) elEnt.textContent = this.cargasEntregadas.length;
-
-            // Renderizar la cuadrícula según la pestaña y búsqueda
+            // Renderizar cuadrícula general
             this.renderLavadoGrid();
 
             if (lastUpdate) {
@@ -2618,54 +2618,109 @@ const POS = {
         const grid = document.getElementById('pos-lavado-cards-grid');
         if (!grid) return;
 
-        let items = [];
-        const tab = this.currentLavadoTab || 'ALL';
+        // Normalizador para búsqueda sin importar acentos ni mayúsculas
+        const normalizeStr = (str) => (str || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        const qNorm = normalizeStr(this.filtroLavadoQuery);
 
-        if (tab === 'ALL' || tab === 'RECIBIDA') {
-            (this.cargasEspera || []).forEach(c => items.push({ ...c, _tipo: 'espera' }));
-        }
-        if (tab === 'ALL' || tab === 'EN_PROCESO') {
-            (this.cargasProceso || []).forEach(c => items.push({ ...c, _tipo: 'proceso' }));
-        }
-        if (tab === 'ALL' || tab === 'LISTA_CONCLUIDA') {
-            (this.cargasFinalizadasHoy || []).forEach(c => items.push({ ...c, _tipo: 'finalizado' }));
-        }
-        if (tab === 'ALL' || tab === 'ENTREGADA') {
-            (this.cargasEntregadas || []).forEach(c => items.push({ ...c, _tipo: 'entregado' }));
-        }
+        const matchItem = (c) => {
+            if (!qNorm) return true;
+            const corpus = [
+                c.numero_carga,
+                c.cliente_nombre,
+                c.cliente_telefono,
+                c.venta_folio,
+                c.observaciones
+            ].map(normalizeStr).join(' ');
+            return corpus.includes(qNorm);
+        };
 
-        // Aplicar búsqueda si existe
-        if (this.filtroLavadoQuery) {
-            const q = this.filtroLavadoQuery.toLowerCase();
-            items = items.filter(c => {
-                const cli = (c.cliente_nombre || '').toLowerCase();
-                const tel = (c.cliente_telefono || '').toLowerCase();
-                const folio = (c.venta_folio || '').toLowerCase();
-                const num = (c.numero_carga || '').toLowerCase();
-                return cli.includes(q) || tel.includes(q) || folio.includes(q) || num.includes(q);
-            });
-        }
+        // Filtrar cada sección de forma independiente para búsqueda general
+        const esperaMatches   = (this.cargasEspera || []).filter(matchItem);
+        const procesoMatches  = (this.cargasProceso || []).filter(matchItem);
+        const finalizMatches  = (this.cargasFinalizadasHoy || []).filter(matchItem);
+        const entregMatches   = (this.cargasEntregadas || []).filter(matchItem);
 
-        if (items.length === 0) {
-            const msgs = {
-                ALL: 'No hay cargas registradas en el sistema.',
-                RECIBIDA: 'No hay cargas en espera de lavado.',
-                EN_PROCESO: 'No hay cargas en proceso de lavado.',
-                LISTA_CONCLUIDA: 'No hay cargas finalizadas pendientes de entrega hoy.',
-                ENTREGADA: 'No hay cargas entregadas registradas.'
-            };
-            const msg = this.filtroLavadoQuery ? 'No se encontraron cargas que coincidan con la búsqueda.' : (msgs[tab] || 'Sin registros');
+        // Actualizar los contadores de cada pestaña con los resultados en tiempo real
+        const totalMatches = esperaMatches.length + procesoMatches.length + finalizMatches.length + entregMatches.length;
+        const elAll = document.getElementById('lavado-tab-count-all');
+        const elEsp = document.getElementById('lavado-tab-count-espera');
+        const elPro = document.getElementById('lavado-tab-count-proceso');
+        const elFin = document.getElementById('lavado-tab-count-finalizado');
+        const elEnt = document.getElementById('lavado-tab-count-entregados');
+        if (elAll) elAll.textContent = totalMatches;
+        if (elEsp) elEsp.textContent = esperaMatches.length;
+        if (elPro) elPro.textContent = procesoMatches.length;
+        if (elFin) elFin.textContent = finalizMatches.length;
+        if (elEnt) elEnt.textContent = entregMatches.length;
+
+        // Si no hay ninguna coincidencia general
+        if (totalMatches === 0) {
+            const msg = this.filtroLavadoQuery
+                ? `No se encontraron cargas con "<strong>${this.escapeHtml(this.filtroLavadoQuery)}</strong>" en ningún estado.`
+                : 'No hay cargas registradas en el sistema.';
             grid.innerHTML = `
                 <div class="pos-lavado-empty" style="grid-column:1/-1; text-align:center; padding:3.5rem 1rem; color:var(--pos-text-muted);">
-                    <svg style="width:48px;height:48px;opacity:0.35;margin-bottom:0.75rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                    <svg style="width:50px;height:50px;opacity:0.35;margin-bottom:0.75rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     <div style="font-size:1.05rem; font-weight:700;">${msg}</div>
-                    <div style="font-size:0.8rem; margin-top:0.35rem; opacity:0.8;">Usa las pestañas superiores para ver otras categorías o el buscador para encontrar notas.</div>
+                    <div style="font-size:0.82rem; margin-top:0.4rem; opacity:0.8;">Verifica el número de ticket, folio, cliente o teléfono.</div>
+                    ${this.filtroLavadoQuery ? `<button class="pos-btn-clear" style="margin-top:1rem;padding:0.4rem 1rem;" onclick="POS.limpiarFiltroLavado()">Limpiar búsqueda</button>` : ''}
                 </div>
             `;
             return;
         }
 
-        grid.innerHTML = items.map(c => this._renderCargaCardGrande(c, c._tipo)).join('');
+        const tab = this.currentLavadoTab || 'ALL';
+        let html = '';
+
+        // Función auxiliar para renderizar una sección con su cabecera y tarjetas
+        const renderSection = (title, tipo, itemsList, cssClass, dotClass, badgeClass) => {
+            if (itemsList.length === 0) return '';
+            let s = `
+                <div class="pos-lavado-section-header ${cssClass}">
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <span class="pos-lavado-col-dot ${dotClass}"></span>
+                        <span style="font-weight:800;font-size:0.95rem;letter-spacing:0.02em;">${title}</span>
+                    </div>
+                    <span class="pos-tab-badge ${badgeClass}" style="font-size:0.75rem;padding:2px 8px;">${itemsList.length} ${itemsList.length === 1 ? 'carga' : 'cargas'}</span>
+                </div>
+            `;
+            s += itemsList.map(c => this._renderCargaCardGrande(c, tipo)).join('');
+            return s;
+        };
+
+        // Si tab es ALL o búsqueda general activa: mostrar todas las secciones que tengan resultados
+        if (tab === 'ALL' || tab === 'RECIBIDA') {
+            html += renderSection('⏳ En Espera', 'espera', esperaMatches, 'pos-lavado-section-espera', 'pos-lavado-dot-espera', 'badge-espera');
+        }
+        if (tab === 'ALL' || tab === 'EN_PROCESO') {
+            html += renderSection('⚙️ En Proceso', 'proceso', procesoMatches, 'pos-lavado-section-proceso', 'pos-lavado-dot-proceso', 'badge-proceso');
+        }
+        if (tab === 'ALL' || tab === 'LISTA_CONCLUIDA') {
+            html += renderSection('✅ Finalizados Hoy (Listos para Entrega)', 'finalizado', finalizMatches, 'pos-lavado-section-finalizado', 'pos-lavado-dot-finalizado', 'badge-finalizado');
+        }
+        if (tab === 'ALL' || tab === 'ENTREGADA') {
+            html += renderSection('📦 Entregados', 'entregado', entregMatches, 'pos-lavado-section-entregado', 'pos-lavado-dot-entregados', 'badge-entregados');
+        }
+
+        // Si la pestaña elegida específicamente no tuvo resultados pero otras sí
+        if (html === '') {
+            const nombresTab = {
+                RECIBIDA: 'En Espera',
+                EN_PROCESO: 'En Proceso',
+                LISTA_CONCLUIDA: 'Finalizados Hoy',
+                ENTREGADA: 'Entregados'
+            };
+            grid.innerHTML = `
+                <div class="pos-lavado-empty" style="grid-column:1/-1; text-align:center; padding:3rem 1rem; color:var(--pos-text-muted);">
+                    <div style="font-size:1rem; font-weight:700;">No hay coincidencias en la sección <em>${nombresTab[tab] || tab}</em>.</div>
+                    <div style="font-size:0.82rem; margin-top:0.4rem;">Se encontraron <strong>${totalMatches}</strong> coincidencias en otras categorías.</div>
+                    <button class="pos-btn-clear" style="margin-top:0.8rem;padding:0.4rem 1rem;" onclick="POS.setLavadoTab('ALL')">Ver todas las coincidencias (${totalMatches})</button>
+                </div>
+            `;
+            return;
+        }
+
+        grid.innerHTML = html;
     },
 
     _renderCargaCardGrande(c, tipo) {
@@ -2718,13 +2773,6 @@ const POS = {
             if (tieneTelefono) {
                 btnWspHtml = `
                     <button type="button" class="pos-lavado-btn-whatsapp" style="width:100%;padding:0.5rem;" onclick="POS.notificarWhatsappCarga('${this.escapeHtml(c.id)}')" title="Enviar WhatsApp al ${this.escapeHtml(c.cliente_telefono)}">
-                        <svg style="width:15px;height:15px;fill:currentColor;flex-shrink:0;" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
-                        <span>Notificar por WhatsApp</span>
-                    </button>
-                `;
-            } else {
-                btnWspHtml = `
-                    <button type="button" class="pos-lavado-btn-whatsapp" disabled style="width:100%;padding:0.5rem;" title="${esPublicoGeneral ? 'No disponible para Público General' : 'Cliente sin teléfono registrado'}">
                         <svg style="width:15px;height:15px;fill:currentColor;flex-shrink:0;" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
                         <span>Notificar por WhatsApp</span>
                     </button>
