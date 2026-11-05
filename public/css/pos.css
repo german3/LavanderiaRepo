@@ -2024,6 +2024,38 @@ input[type=number] {
     letter-spacing: 0.02em;
 }
 
+/* Badge: Pago Pendiente en tarjetas de FINALIZADOS HOY */
+.pos-lavado-badge-pago-pendiente {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    background: rgba(245, 158, 11, 0.18);
+    border: 1.5px solid rgba(245, 158, 11, 0.5);
+    border-radius: 8px;
+    color: #fbbf24;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    margin: 0.35rem 0;
+    animation: pulse-amber 2s infinite;
+}
+
+@keyframes pulse-amber {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+    50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0); }
+}
+
+/* Opción de pago deshabilitada en modal-cobro */
+.pos-pay-opt.pos-pay-opt-disabled {
+    opacity: 0.35 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    border-color: rgba(100, 116, 139, 0.3) !important;
+    background: rgba(30, 41, 59, 0.3) !important;
+}
+
 /* 4ta Columna: Entregados */
 .pos-lavado-col-entregados { border-top: 3px solid #6366f1; }
 .pos-lavado-dot-entregados { background: #6366f1; }
