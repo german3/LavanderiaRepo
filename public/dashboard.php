@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('America/Mexico_City');
 require_once __DIR__ . '/../src/config/Database.php';
 require_once __DIR__ . '/../src/modules/auth/Usuario.php';
 require_once __DIR__ . '/../src/modules/auth/AuthService.php';
@@ -147,7 +148,7 @@ try {
     error_log("Dashboard Top Productos Error: " . $e->getMessage());
 }
 
-// E. Ventas del Día por Hora (08:00 a 20:00)
+// E. Ventas del Día por Hora (Con rango dinámico y soporte para jornadas extendidas)
 $ventasHorasRaw = [];
 try {
     $stmtHoras = $db->query("
@@ -170,11 +171,23 @@ try {
     error_log("Dashboard Horas Error: " . $e->getMessage());
 }
 
-// Llenar rango completo de 8:00 a 20:00 para gráfico continuo
+// Rango base de 08:00 a 20:00, expandido automáticamente si hay ventas tempranas o nocturnas
+$horaMin = 8;
+$horaMax = 20;
+if (!empty($ventasHorasRaw)) {
+    $horasRegistradas = array_keys($ventasHorasRaw);
+    $horaMin = min($horaMin, min($horasRegistradas));
+    $horaMax = max($horaMax, max($horasRegistradas));
+}
+$horaActual = (int)date('H');
+if ($horaActual > $horaMax) {
+    $horaMax = min(23, $horaActual);
+}
+
 $horasLabels = [];
 $horasMontos = [];
 $horasTickets = [];
-for ($h = 8; $h <= 20; $h++) {
+for ($h = $horaMin; $h <= $horaMax; $h++) {
     $label = sprintf("%02d:00", $h);
     $horasLabels[] = $label;
     $horasMontos[] = isset($ventasHorasRaw[$h]) ? $ventasHorasRaw[$h]['monto'] : 0.0;
@@ -190,7 +203,7 @@ try {
             COUNT(v.id) AS tickets,
             COALESCE(SUM(v.total), 0) AS monto
         FROM ventas v
-        WHERE v.estado = 'ACTIVA' AND v.fecha_venta >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        WHERE v.estado = 'ACTIVA' AND DATE(v.fecha_venta) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
         GROUP BY DATE(v.fecha_venta)
         ORDER BY fecha ASC
     ");
@@ -650,7 +663,7 @@ $hoyTexto = $diasEsp[(int)date('w')] . ', ' . date('d') . ' de ' . $mesesEsp[(in
                      ══════════════════════════════════════════════════════════ -->
                 <header class="dash-header">
                     <div class="dash-title-group">
-                        <h1>Hola, <?= htmlspecialchars($_SESSION['nombre']) ?> 👋</h1>
+                        <h1>Hola, <?= htmlspecialchars($_SESSION['nombre'] ?? 'Administrador') ?> 👋</h1>
                         <p>
                             <span>📅 <?= htmlspecialchars($hoyTexto) ?></span>
                             <span>•</span>
@@ -1015,6 +1028,7 @@ $hoyTexto = $diasEsp[(int)date('w')] . ', ' . date('d') . ' de ' . $mesesEsp[(in
     // 1. Gráfico: Ventas del Día / 7 Días (Línea / Spline Suave)
     // ─────────────────────────────────────────────────────────────
     let chartVentas = null;
+    let tipoVistaActual = 'hoy';
     const ctxVentas = document.getElementById('chartVentasDia');
     if (ctxVentas && window.Chart) {
         const ctx = ctxVentas.getContext('2d');
@@ -1054,7 +1068,15 @@ $hoyTexto = $diasEsp[(int)date('w')] . ', ' . date('d') . ' de ' . $mesesEsp[(in
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return ' Ventas: $' + context.parsed.y.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                const idx = context.dataIndex;
+                                const monto = Number(context.parsed.y || 0);
+                                const tickets = (tipoVistaActual === 'hoy')
+                                    ? (datosVentasHoy.tickets[idx] || 0)
+                                    : (datosVentas7d.tickets[idx] || 0);
+                                return [
+                                    ' Ingresos: $' + monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                                    ' Tickets: ' + tickets + (tickets === 1 ? ' ticket' : ' tickets')
+                                ];
                             }
                         }
                     }
@@ -1066,12 +1088,18 @@ $hoyTexto = $diasEsp[(int)date('w')] . ', ' . date('d') . ' de ' . $mesesEsp[(in
                     },
                     y: {
                         beginAtZero: true,
+                        suggestedMin: 0,
+                        suggestedMax: 100,
                         grid: { color: 'rgba(255, 255, 255, 0.06)' },
                         ticks: {
+                            precision: 0,
                             color: '#94a3b8',
                             font: { size: 11 },
                             callback: function(val) {
-                                return '$' + val.toLocaleString('es-MX');
+                                if (Number.isInteger(val)) {
+                                    return '$' + Number(val).toLocaleString('es-MX');
+                                }
+                                return null;
                             }
                         }
                     }
@@ -1082,6 +1110,7 @@ $hoyTexto = $diasEsp[(int)date('w')] . ', ' . date('d') . ' de ' . $mesesEsp[(in
 
     function cambiarVistaVentas(tipo) {
         if (!chartVentas) return;
+        tipoVistaActual = tipo;
         const btnHoy = document.getElementById('btn-vista-hoy');
         const btn7d = document.getElementById('btn-vista-7d');
         const sub = document.getElementById('label-sub-ventas');

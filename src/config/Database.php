@@ -91,6 +91,16 @@ class Database {
 
             $this->conn = new PDO($dsn, $this->username, $this->password, $options);
             
+            // Sincronización de zona horaria con México (CST -06:00)
+            if (date_default_timezone_get() !== 'America/Mexico_City') {
+                date_default_timezone_set('America/Mexico_City');
+            }
+            try {
+                $this->conn->exec("SET time_zone = '-06:00'");
+            } catch (\Throwable $tzEx) {
+                // Silencioso si el servidor de BD restringe SET time_zone
+            }
+            
         } catch(PDOException $exception) {
             $errMsg = $exception->getMessage();
             error_log("Error de conexión BD: " . $errMsg);
