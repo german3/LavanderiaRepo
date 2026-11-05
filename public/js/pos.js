@@ -1951,7 +1951,134 @@ const POS = {
     },
 
     imprimirTicketActual() {
-        window.print();
+        const ticketWrapper = document.getElementById('ticket-print-wrapper');
+        if (!ticketWrapper) {
+            alert('No hay un ticket cargado para imprimir.');
+            return;
+        }
+
+        // Crear o reutilizar un iframe oculto dedicado exclusivamente para impresiÃ³n tÃ©rmica 80mm
+        let iframe = document.getElementById('pos-ticket-print-frame');
+        if (iframe) {
+            iframe.remove();
+        }
+        iframe = document.createElement('iframe');
+        iframe.id = 'pos-ticket-print-frame';
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = 'none';
+        iframe.style.zIndex = '-9999';
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <title>Ticket </title>
+                <style>
+                    @page {
+                        size: 80mm auto;
+                        margin: 0mm;
+                    }
+                    * {
+                        box-sizing: border-box;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    html, body {
+                        width: 80mm;
+                        margin: 0 auto;
+                        padding: 0;
+                        background: #ffffff !important;
+                        color: #000000 !important;
+                        font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
+                        font-size: 11px;
+                        line-height: 1.35;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    .pos-ticket-paper {
+                        width: 76mm;
+                        max-width: 76mm;
+                        margin: 0 auto;
+                        padding: 4mm 2mm 8mm 2mm;
+                        background: #ffffff !important;
+                        color: #000000 !important;
+                        box-shadow: none !important;
+                        border: none !important;
+                    }
+                    .pos-ticket-center {
+                        text-align: center;
+                    }
+                    .pos-ticket-divider {
+                        border-top: 1px dashed #000000 !important;
+                        margin: 6px 0;
+                    }
+                    .pos-ticket-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 4px 0;
+                    }
+                    .pos-ticket-table th {
+                        border-bottom: 1px dashed #000000 !important;
+                        padding: 3px 0;
+                        font-size: 10px;
+                        font-weight: 700;
+                        text-align: left;
+                        color: #000000 !important;
+                    }
+                    .pos-ticket-table td {
+                        padding: 3px 0;
+                        font-size: 10.5px;
+                        color: #000000 !important;
+                        vertical-align: top;
+                    }
+                    h2 {
+                        font-size: 14px;
+                        font-weight: 800;
+                        margin-bottom: 2px;
+                        color: #000000 !important;
+                    }
+                    p {
+                        margin: 1px 0;
+                        font-size: 10px;
+                        color: #000000 !important;
+                    }
+                    strong {
+                        color: #000000 !important;
+                        font-weight: 700;
+                    }
+                    div {
+                        color: #000000 !important;
+                    }
+                    span {
+                        color: #000000 !important;
+                    }
+                </style>
+            </head>
+            <body>
+                
+            </body>
+            </html>
+        );
+        doc.close();
+
+        // Esperar a que el iframe procese el contenido y llamar a print
+        setTimeout(() => {
+            try {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            } catch (e) {
+                console.error('Error al imprimir desde iframe:', e);
+                window.print();
+            }
+        }, 200);
     },
 
     enviarTicketWhatsapp() {
