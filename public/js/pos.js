@@ -887,28 +887,47 @@ const POS = {
 
   onClienteSelectChange(clienteId) {
     const hintEl = document.getElementById("pos-selected-client-hint");
-    if (!clienteId || clienteId === "") {
-      this.selectedClient = null;
-      if (hintEl) hintEl.textContent = "";
-      return;
-    }
-
-    if (clienteId === "MOSTRADOR") {
+    if (!clienteId || clienteId === "" || clienteId === "MOSTRADOR") {
       this.selectedClient = {
         id: null,
         nombre: "Público General / Mostrador",
         telefono: "",
       };
       if (hintEl) hintEl.textContent = "👤 Cliente: Público General";
-      return;
+    } else {
+      let client = this.clients.find((c) => c.id === clienteId);
+      if (!client && this.selectedClient && this.selectedClient.id === clienteId) {
+        client = this.selectedClient;
+      }
+      if (client) {
+        this.selectedClient = client;
+        if (hintEl) {
+          hintEl.innerHTML = `👤 Seleccionado: <strong>${this.escapeHtml(client.nombre)}</strong> (📞 ${this.escapeHtml(client.telefono || "Sin tel")})`;
+        }
+      }
     }
 
-    const client = this.clients.find((c) => c.id === clienteId);
-    if (client) {
-      this.selectedClient = client;
-      if (hintEl) {
-        hintEl.innerHTML = `👤 Seleccionado: <strong>${this.escapeHtml(client.nombre)}</strong> (📞 ${this.escapeHtml(client.telefono || "Sin tel")})`;
-      }
+    // Actualizar todos los registros existentes del carrito para que se reasignen al nuevo cliente
+    if (this.cart && this.cart.length > 0) {
+      const cliId = this.selectedClient ? this.selectedClient.id : null;
+      const cliNom = this.selectedClient
+        ? this.selectedClient.nombre || "Público General / Mostrador"
+        : "Público General / Mostrador";
+      const cliTel = this.selectedClient
+        ? this.selectedClient.telefono || ""
+        : "";
+
+      this.cart.forEach((item) => {
+        item.cliente_id = cliId;
+        item.cliente_nombre = cliNom;
+        item.cliente_telefono = cliTel;
+        if (item.notas && item.notas.startsWith("Cliente: ")) {
+          const partes = item.notas.split(" | ");
+          partes[0] = "Cliente: " + cliNom;
+          item.notas = partes.join(" | ");
+        }
+      });
+      this.renderCart();
     }
   },
 
@@ -1123,8 +1142,10 @@ const POS = {
         nombre: "Público General / Mostrador",
         telefono: "",
       };
-    } else {
-      clienteObj = this.clients.find((c) => c.id === clienteId);
+    } else if (clienteId) {
+      clienteObj = this.clients.find((c) => c.id === clienteId) || this.selectedClient;
+    } else if (this.selectedClient) {
+      clienteObj = this.selectedClient;
     }
 
     // Manejo para productos con selección de unidades (Litros, Insumos, etc.)
@@ -1244,7 +1265,7 @@ const POS = {
 
     let clienteObj = null;
     if (clienteId && clienteId !== "MOSTRADOR") {
-      clienteObj = this.clients.find((c) => c.id === clienteId);
+      clienteObj = this.clients.find((c) => c.id === clienteId) || this.selectedClient;
     } else if (clienteId === "MOSTRADOR") {
       clienteObj = {
         id: null,
@@ -1481,8 +1502,13 @@ const POS = {
     if (clientHeaderEl) {
       clientHeaderEl.style.display = "block";
       const cliNombre =
-        this.cart[0]?.cliente_nombre || "Público General / Mostrador";
-      const cliTel = this.cart[0]?.cliente_telefono || "";
+        this.selectedClient?.nombre ||
+        this.cart[0]?.cliente_nombre ||
+        "Público General / Mostrador";
+      const cliTel =
+        (this.selectedClient ? this.selectedClient.telefono : "") ||
+        this.cart[0]?.cliente_telefono ||
+        "";
       if (clientNameEl) clientNameEl.textContent = cliNombre;
       if (clientTelEl) {
         clientTelEl.textContent = cliTel ? ` · 📞 ${cliTel}` : "";
@@ -1706,8 +1732,17 @@ const POS = {
   // ─────────────────────────────────────────────────────────────
   setClient(client) {
     if (client && client.id) {
+      if (!this.clients.some((c) => c.id === client.id)) {
+        this.clients.push(client);
+      }
+      this.selectedClient = client;
       this.selectCliente(client.id, client.nombre || "");
     } else {
+      this.selectedClient = {
+        id: null,
+        nombre: "Público General / Mostrador",
+        telefono: "",
+      };
       this.selectCliente("MOSTRADOR", "Público General / Mostrador");
     }
     this.closeModal("modal-buscar-cliente");
@@ -1891,11 +1926,12 @@ const POS = {
     if (clearBtn) clearBtn.style.display = "none";
 
     this.selectedClient = null;
+    this.onClienteSelectChange("");
     // Abrir inmediatamente la lista de clientes desplegada para elegir o escribir
     this._renderClienteDropdown("");
   },
 
-  async buscarClientes(query) {
+  async buscarClientes(query = "") {
     try {
       const res = await fetch(
         `api/pos_api.php?action=search_clients&q=${encodeURIComponent(query)}`,
@@ -1904,6 +1940,13 @@ const POS = {
       if (data.success) {
         const listEl = document.getElementById("pos-clientes-result");
         if (!listEl) return;
+        if (!data.clientes || data.clientes.length === 0) {
+          listEl.innerHTML = `
+            <div style="padding:1.5rem; text-align:center; color:var(--pos-text-muted); font-size:0.85rem;">
+              No se encontraron clientes registrados.
+            </div>`;
+          return;
+        }
         listEl.innerHTML = data.clientes
           .map(
             (c) => `
@@ -1911,7 +1954,7 @@ const POS = {
                          class="pos-client-item" onclick='POS.setClient(${JSON.stringify(c)})'>
                         <div>
                             <div style="font-weight:700; color:#fff;">${this.escapeHtml(c.nombre)}</div>
-                            <div style="font-size:0.75rem; color:var(--pos-text-muted);">📞 ${this.escapeHtml(c.telefono)} ${c.direccion ? " | 📍 " + this.escapeHtml(c.direccion) : ""}</div>
+                            <div style="font-size:0.75rem; color:var(--pos-text-muted);">📞 ${this.escapeHtml(c.telefono || "Sin teléfono")} ${c.direccion ? " | 📍 " + this.escapeHtml(c.direccion) : ""}</div>
                         </div>
                         <button class="pos-btn-cust" style="pointer-events:none;">Seleccionar</button>
                     </div>
@@ -3842,6 +3885,14 @@ const POS = {
     if (modal) {
       modal.classList.add("active");
       this.activeModal = id;
+      if (id === "modal-buscar-cliente") {
+        const searchInput = modal.querySelector(".pos-search-input");
+        if (searchInput) {
+          searchInput.value = "";
+          setTimeout(() => searchInput.focus(), 80);
+        }
+        this.buscarClientes("");
+      }
     }
   },
 

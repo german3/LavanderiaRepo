@@ -1668,6 +1668,12 @@ input[type=number] {
     border-radius: 8px;
     color: #93c5fd;
     font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.pos-cart-client-badge:hover {
+    background: rgba(59, 130, 246, 0.25);
+    border-color: rgba(59, 130, 246, 0.6);
 }
 .pos-cart-client-icon {
     font-size: 0.95rem;

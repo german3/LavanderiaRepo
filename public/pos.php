@@ -821,13 +821,16 @@ $isAdmin  = $auth->isPosAdmin();
 
             <!-- Encabezado de Cliente para la Orden / Carrito -->
             <div id="pos-cart-client-header" class="pos-cart-client-header" style="display: none;">
-                <div class="pos-cart-client-badge">
+                <div class="pos-cart-client-badge" onclick="POS.openModal('modal-buscar-cliente')" style="cursor: pointer;" title="Haz clic para cambiar el cliente asignado a estos registros">
                     <span class="pos-cart-client-icon">👤</span>
-                    <div class="pos-cart-client-text">
+                    <div class="pos-cart-client-text" style="flex: 1; min-width: 0;">
                         <span class="pos-cart-client-label">Cliente:</span>
                         <strong id="pos-cart-client-name">Público General / Mostrador</strong>
                         <span id="pos-cart-client-tel" class="pos-cart-client-tel"></span>
                     </div>
+                    <button type="button" class="pos-btn-cust" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; margin-left: 0.5rem; flex-shrink: 0;" onclick="event.stopPropagation(); POS.openModal('modal-buscar-cliente');" title="Cambiar cliente">
+                        ✏️ Cambiar
+                    </button>
                 </div>
             </div>
 
