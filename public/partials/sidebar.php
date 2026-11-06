@@ -187,7 +187,18 @@ $userInitial = mb_substr(mb_strtoupper($userName), 0, 1);
 </style>
 
 <script src="js/theme.js"></script>
+<script src="js/sidebar.js"></script>
 <script>
+// Toggle Submenu en sidebar
+if (typeof toggleSubmenu !== 'function') {
+    function toggleSubmenu(id, trigger) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.toggle('open');
+            if (trigger) trigger.classList.toggle('open');
+        }
+    }
+}
 function confirmarCerrarSesion() {
     const modal = document.getElementById('modal-logout');
     modal.style.display = 'flex';

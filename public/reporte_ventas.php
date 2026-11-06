@@ -1443,6 +1443,7 @@ $ventasJson = json_encode($ventasData, JSON_UNESCAPED_UNICODE);
             return div.innerHTML;
         }
     </script>
+    <script src="js/sidebar.js"></script>
 </body>
 </html>
 
