@@ -2050,6 +2050,12 @@ const POS = {
         const isPagado = ticket.estado_pago === 'PAGADO';
         const detalles = ticket.detalles || [];
 
+        // Detectar si la venta incluye al menos una carga de ropa o servicio de lavandería
+        const tieneCargaRopa = Boolean(
+            (ticket.numero_carga && String(ticket.numero_carga).trim() !== '') ||
+            detalles.some(d => d.tipo === 'KIT' || d.tipo === 'SERVICIO' || parseFloat(d.ropa_kg || 0) > 0)
+        );
+
         // Generar líneas de detalle
         const lineasDetalle = detalles.map(d => {
             const cant = parseFloat(d.cantidad || 1);
@@ -2060,31 +2066,57 @@ const POS = {
             return `• ${cant}x ${desc}${extra} - $${subt}`;
         }).join('\n');
 
-        // Construir mensaje automático
+        // Construir mensaje automático según si incluye carga de ropa o solo productos/insumos
         let msg = `🧺 *LAVANDERÍA VERA*\n`;
-        msg += `✨ *Su Carga de Ropa fue Recibida*\n\n`;
-        msg += `📄 *Folio:* ${ticket.folio}\n`;
-        if (ticket.numero_carga) {
-            msg += `🏷️ *Carga de Lavado:* ${ticket.numero_carga}\n`;
-        }
-        msg += `📅 *Fecha:* ${ticket.fecha_venta}\n`;
-        msg += `👤 *Cliente:* ${ticket.cliente_nombre || 'Cliente'}\n`;
-        if (ticket.cajero_nombre) {
-            msg += `🧑‍💼 *Atendido por:* ${ticket.cajero_nombre}\n`;
-        }
-        msg += `\n*Detalle del Servicio:*\n`;
-        msg += lineasDetalle ? lineasDetalle : '• Servicios varios';
-        msg += `\n\n`;
-        msg += `💰 *TOTAL:* $${parseFloat(ticket.total || 0).toFixed(2)}\n`;
-        msg += `📌 *Estado:* ${isPagado ? '✅ PAGADO' : '⏳ PENDIENTE DE PAGO'}\n`;
-        msg += `💳 *Método:* ${ticket.metodo_pago || 'EFECTIVO'}\n`;
-        if (isPagado && ticket.metodo_pago === 'EFECTIVO' && ticket.monto_recibido) {
-            msg += `💵 *Recibido:* $${parseFloat(ticket.monto_recibido).toFixed(2)}\n`;
-            if (ticket.cambio) {
-                msg += `🪙 *Cambio:* $${parseFloat(ticket.cambio).toFixed(2)}\n`;
+
+        if (tieneCargaRopa) {
+            // Venta con carga de ropa (tal cual está configurado actualmente)
+            msg += `✨ *Su Carga de Ropa fue Recibida*\n\n`;
+            msg += `📄 *Folio:* ${ticket.folio}\n`;
+            if (ticket.numero_carga) {
+                msg += `🏷️ *Carga de Lavado:* ${ticket.numero_carga}\n`;
             }
+            msg += `📅 *Fecha:* ${ticket.fecha_venta}\n`;
+            msg += `👤 *Cliente:* ${ticket.cliente_nombre || 'Cliente'}\n`;
+            if (ticket.cajero_nombre) {
+                msg += `🧑‍💼 *Atendido por:* ${ticket.cajero_nombre}\n`;
+            }
+            msg += `\n*Detalle del Servicio:*\n`;
+            msg += lineasDetalle ? lineasDetalle : '• Servicios varios';
+            msg += `\n\n`;
+            msg += `💰 *TOTAL:* $${parseFloat(ticket.total || 0).toFixed(2)}\n`;
+            msg += `📌 *Estado:* ${isPagado ? '✅ PAGADO' : '⏳ PENDIENTE DE PAGO'}\n`;
+            msg += `💳 *Método:* ${ticket.metodo_pago || 'EFECTIVO'}\n`;
+            if (isPagado && ticket.metodo_pago === 'EFECTIVO' && ticket.monto_recibido) {
+                msg += `💵 *Recibido:* $${parseFloat(ticket.monto_recibido).toFixed(2)}\n`;
+                if (ticket.cambio) {
+                    msg += `🪙 *Cambio:* $${parseFloat(ticket.cambio).toFixed(2)}\n`;
+                }
+            }
+            msg += `\n¡Gracias por su preferencia!\nConserve este mensaje para recoger sus prendas.`;
+        } else {
+            // Venta solo de productos / insumos (sin carga de ropa)
+            msg += `🧾 *Comprobante de Compra*\n\n`;
+            msg += `📄 *Folio:* ${ticket.folio}\n`;
+            msg += `📅 *Fecha:* ${ticket.fecha_venta}\n`;
+            msg += `👤 *Cliente:* ${ticket.cliente_nombre || 'Cliente'}\n`;
+            if (ticket.cajero_nombre) {
+                msg += `🧑‍💼 *Atendido por:* ${ticket.cajero_nombre}\n`;
+            }
+            msg += `\n*Detalle de la Compra:*\n`;
+            msg += lineasDetalle ? lineasDetalle : '• Productos varios';
+            msg += `\n\n`;
+            msg += `💰 *TOTAL:* $${parseFloat(ticket.total || 0).toFixed(2)}\n`;
+            msg += `📌 *Estado:* ${isPagado ? '✅ PAGADO' : '⏳ PENDIENTE DE PAGO'}\n`;
+            msg += `💳 *Método:* ${ticket.metodo_pago || 'EFECTIVO'}\n`;
+            if (isPagado && ticket.metodo_pago === 'EFECTIVO' && ticket.monto_recibido) {
+                msg += `💵 *Recibido:* $${parseFloat(ticket.monto_recibido).toFixed(2)}\n`;
+                if (ticket.cambio) {
+                    msg += `🪙 *Cambio:* $${parseFloat(ticket.cambio).toFixed(2)}\n`;
+                }
+            }
+            msg += `\n¡Muchas gracias por su compra y preferencia! Esperamos verle pronto.`;
         }
-        msg += `\n¡Gracias por su preferencia!\nConserve este mensaje para recoger sus prendas.`;
 
         const wspUrl = `https://api.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(msg)}`;
         window.open(wspUrl, '_blank');
