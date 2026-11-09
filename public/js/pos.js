@@ -3282,41 +3282,53 @@ const POS = {
     // Badge de Estado de Lavado
     const statusMap = {
       espera:
-        '<span class="pos-lavado-status-pill pos-lavado-status-espera">⏳ En Espera</span>',
+        '<span class="pos-lavado-status-pill pos-lavado-status-espera">⏳ Espera</span>',
       proceso:
-        '<span class="pos-lavado-status-pill pos-lavado-status-proceso">⚙️ En Proceso</span>',
+        '<span class="pos-lavado-status-pill pos-lavado-status-proceso">⚙️ Proceso</span>',
       finalizado:
-        '<span class="pos-lavado-status-pill pos-lavado-status-finalizado">✅ Lista para Entrega</span>',
+        '<span class="pos-lavado-status-pill pos-lavado-status-finalizado">✅ Lista</span>',
       entregado:
         '<span class="pos-lavado-status-pill pos-lavado-status-entregado">📦 Entregada</span>',
     };
     const statusBadge = statusMap[tipo] || "";
 
-    // Badge de Estado de Pago
+    // Badge de Estado de Pago (compacto para modo fila)
     const pagoBadge = isPagado
-      ? '<span style="color:#10b981;font-weight:700;font-size:0.8rem;">✅ PAGADO</span>'
-      : `<div class="pos-lavado-badge-pago-pendiente">💳 PAGO PENDIENTE — $${total}</div>`;
+      ? '<span style="color:#10b981;font-weight:700;font-size:0.78rem;white-space:nowrap;">✅ PAGADO</span>'
+      : `<div class="pos-lavado-badge-pago-pendiente">💳 $${total}</div>`;
 
+    // ── Columna de fecha/info según estado ──────────────────────────────
+    let fechaInfo = "";
+    if (tipo === "espera") {
+      fechaInfo = `<div style="font-size:0.7rem;color:var(--pos-text-muted);white-space:nowrap;">📅 ${fecha}</div>`;
+    } else if (tipo === "proceso") {
+      fechaInfo = fechaInicio
+        ? `<div style="font-size:0.7rem;color:#94a3b8;white-space:nowrap;">▶ ${fechaInicio}</div>`
+        : "";
+    } else if (tipo === "finalizado") {
+      const fechaFin = c.fecha_conclusion ? c.fecha_conclusion.substring(0, 16) : "";
+      fechaInfo = `<div style="font-size:0.7rem;color:#6ee7b7;white-space:nowrap;">✔ ${fechaFin}</div>`;
+    } else if (tipo === "entregado") {
+      const fechaEnt = c.fecha_entrega ? c.fecha_entrega.substring(0, 16) : "";
+      const ticketFolio = c.venta_folio
+        ? `<div style="font-size:0.7rem;color:#93c5fd;font-weight:700;white-space:nowrap;">🎫 ${this.escapeHtml(c.venta_folio)}</div>`
+        : "";
+      fechaInfo = `${ticketFolio}<div style="font-size:0.7rem;color:#94a3b8;white-space:nowrap;">📦 ${fechaEnt}</div>`;
+    }
+
+    // ── Botón(es) de acción compactos ───────────────────────────────────
     let accionBtn = "";
     if (tipo === "espera") {
       accionBtn = `
-                <div style="font-size:0.72rem;color:var(--pos-text-muted);margin-top:auto;">Recibida: ${fecha}</div>
-                <button type="button" class="pos-lavado-btn-iniciar" style="width:100%;padding:0.65rem 1rem;font-size:0.9rem;" onclick="POS.iniciarLavado('${this.escapeHtml(c.id)}', '${numCarga}')">
-                    🚀 Iniciar Lavado
-                </button>`;
+        <button type="button" class="pos-lavado-btn-iniciar" onclick="POS.iniciarLavado('${this.escapeHtml(c.id)}', '${numCarga}')">
+          🚀 Iniciar Lavado
+        </button>`;
     } else if (tipo === "proceso") {
-      const tiempoInicio = fechaInicio
-        ? `<div style="font-size:0.72rem;color:#94a3b8;margin-bottom:0.25rem;">Iniciado: ${fechaInicio}</div>`
-        : "";
       accionBtn = `
-                <div style="margin-top:auto;">${tiempoInicio}</div>
-                <button type="button" class="pos-lavado-btn-finalizar" style="width:100%;padding:0.65rem 1rem;font-size:0.9rem;" onclick="POS.finalizarLavado('${this.escapeHtml(c.id)}', '${numCarga}')">
-                    ✅ Marcar como Finalizado
-                </button>`;
+        <button type="button" class="pos-lavado-btn-finalizar" onclick="POS.finalizarLavado('${this.escapeHtml(c.id)}', '${numCarga}')">
+          ✅ Finalizado
+        </button>`;
     } else if (tipo === "finalizado") {
-      const fechaFin = c.fecha_conclusion
-        ? c.fecha_conclusion.substring(0, 16)
-        : "";
       const telLimpio = (c.cliente_telefono || "").replace(/\D/g, "");
       const cliTrim = (c.cliente_nombre || "").trim().toLowerCase();
       const esPublicoGeneral =
@@ -3328,62 +3340,66 @@ const POS = {
         cliTrim.includes("mostrador");
       const tieneTelefono = !esPublicoGeneral && telLimpio.length >= 10;
 
-      let btnWspHtml = "";
-      if (tieneTelefono) {
-        btnWspHtml = `
-                    <button type="button" class="pos-lavado-btn-whatsapp" style="width:100%;padding:0.5rem;" onclick="POS.notificarWhatsappCarga('${this.escapeHtml(c.id)}')" title="Enviar WhatsApp al ${this.escapeHtml(c.cliente_telefono)}">
-                        <svg style="width:15px;height:15px;fill:currentColor;flex-shrink:0;" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
-                        <span>Notificar por WhatsApp</span>
-                    </button>
-                `;
-      } else if (!esPublicoGeneral) {
-        // Tiene cliente registrado pero sin teléfono
-        btnWspHtml = `
-                    <button type="button" class="pos-lavado-btn-whatsapp" style="width:100%;padding:0.5rem;opacity:0.45;cursor:not-allowed;" disabled title="Sin número de teléfono registrado">
-                        <svg style="width:15px;height:15px;fill:currentColor;flex-shrink:0;" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
-                        <span>Notificar por WhatsApp</span>
-                    </button>
-                    <div class="pos-lavado-no-tel" style="margin:0.25rem 0;">Sin Teléfono Registrado</div>
-                `;
-      }
+      const wspIcon = `<svg style="width:14px;height:14px;fill:currentColor;flex-shrink:0;" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>`;
 
-      accionBtn = `
-                <div style="font-size:0.72rem;color:#6ee7b7;margin-top:auto;">Lista desde: ${fechaFin}</div>
-                ${btnWspHtml}
-                <button type="button" class="pos-lavado-btn-entregar" style="width:100%;padding:0.65rem 1rem;font-size:0.9rem;" onclick="POS.entregarCarga('${this.escapeHtml(c.id)}')">
-                    📦 Entregar Carga
-                </button>
-            `;
+      if (tieneTelefono) {
+        accionBtn = `
+          <div style="display:flex;gap:0.4rem;align-items:center;flex-shrink:0;">
+            <button type="button" class="pos-lavado-btn-whatsapp" onclick="POS.notificarWhatsappCarga('${this.escapeHtml(c.id)}')" title="Enviar WhatsApp">
+              ${wspIcon}<span>WhatsApp</span>
+            </button>
+            <button type="button" class="pos-lavado-btn-entregar" onclick="POS.entregarCarga('${this.escapeHtml(c.id)}')">
+              📦 Entregar
+            </button>
+          </div>`;
+      } else if (!esPublicoGeneral) {
+        accionBtn = `
+          <div style="display:flex;flex-direction:column;gap:0.3rem;align-items:flex-end;flex-shrink:0;">
+            <button type="button" class="pos-lavado-btn-whatsapp" disabled style="opacity:0.4;cursor:not-allowed;" title="Sin teléfono registrado">
+              ${wspIcon}<span>WhatsApp</span>
+            </button>
+            <button type="button" class="pos-lavado-btn-entregar" onclick="POS.entregarCarga('${this.escapeHtml(c.id)}')">
+              📦 Entregar
+            </button>
+          </div>`;
+      } else {
+        // Público general: solo botón entregar
+        accionBtn = `
+          <button type="button" class="pos-lavado-btn-entregar" onclick="POS.entregarCarga('${this.escapeHtml(c.id)}')">
+            📦 Entregar
+          </button>`;
+      }
     } else if (tipo === "entregado") {
-      const fechaEnt = c.fecha_entrega ? c.fecha_entrega.substring(0, 16) : "";
-      const ticketFolio = c.venta_folio
-        ? `<div style="font-size:0.75rem;color:#93c5fd;font-weight:700;">Ticket: ${this.escapeHtml(c.venta_folio)}</div>`
-        : "";
-      accionBtn = `
-                <div style="margin-top:auto;">
-                    ${ticketFolio}
-                    <div style="font-size:0.72rem;color:#94a3b8;margin-top:0.2rem;">Entregado: ${fechaEnt}</div>
-                </div>
-                <div class="pos-lavado-badge-entregado" style="text-align:center;padding:0.6rem;font-size:0.85rem;">✓ ENTREGADA</div>
-            `;
+      accionBtn = `<div class="pos-lavado-badge-entregado" style="font-size:0.75rem;padding:0.3rem 0.7rem;white-space:nowrap;">✓ ENTREGADA</div>`;
     }
 
+    // ── Estructura de fila ──────────────────────────────────────────────
     return `
-        <div class="pos-lavado-card pos-lavado-card-${tipo}">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;">
-                <span class="pos-lavado-numero" style="font-size:1.15rem;font-weight:900;">${numCarga}</span>
-                ${statusBadge}
-            </div>
-            <div style="display:flex;flex-direction:column;gap:0.25rem;">
-                <div class="pos-lavado-cliente" style="font-size:0.92rem;font-weight:700;">👤 ${clienteNombre}</div>
-                ${c.cliente_telefono ? `<div style="font-size:0.75rem;color:var(--pos-text-muted);">📞 ${this.escapeHtml(c.cliente_telefono)}</div>` : ""}
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.35rem 0.6rem;background:rgba(0,0,0,0.15);border-radius:8px;">
-                ${kg > 0 ? `<div class="pos-lavado-kg" style="font-size:0.85rem;font-weight:700;">⚖️ ${kg} kg</div>` : "<div></div>"}
-                <div class="pos-lavado-pago">${pagoBadge}</div>
-            </div>
-            ${accionBtn}
-        </div>`;
+      <div class="pos-lavado-card pos-lavado-card-${tipo}">
+        <!-- Col 1: Número + status -->
+        <div style="min-width:110px;flex-shrink:0;">
+          <div class="pos-lavado-numero" style="font-size:0.95rem;font-weight:900;">${numCarga}</div>
+          ${statusBadge}
+        </div>
+        <!-- Col 2: Cliente -->
+        <div style="flex:1;min-width:0;overflow:hidden;">
+          <div class="pos-lavado-cliente" style="font-size:0.85rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">👤 ${clienteNombre}</div>
+          ${c.cliente_telefono ? `<div style="font-size:0.72rem;color:var(--pos-text-muted);">📞 ${this.escapeHtml(c.cliente_telefono)}</div>` : ""}
+        </div>
+        <!-- Col 3: KG + pago -->
+        <div style="min-width:100px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:0.2rem;">
+          ${parseFloat(c.ropa_kg || 0) > 0 ? `<div class="pos-lavado-kg" style="font-size:0.8rem;font-weight:700;">⚖️ ${kg} kg</div>` : ""}
+          ${pagoBadge}
+        </div>
+        <!-- Col 4: Fecha/info -->
+        <div style="min-width:130px;flex-shrink:0;display:flex;flex-direction:column;gap:0.1rem;">
+          ${fechaInfo}
+        </div>
+        <!-- Col 5: Acciones -->
+        <div style="flex-shrink:0;display:flex;align-items:center;">
+          ${accionBtn}
+        </div>
+      </div>`;
   },
   iniciarLavadoDesdeSelect() {
     const sel = document.getElementById("pos-select-carga-espera");

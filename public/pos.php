@@ -450,12 +450,16 @@ $isAdmin  = $auth->isPosAdmin();
             font-size: 0.85rem !important;
         }
         [data-theme="light"] .pos-lavado-card {
-            background: #ffffff !important;
-            border: 1px solid #cbd5e1 !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+            background: transparent !important;
+            border-left-width: 4px !important;
+            border-top: none !important;
+            border-right: none !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            box-shadow: none !important;
         }
         [data-theme="light"] .pos-lavado-card:hover {
-            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1) !important;
+            background: rgba(59, 130, 246, 0.05) !important;
+            box-shadow: none !important;
         }
         [data-theme="light"] .pos-lavado-numero {
             color: #0f172a !important;
