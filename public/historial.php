@@ -1038,6 +1038,81 @@ $filtroSkuJs = json_encode($filtroSku);
             return '-';
         }
 
+        function getNotasYFolio(item) {
+            if (!item) return { folio: null, notas: [] };
+
+            const motivoRaw = (item.motivo || '').trim();
+            const folioVal = formatNotasFolio(motivoRaw);
+            const folio = (folioVal !== '-') ? folioVal : null;
+            const notasList = [];
+
+            // 1. Si el motivo no es un folio, o contiene texto descriptivo aparte del folio
+            if (motivoRaw) {
+                if (!folio) {
+                    notasList.push(motivoRaw);
+                } else if (motivoRaw !== folio) {
+                    let limpio = motivoRaw
+                        .replace(/Cobro\s+Venta\s+Folio:\s*[A-Za-z0-9\-_]+/gi, '')
+                        .replace(/Venta\s+Folio:\s*[A-Za-z0-9\-_]+/gi, '')
+                        .replace(/Folio:\s*[A-Za-z0-9\-_]+/gi, '')
+                        .replace(/Folio\s*[:#]?\s*[A-Za-z0-9\-_]+/gi, '')
+                        .replace(/^[-\s|:;,]+|[-\s|:;,]+$/g, '')
+                        .trim();
+                    if (limpio && limpio !== folio) {
+                        notasList.push(limpio);
+                    }
+                }
+            }
+
+            // 2. Notas registradas en la venta (ítem o venta global)
+            const ventaNotas = (item.venta_notas || item.detalle_notas || '').trim();
+            if (ventaNotas && !notasList.includes(ventaNotas)) {
+                notasList.push(ventaNotas);
+            }
+
+            const ventaObs = (item.venta_observaciones || item.observaciones || '').trim();
+            if (ventaObs && !notasList.includes(ventaObs) && ventaObs !== ventaNotas) {
+                notasList.push(ventaObs);
+            }
+
+            return { folio, notas: notasList };
+        }
+
+        function renderNotasColumna(item) {
+            const { folio, notas } = getNotasYFolio(item);
+
+            let htmlParts = [];
+
+            if (folio) {
+                htmlParts.push(`
+                    <div style="margin-bottom: ${notas.length > 0 ? '0.35rem' : '0'};">
+                        <span style="font-family: monospace; font-weight: 700; color: #38bdf8; background: rgba(56, 189, 248, 0.12); padding: 0.25rem 0.55rem; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.3); white-space: nowrap; display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; transition: all 0.2s;"
+                              onclick="verTicketHistorial('${folio}')"
+                              onmouseover="this.style.background='rgba(56, 189, 248, 0.25)'; this.style.color='#fff';"
+                              onmouseout="this.style.background='rgba(56, 189, 248, 0.12)'; this.style.color='#38bdf8';"
+                              title="Clic para ver e imprimir ticket ${folio}">
+                            🎫 ${folio}
+                        </span>
+                    </div>
+                `);
+            }
+
+            if (notas.length > 0) {
+                const notasTexto = notas.join(' · ');
+                htmlParts.push(`
+                    <div style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.35; max-width: 280px; margin: 0 auto; word-break: break-word;" title="${escapeHtml(notasTexto)}">
+                        ${escapeHtml(notasTexto)}
+                    </div>
+                `);
+            }
+
+            if (!folio && notas.length === 0) {
+                return `<span style="color: var(--text-muted); opacity: 0.4;">-</span>`;
+            }
+
+            return htmlParts.join('');
+        }
+
         function formatFecha(fechaStr) {
             if (!fechaStr) return '-';
             const d = new Date(fechaStr);
@@ -1101,6 +1176,7 @@ $filtroSkuJs = json_encode($filtroSku);
                 const tipoMov = (item.tipo_movimiento      || '').toLowerCase();
                 const usuario = (item.usuario_nombre       || '').toLowerCase();
                 const motivo  = (item.motivo               || '').toLowerCase();
+                const vNotas  = ((item.venta_notas || item.detalle_notas || '') + ' ' + (item.venta_observaciones || '')).toLowerCase();
                 const kitStr  = (item.kit_detalle ? (typeof item.kit_detalle === 'string' ? item.kit_detalle : JSON.stringify(item.kit_detalle)) : '').toLowerCase();
 
                 const tipoMovDisplay = esKitConsumo ? 'venta pos' : tipoMov;
@@ -1111,6 +1187,7 @@ $filtroSkuJs = json_encode($filtroSku);
                     tipoMovDisplay.includes(query) ||
                     usuario.includes(query) ||
                     motivo.includes(query)  ||
+                    vNotas.includes(query)  ||
                     kitStr.includes(query);
 
                 // Filtro de rango de fechas
@@ -1309,8 +1386,8 @@ $filtroSkuJs = json_encode($filtroSku);
                             })()}
                         </td>
                         <td style="text-align: right; font-size: 0.85rem;">${costoFormatted}</td>
-                        <td style="font-size: 0.85rem; text-align: center; white-space: nowrap;">
-                            ${folioHtml}
+                        <td style="font-size: 0.85rem; text-align: center; vertical-align: middle;">
+                            ${renderNotasColumna(item)}
                         </td>
                         <td style="font-size: 0.85rem; font-weight: 500;">${item.usuario_nombre || 'Sistema'}</td>
                         <td style="text-align: center;" class="no-print">
@@ -1351,18 +1428,8 @@ $filtroSkuJs = json_encode($filtroSku);
                                 <td style="text-align:right; font-size:0.8rem; color:var(--text-muted);">
                                     <span style="opacity:0.5;">—</span>
                                 </td>
-                                <td style="font-size:0.82rem; text-align:center; white-space:nowrap;">
-                                    ${(() => {
-                                        const ticketFolio = formatNotasFolio(item.motivo);
-                                        if (ticketFolio !== '-') {
-                                            return `<span style="font-family:monospace; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.1); padding:0.2rem 0.5rem; border-radius:6px; border:1px solid rgba(56,189,248,0.25); white-space:nowrap;">🎫 ${ticketFolio}</span>`;
-                                        }
-                                        const kitSku = item.producto_sku || '';
-                                        if (kitSku) {
-                                            return `<span class="sku-tag" style="font-weight:600;">📦 ${kitSku}</span>`;
-                                        }
-                                        return `<span style="color:var(--text-muted); opacity:0.4;">-</span>`;
-                                    })()}
+                                <td style="font-size:0.82rem; text-align:center; vertical-align:middle;">
+                                    ${renderNotasColumna(item)}
                                 </td>
                                 <td style="font-size:0.82rem; color:var(--text-muted);">${item.usuario_nombre || 'Sistema'}</td>
                                 <td class="no-print"></td>
@@ -1428,7 +1495,7 @@ $filtroSkuJs = json_encode($filtroSku);
             const sAFmt    = parseFloat(item.stock_antes   || 0).toFixed(2);
             const sDFmt    = parseFloat(item.stock_despues || 0).toFixed(2);
             const badgeClass = getBadgeClass(item.tipo_movimiento);
-            const folioVal = formatNotasFolio(item.motivo);
+            const { folio: folioVal, notas: notasVal } = getNotasYFolio(item);
 
             // Kit insumos
             let kitSection = '';
@@ -1458,8 +1525,8 @@ $filtroSkuJs = json_encode($filtroSku);
                 </div>`;
             }
 
-            // Motivo completo (si hay y no solo folio)
-            const motivoCompleto = (item.motivo && item.motivo.trim()) ? item.motivo.trim() : '—';
+            // Motivo y notas completo
+            const motivoCompleto = notasVal.length > 0 ? notasVal.join(' | ') : ((item.motivo && item.motivo.trim()) ? item.motivo.trim() : '—');
 
             document.getElementById('modalContent').innerHTML = `
                 <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.1rem;">
@@ -1498,20 +1565,20 @@ $filtroSkuJs = json_encode($filtroSku);
                         <div class="detail-value" style="color:${parseFloat(item.stock_despues||0)>=parseFloat(item.stock_antes||0)?'#6ee7b7':'#fda4af'};font-weight:700;">${sDFmt}</div>
                     </div>
                     <div class="detail-item">
-                        <div class="detail-label">Folio / Referencia</div>
-                        <div class="detail-value mono">${folioVal !== '-' ? folioVal : '—'}</div>
+                        <div class="detail-label">Folio / Ticket</div>
+                        <div class="detail-value mono">${folioVal ? `🎫 ${folioVal}` : '—'}</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Usuario</div>
                         <div class="detail-value" style="color:#e2e8f0;">${item.usuario_nombre || 'Sistema'}</div>
                     </div>
                     <div class="detail-item full">
-                        <div class="detail-label">Notas / Motivo completo</div>
-                        <div class="detail-value" style="font-size:0.85rem;color:#cbd5e1;line-height:1.5;">${motivoCompleto}</div>
+                        <div class="detail-label">Notas / Motivo</div>
+                        <div class="detail-value" style="font-size:0.85rem;color:#cbd5e1;line-height:1.5;">${escapeHtml(motivoCompleto)}</div>
                     </div>
                 </div>
                 ${kitSection}
-                ${folioVal !== '-' ? `
+                ${folioVal ? `
                 <div style="margin-top:1.1rem;">
                     <button onclick="verTicketHistorial('${folioVal}')"
                         style="width:100%; display:flex; align-items:center; justify-content:center; gap:0.5rem;
@@ -1724,7 +1791,17 @@ $filtroSkuJs = json_encode($filtroSku);
             csvContent += headers.map(h => `"${h}"`).join(',') + '\n';
 
             filteredData.forEach(item => {
-                const folioDisplay = formatNotasFolio(item.motivo);
+                const { folio: folioExp, notas: notasExp } = getNotasYFolio(item);
+                let notasDisplay = '';
+                if (folioExp && notasExp.length > 0) {
+                    notasDisplay = `Ticket: ${folioExp} | ${notasExp.join(' - ')}`;
+                } else if (folioExp) {
+                    notasDisplay = folioExp;
+                } else if (notasExp.length > 0) {
+                    notasDisplay = notasExp.join(' - ');
+                } else {
+                    notasDisplay = '-';
+                }
 
                 let descProductoExport = item.producto_descripcion || '';
                 let kitDetalleArr = null;
@@ -1745,7 +1822,7 @@ $filtroSkuJs = json_encode($filtroSku);
                     parseFloat(item.stock_antes || 0).toFixed(2),
                     parseFloat(item.stock_despues || 0).toFixed(2),
                     parseFloat(item.costo_unitario || 0).toFixed(2),
-                    folioDisplay,
+                    notasDisplay,
                     item.usuario_nombre || 'Sistema'
                 ];
 

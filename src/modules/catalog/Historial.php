@@ -123,7 +123,29 @@ class Historial {
     }
 
     public function obtenerTodos() {
-        $query = "SELECT * FROM " . $this->table_name . " ORDER BY fecha_hora DESC, id DESC";
+        $query = "SELECT hm.*,
+                         COALESCE(
+                             (SELECT dv.notas 
+                              FROM ventas v 
+                              JOIN detalle_ventas dv ON dv.venta_id = v.id 
+                              WHERE (v.folio = hm.motivo OR hm.motivo LIKE CONCAT('%', v.folio, '%'))
+                                AND dv.producto_id = hm.producto_id 
+                                AND dv.notas IS NOT NULL AND TRIM(dv.notas) != '' 
+                              LIMIT 1),
+                             (SELECT dv2.notas 
+                              FROM ventas v2 
+                              JOIN detalle_ventas dv2 ON dv2.venta_id = v2.id 
+                              WHERE (v2.folio = hm.motivo OR hm.motivo LIKE CONCAT('%', v2.folio, '%'))
+                                AND dv2.notas IS NOT NULL AND TRIM(dv2.notas) != '' 
+                              LIMIT 1),
+                             (SELECT v3.observaciones 
+                              FROM ventas v3 
+                              WHERE (v3.folio = hm.motivo OR hm.motivo LIKE CONCAT('%', v3.folio, '%')) 
+                                AND v3.observaciones IS NOT NULL AND TRIM(v3.observaciones) != '' 
+                              LIMIT 1)
+                         ) AS venta_notas
+                  FROM " . $this->table_name . " hm 
+                  ORDER BY hm.fecha_hora DESC, hm.id DESC";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
         $movimientos = $stmt->fetchAll(PDO::FETCH_ASSOC);
