@@ -622,7 +622,6 @@ $isAdmin  = $auth->isPosAdmin();
 
         <div class="pos-header-center">
             <div id="pos-caja-status" class="pos-caja-pill cerrada" title="Haz clic para ver arqueo o corte">
-                <span class="pos-dot-pulse"></span>
                 <span>Cargando turno...</span>
             </div>
         </div>
@@ -630,27 +629,23 @@ $isAdmin  = $auth->isPosAdmin();
         <div class="pos-header-actions">
             <!-- Botón Cobros Pendientes (Pago Posterior) -->
             <button class="pos-btn-head" onclick="POS.abrirModalPendientes()" title="Ver entregas y cobros pendientes (F8)">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <span>Cobros Pendientes</span>
                 <span id="pos-pendientes-count" class="pos-badge-count" style="display:none;">0</span>
             </button>
 
             <!-- Botón Panel de Lavado de Cargas -->
             <button class="pos-btn-head pos-btn-lavado-head" id="pos-btn-lavado-head" onclick="POS.abrirModalLavado()" title="Panel de seguimiento de lavado de cargas">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
                 <span>Lavado</span>
                 <span id="pos-lavado-badge" class="pos-badge-count" style="display:none; background:#3b82f6;">0</span>
             </button>
 
                         <!-- Botón Corte de Caja -->
             <button class="pos-btn-head" onclick="POS.abrirModalCorte()" title="Arqueo y Cierre de Turno (F9)">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M12 8v8m-4-4h8"/></svg>
                 <span>Corte de Caja</span>
             </button>
 
             <!-- Botón Historial de Ventas -->
             <button class="pos-btn-head" onclick="POS.abrirModalHistorial()" title="Historial del día y Cancelaciones">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                 <span>Historial Hoy</span>
             </button>
 
@@ -668,19 +663,16 @@ $isAdmin  = $auth->isPosAdmin();
 
             <!-- Cajero en turno -->
             <div class="pos-btn-head pos-user-badge" style="cursor:default;" title="Cajero autenticado en el POS">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                 <span><strong><?= htmlspecialchars($userName) ?></strong></span>
             </div>
 
             <!-- Botón Cerrar Sesión POS -->
             <a href="javascript:void(0)" onclick="confirmarCerrarSesionPos()" class="pos-btn-head" style="background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.3); color:#fca5a5;" title="Cerrar sesión de este cajero en el POS">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                 <span>Salir POS</span>
             </a>
 
             <!-- Botón Acceder al Backoffice (Confirmación previa) -->
             <button type="button" class="pos-btn-head" onclick="confirmarIngresoBackoffice()" style="background:rgba(59,130,246,0.15); border-color:rgba(59,130,246,0.3); color:#93c5fd;" title="Acceder al Backoffice (requiere confirmación e inicio de sesión)">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                 <span>Backoffice</span>
             </button>
         </div>
