@@ -164,6 +164,7 @@ class Venta
             "ALTER TABLE ventas ADD COLUMN cliente_id VARCHAR(36) NULL AFTER folio",
             "ALTER TABLE ventas ADD COLUMN usuario_id VARCHAR(36) NOT NULL AFTER cliente_id",
             "ALTER TABLE ventas ADD COLUMN caja_id VARCHAR(36) NULL AFTER usuario_id",
+            "ALTER TABLE ventas ADD COLUMN caja_cobro_id VARCHAR(36) NULL AFTER caja_id",
             "ALTER TABLE ventas ADD COLUMN total DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER caja_id",
             "ALTER TABLE ventas ADD COLUMN estado ENUM('ACTIVA', 'CANCELADA') NOT NULL DEFAULT 'ACTIVA' AFTER total",
             "ALTER TABLE ventas ADD COLUMN metodo_pago ENUM('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'PENDIENTE') NOT NULL DEFAULT 'EFECTIVO' AFTER estado",
@@ -320,11 +321,11 @@ class Venta
             // Insertar cabecera de Venta
             $stmtV = $this->conn->prepare(
                 "INSERT INTO ventas (
-                    id, folio, cliente_id, usuario_id, caja_id, total, estado,
+                    id, folio, cliente_id, usuario_id, caja_id, caja_cobro_id, total, estado,
                     metodo_pago, estado_pago, monto_recibido, cambio, fecha_venta,
                     fecha_pago, observaciones
                 ) VALUES (
-                    :id, :folio, :cliente_id, :usuario_id, :caja_id, :total, 'ACTIVA',
+                    :id, :folio, :cliente_id, :usuario_id, :caja_id, :caja_cobro_id, :total, 'ACTIVA',
                     :metodo_pago, :estado_pago, :monto_recibido, :cambio, NOW(),
                     " . ($estadoPago === 'PAGADO' ? 'NOW()' : 'NULL') . ", :observaciones
                 )"
@@ -341,6 +342,7 @@ class Venta
                 ':estado_pago'    => $estadoPago,
                 ':monto_recibido' => $montoRecibido,
                 ':cambio'         => $cambio,
+                ':caja_cobro_id'  => ($estadoPago === 'PAGADO' ? $cajaId : null),
                 ':observaciones'  => $observaciones
             ]);
 
@@ -596,7 +598,7 @@ class Venta
     /**
      * Registra el pago posterior de una venta pendiente (Spec 05 §3)
      */
-    public function registrarPagoPosterior(string $ventaId, string $metodoPago, float $montoRecibido = 0.0): array
+    public function registrarPagoPosterior(string $ventaId, string $metodoPago, float $montoRecibido = 0.0, ?string $cajaId = null): array
     {
         try {
             $this->conn->beginTransaction();
@@ -635,7 +637,8 @@ class Venta
                     metodo_pago    = :metodo_pago,
                     monto_recibido = :monto_recibido,
                     cambio         = :cambio,
-                    fecha_pago     = NOW()
+                    fecha_pago     = NOW(),
+                    caja_cobro_id  = :caja_cobro_id
                  WHERE id = :id"
             );
 
@@ -643,6 +646,7 @@ class Venta
                 ':metodo_pago'    => $metodoPago,
                 ':monto_recibido' => $montoRecibido,
                 ':cambio'         => $cambio,
+                ':caja_cobro_id'  => $cajaId,
                 ':id'             => $ventaId
             ]);
 

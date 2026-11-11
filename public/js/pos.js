@@ -59,12 +59,15 @@ const POS = {
       this.caja = data.caja_abierta;
       this.products = data.productos || data.products || [];
       this.clients = data.clientes || data.clients || [];
+      this.custodiaCargas = data.custodia_cargas || null;
+      this.ultimoCorte = data.ultimo_corte || null;
 
       this.populateClientesSelect();
       this.renderCajaStatus();
       this.renderProducts();
       this.updatePendingBadge(data.total_pendientes || 0);
       this.updateLavadoBadge(data.total_lavado_activo || 0);
+      this.renderAperturaCustodia(data.custodia_cargas);
 
       // Si la caja está cerrada, sugerir abrir turno
       if (!this.caja) {
@@ -2639,8 +2642,95 @@ const POS = {
   },
 
   // ─────────────────────────────────────────────────────────────
-  // Control de Turno y Corte de Caja (Fase 13)
+  // Control de Turno y Corte de Caja (Fase 13 y Custodia de Cargas)
   // ─────────────────────────────────────────────────────────────
+  renderAperturaCustodia(custodia) {
+    if (!custodia) return;
+    const badgeEl = document.getElementById("apertura-cargas-badge");
+    const montoPendEl = document.getElementById("apertura-monto-pendiente");
+    const cantPendEl = document.getElementById("apertura-cant-pend-pago");
+    const cantPagEl = document.getElementById("apertura-cant-pagadas");
+    const faseEspEl = document.getElementById("apertura-fase-espera");
+    const faseProEl = document.getElementById("apertura-fase-proceso");
+    const faseLisEl = document.getElementById("apertura-fase-listas");
+    const listEl = document.getElementById("apertura-custodia-detalle-list");
+
+    const totalEntrega = custodia.total_pendientes_entrega || 0;
+    const totalPendPago = custodia.total_pendientes_pago || 0;
+    const montoPend = parseFloat(custodia.monto_pendiente_cobro || 0);
+    const totalPagadas = custodia.total_pagadas_no_entregadas || 0;
+    const porEstado = custodia.por_estado || { espera: 0, proceso: 0, finalizado: 0 };
+
+    if (badgeEl) badgeEl.textContent = `${totalEntrega} ${totalEntrega === 1 ? 'carga' : 'cargas'}`;
+    if (montoPendEl) montoPendEl.textContent = `$${montoPend.toFixed(2)}`;
+    if (cantPendEl) cantPendEl.textContent = `${totalPendPago} ${totalPendPago === 1 ? 'carga pendiente' : 'cargas pendientes'} de cobro`;
+    if (cantPagEl) cantPagEl.textContent = `${totalPagadas} ${totalPagadas === 1 ? 'carga' : 'cargas'}`;
+    if (faseEspEl) faseEspEl.textContent = porEstado.espera || 0;
+    if (faseProEl) faseProEl.textContent = porEstado.proceso || 0;
+    if (faseLisEl) faseLisEl.textContent = porEstado.finalizado || 0;
+
+    if (listEl) {
+      if (!custodia.items || custodia.items.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center;color:var(--pos-text-muted);padding:0.75rem;">No hay cargas pendientes de entrega recibidas de turnos anteriores.</div>';
+      } else {
+        listEl.innerHTML = custodia.items.map(c => this._renderFilaCustodiaMini(c)).join('');
+      }
+    }
+  },
+
+  toggleDetalleAperturaCustodia() {
+    const listEl = document.getElementById("apertura-custodia-detalle-list");
+    const textEl = document.getElementById("apertura-btn-toggle-text");
+    if (!listEl) return;
+    const isHidden = listEl.style.display === "none";
+    listEl.style.display = isHidden ? "block" : "none";
+    if (textEl) textEl.textContent = isHidden ? "Ocultar desglose" : "Ver detalle de cargas en custodia";
+  },
+
+  toggleDetalleCorteCustodia() {
+    const listEl = document.getElementById("corte-custodia-detalle-list");
+    const textEl = document.getElementById("corte-btn-toggle-text");
+    if (!listEl) return;
+    const isHidden = listEl.style.display === "none";
+    listEl.style.display = isHidden ? "block" : "none";
+    if (textEl) textEl.textContent = isHidden ? "Ocultar desglose" : "Ver desglose de prendas pendientes";
+  },
+
+  _renderFilaCustodiaMini(c) {
+    const isPend = c.estado_pago === 'PENDIENTE';
+    const total = parseFloat(c.total || 0).toFixed(2);
+    const kg = parseFloat(c.ropa_kg || 0).toFixed(2);
+    const tel = c.cliente_telefono ? ` | 📞 ${this.escapeHtml(c.cliente_telefono)}` : '';
+    
+    const estadoLabels = {
+      RECIBIDA: '<span style="color:#f59e0b;font-weight:700;">⏳ Espera</span>',
+      EN_PROCESO: '<span style="color:#3b82f6;font-weight:700;">⚙️ Proceso</span>',
+      LISTA_CONCLUIDA: '<span style="color:#10b981;font-weight:700;">✅ Lista</span>'
+    };
+    const estadoHtml = estadoLabels[c.estado] || c.estado;
+
+    const pagoHtml = isPend 
+      ? `<span style="background:rgba(245,158,11,0.18);color:#fbbf24;border:1px solid rgba(245,158,11,0.4);border-radius:4px;padding:2px 6px;font-weight:800;font-size:0.75rem;">💳 Por Cobrar: $${total}</span>`
+      : `<span style="background:rgba(16,185,129,0.18);color:#34d399;border:1px solid rgba(16,185,129,0.4);border-radius:4px;padding:2px 6px;font-weight:800;font-size:0.75rem;">✅ PAGADO</span>`;
+
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.06);gap:0.5rem;">
+        <div style="min-width:100px;flex-shrink:0;">
+          <strong style="color:#e2e8f0;font-family:'JetBrains Mono',monospace;font-size:0.82rem;">${this.escapeHtml(c.numero_carga)}</strong>
+          <div style="font-size:0.7rem;margin-top:2px;">${estadoHtml}</div>
+        </div>
+        <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          <span style="font-weight:700;color:#f1f5f9;font-size:0.8rem;">👤 ${this.escapeHtml(c.cliente_nombre || 'Público General')}</span>
+          <span style="font-size:0.72rem;color:var(--pos-text-muted);">${tel}</span>
+          ${kg > 0 ? `<span style="font-size:0.72rem;color:#94a3b8;margin-left:0.35rem;">⚖️ ${kg} kg</span>` : ''}
+        </div>
+        <div style="flex-shrink:0;text-align:right;">
+          ${pagoHtml}
+        </div>
+      </div>
+    `;
+  },
+
   async abrirCajaForm(form) {
     const monto = parseFloat(form.monto_inicial.value) || 0;
     const obs = form.observaciones.value;
@@ -2659,10 +2749,20 @@ const POS = {
       if (data.success) {
         this.closeModal("modal-apertura-caja");
         await this.loadInitialData();
+
+        let extraMsg = "";
+        if (data.custodia_recibida && data.custodia_recibida.total_pendientes_entrega > 0) {
+          const c = data.custodia_recibida;
+          extraMsg = `\n\n🧺 Recibes en custodia: ${c.total_pendientes_entrega} carga(s)`;
+          if (c.total_pendientes_pago > 0) {
+            extraMsg += ` (${c.total_pendientes_pago} con pago pendiente por $${c.monto_pendiente_cobro.toFixed(2)})`;
+          }
+        }
+
         this.mostrarMensaje({
           tipo: "success",
           titulo: "¡Caja Abierta con Éxito!",
-          mensaje: data.message,
+          mensaje: `${data.message}${extraMsg}`,
         });
       } else {
         this.mostrarMensaje({
@@ -2697,19 +2797,66 @@ const POS = {
         return;
       }
 
+      // 1. Resumen Financiero
       document.getElementById("corte-fondo-inicial").textContent =
         `$${data.monto_inicial.toFixed(2)}`;
+      
+      const ventasNuevasEfec = data.ventas_nuevas ? data.ventas_nuevas.efectivo : data.total_efectivo;
       document.getElementById("corte-efectivo-ventas").textContent =
-        `$${data.total_efectivo.toFixed(2)}`;
+        `$${ventasNuevasEfec.toFixed(2)}`;
+
+      const cobrosAntEfec = data.cobros_turnos_anteriores ? data.cobros_turnos_anteriores.total_efectivo : 0;
+      const elCobrosAnt = document.getElementById("corte-cobros-anteriores-efec");
+      if (elCobrosAnt) elCobrosAnt.textContent = `$${cobrosAntEfec.toFixed(2)}`;
+
       document.getElementById("corte-tarjeta-ventas").textContent =
         `$${data.total_tarjeta.toFixed(2)}`;
       document.getElementById("corte-transf-ventas").textContent =
         `$${data.total_transferencia.toFixed(2)}`;
-      document.getElementById("corte-esperado-efectivo").textContent =
-        `$${data.total_esperado_efectivo.toFixed(2)}`;
       document.getElementById("corte-cant-ventas").textContent =
         data.cantidad_ventas;
+      document.getElementById("corte-esperado-efectivo").textContent =
+        `$${data.total_esperado_efectivo.toFixed(2)}`;
 
+      // 2. Ropa y Cargas en Custodia que quedan para el siguiente turno
+      const custodia = data.custodia_cargas || {};
+      const totCustodia = custodia.total_pendientes_entrega || 0;
+      const totPendPago = custodia.total_pendientes_pago || 0;
+      const montoPend = parseFloat(custodia.monto_pendiente_cobro || 0);
+      const totPagadas = custodia.total_pagadas_no_entregadas || 0;
+      const porEstado = custodia.por_estado || { espera: 0, proceso: 0, finalizado: 0 };
+
+      const badgeCustodia = document.getElementById("corte-total-custodia-badge");
+      if (badgeCustodia) badgeCustodia.textContent = `${totCustodia} ${totCustodia === 1 ? 'carga' : 'cargas'}`;
+
+      const montoPendEl = document.getElementById("corte-custodia-monto-pend");
+      if (montoPendEl) montoPendEl.textContent = `$${montoPend.toFixed(2)}`;
+
+      const cantPendEl = document.getElementById("corte-custodia-cant-pend");
+      if (cantPendEl) cantPendEl.textContent = `${totPendPago} ${totPendPago === 1 ? 'carga pendiente' : 'cargas pendientes'} de cobro`;
+
+      const cantPagadasEl = document.getElementById("corte-custodia-cant-pagadas");
+      if (cantPagadasEl) cantPagadasEl.textContent = `${totPagadas} ${totPagadas === 1 ? 'carga' : 'cargas'}`;
+
+      const faseEspEl = document.getElementById("corte-fase-espera");
+      if (faseEspEl) faseEspEl.textContent = porEstado.espera || 0;
+
+      const faseProEl = document.getElementById("corte-fase-proceso");
+      if (faseProEl) faseProEl.textContent = porEstado.proceso || 0;
+
+      const faseLisEl = document.getElementById("corte-fase-listas");
+      if (faseLisEl) faseLisEl.textContent = porEstado.finalizado || 0;
+
+      const corteDetalleList = document.getElementById("corte-custodia-detalle-list");
+      if (corteDetalleList) {
+        if (!custodia.items || custodia.items.length === 0) {
+          corteDetalleList.innerHTML = '<div style="text-align:center;color:var(--pos-text-muted);padding:0.75rem;">¡Excelente! No queda ninguna carga pendiente de entrega en el local.</div>';
+        } else {
+          corteDetalleList.innerHTML = custodia.items.map(c => this._renderFilaCustodiaMini(c)).join('');
+        }
+      }
+
+      // Input de Efectivo Real
       const inputDeclarado = document.getElementById(
         "corte-efectivo-declarado",
       );
@@ -2759,7 +2906,7 @@ const POS = {
       tipo: "danger",
       titulo: "¿Cerrar Turno de Caja?",
       mensaje:
-        "¿Estás seguro de que deseas cerrar el turno de caja actual? Se generará el corte y no se podrán registrar más ventas en este turno.",
+        "¿Estás seguro de que deseas cerrar el turno de caja actual? Se generará el corte, se guardará el balance de custodia de prendas y no se podrán registrar más ventas en este turno.",
       btnConfirmar: "Sí, cerrar caja",
       colorConfirmar: "#ef4444",
       onConfirm: async () => {
@@ -2789,10 +2936,16 @@ const POS = {
       if (data.success) {
         this.closeModal("modal-corte-caja");
         await this.loadInitialData();
+
+        let custMsg = "";
+        if (data.cargas_pendientes_entrega > 0) {
+          custMsg = `\n🧺 Ropa en custodia para el sig. turno: ${data.cargas_pendientes_entrega} carga(s) ($${parseFloat(data.monto_pendiente_cobro || 0).toFixed(2)} por cobrar)`;
+        }
+
         this.mostrarMensaje({
           tipo: "success",
           titulo: "¡Caja Cerrada con Éxito!",
-          mensaje: `Caja cerrada exitosamente.\nDiferencia final: $${data.diferencia.toFixed(2)}`,
+          mensaje: `Caja cerrada exitosamente.\nDiferencia final: $${data.diferencia.toFixed(2)}${custMsg}`,
         });
       } else {
         this.mostrarMensaje({

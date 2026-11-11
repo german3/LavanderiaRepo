@@ -90,6 +90,10 @@ try {
             // Conteo pendientes
             $pendientes = $ventaModel->obtenerVentasPendientes();
 
+            // Inventario de custodia de cargas y último corte cerrado
+            $custodiaCargas = $cajaModel->obtenerCargasPendientes();
+            $ultimoCorte = $cajaModel->obtenerUltimoCorte();
+
             echo json_encode([
                 'success' => true,
                 'user' => [
@@ -98,14 +102,16 @@ try {
                     'rol'     => $currentUserRole,
                     'isAdmin' => $isAdmin
                 ],
-                'caja_abierta'      => $cajaAbierta,
-                'productos'         => $productos,
-                'products'          => $productos,
-                'clientes'          => $clientes,
-                'clients'           => $clientes,
-                'ventas_recientes'  => $ventasRecientes,
-                'total_pendientes'  => count($pendientes),
-                'total_lavado_activo' => count($cargaModel->obtenerCargasActivas())
+                'caja_abierta'        => $cajaAbierta,
+                'productos'           => $productos,
+                'products'            => $productos,
+                'clientes'            => $clientes,
+                'clients'             => $clientes,
+                'ventas_recientes'    => $ventasRecientes,
+                'total_pendientes'    => count($pendientes),
+                'total_lavado_activo' => count($cargaModel->obtenerCargasActivas()),
+                'custodia_cargas'     => $custodiaCargas,
+                'ultimo_corte'        => $ultimoCorte
             ]);
             break;
 
@@ -308,7 +314,10 @@ try {
                 exit;
             }
 
-            $resultado = $ventaModel->registrarPagoPosterior($ventaId, $metodoPago, $montoRecibido);
+            $cajaAbierta = $cajaModel->obtenerCajaAbierta($currentUserId);
+            $cajaIdCobro = $cajaAbierta ? $cajaAbierta['id'] : null;
+
+            $resultado = $ventaModel->registrarPagoPosterior($ventaId, $metodoPago, $montoRecibido, $cajaIdCobro);
             if ($resultado['success']) {
                 $resultado['ticket'] = $ventaModel->obtenerVentaConDetalle($ventaId);
             }
