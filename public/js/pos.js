@@ -82,6 +82,7 @@ const POS = {
     if (this.caja) {
       pill.className = "pos-caja-pill abierta";
       pill.innerHTML = `
+                <span class="pos-dot-pulse"></span>
                 <span>Turno Abierto ($${parseFloat(this.caja.monto_inicial).toFixed(2)})</span>
             `;
       pill.onclick = () => POS.abrirModalCorte();
