@@ -270,7 +270,8 @@ $filtroSkuJs = json_encode($filtroSku);
             border: 1px solid rgba(56,189,248,0.3);
             color: #38bdf8;
             border-radius: 6px;
-            font-size: 0.7rem; font-weight: 600;
+            font-size: 0.76rem; font-weight: 700;
+            font-family: monospace;
             cursor: pointer;
             transition: all 0.18s;
             white-space: nowrap;
@@ -280,6 +281,16 @@ $filtroSkuJs = json_encode($filtroSku);
             border-color: rgba(56,189,248,0.6);
             color: #fff;
             transform: translateY(-1px);
+        }
+        [data-theme="light"] .btn-ticket {
+            background: rgba(2, 132, 199, 0.1);
+            border-color: rgba(2, 132, 199, 0.35);
+            color: #0284c7;
+        }
+        [data-theme="light"] .btn-ticket:hover {
+            background: rgba(2, 132, 199, 0.2);
+            border-color: #0284c7;
+            color: #0369a1;
         }
 
         /* ── Ticket Térmico ── */
@@ -323,8 +334,17 @@ $filtroSkuJs = json_encode($filtroSku);
             }
 
             /* Ocultar interfaz e interactividad de pantalla */
-            .sidebar, .no-print, #banner-filtro-sku, #paginationControls, #pageSizeSelect, #btn-limpiar-fechas, .select-arrow-btn, .btn-detalle, .btn-ticket, .modal-overlay, .sidebar-toggle, button, header {
+            .sidebar, .no-print, #banner-filtro-sku, #paginationControls, #pageSizeSelect, #btn-limpiar-fechas, .select-arrow-btn, .btn-detalle, .modal-overlay, .sidebar-toggle, button, header {
                 display: none !important;
+            }
+
+            .btn-ticket {
+                background: transparent !important;
+                border: none !important;
+                color: #0f172a !important;
+                padding: 0 !important;
+                font-size: 0.8rem !important;
+                box-shadow: none !important;
             }
 
             /* Ocultar columna Acciones */
@@ -864,7 +884,12 @@ $filtroSkuJs = json_encode($filtroSku);
                                 <th class="sort-header" onclick="sortData('costo_unitario')" style="text-align: right;">
                                     Costo Unit. <span class="sort-icon" id="sort-costo_unitario">⇅</span>
                                 </th>
-                                <th style="text-align: center;">Notas</th>
+                                <th class="sort-header" onclick="sortData('ticket_folio')" style="text-align: center;">
+                                    No. Ticket <span class="sort-icon" id="sort-ticket_folio">⇅</span>
+                                </th>
+                                <th class="sort-header" onclick="sortData('notas_texto')" style="text-align: center;">
+                                    Notas <span class="sort-icon" id="sort-notas_texto">⇅</span>
+                                </th>
                                 <th class="sort-header" onclick="sortData('usuario_nombre')">
                                     Usuario <span class="sort-icon" id="sort-usuario_nombre">⇅</span>
                                 </th>
@@ -939,6 +964,11 @@ $filtroSkuJs = json_encode($filtroSku);
 
     <script>
         const rawData = <?php echo $movimientosJson; ?> || [];
+        rawData.forEach(item => {
+            const { folio, notas } = getNotasYFolio(item);
+            item.ticket_folio = folio || '';
+            item.notas_texto = notas.join(' · ');
+        });
         let filteredData = [...rawData];
         
         const filtroSkuInicial = <?= $filtroSkuJs ?>;
@@ -1078,39 +1108,20 @@ $filtroSkuJs = json_encode($filtroSku);
             return { folio, notas: notasList };
         }
 
-        function renderNotasColumna(item) {
-            const { folio, notas } = getNotasYFolio(item);
-
-            let htmlParts = [];
-
-            if (folio) {
-                htmlParts.push(`
-                    <div style="margin-bottom: ${notas.length > 0 ? '0.35rem' : '0'};">
-                        <span style="font-family: monospace; font-weight: 700; color: #38bdf8; background: rgba(56, 189, 248, 0.12); padding: 0.25rem 0.55rem; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.3); white-space: nowrap; display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; transition: all 0.2s;"
-                              onclick="verTicketHistorial('${folio}')"
-                              onmouseover="this.style.background='rgba(56, 189, 248, 0.25)'; this.style.color='#fff';"
-                              onmouseout="this.style.background='rgba(56, 189, 248, 0.12)'; this.style.color='#38bdf8';"
-                              title="Clic para ver e imprimir ticket ${folio}">
-                            🎫 ${folio}
-                        </span>
-                    </div>
-                `);
-            }
-
-            if (notas.length > 0) {
-                const notasTexto = notas.join(' · ');
-                htmlParts.push(`
-                    <div style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.35; max-width: 280px; margin: 0 auto; word-break: break-word;" title="${escapeHtml(notasTexto)}">
-                        ${escapeHtml(notasTexto)}
-                    </div>
-                `);
-            }
-
-            if (!folio && notas.length === 0) {
+        function renderTicketColumna(item) {
+            const folio = item.ticket_folio || getNotasYFolio(item).folio;
+            if (!folio) {
                 return `<span style="color: var(--text-muted); opacity: 0.4;">-</span>`;
             }
+            return `<span class="btn-ticket" onclick="verTicketHistorial('${folio}')" title="Clic para ver e imprimir ticket ${folio}">🎫 ${folio}</span>`;
+        }
 
-            return htmlParts.join('');
+        function renderNotasColumna(item) {
+            const notas = item.notas_texto || getNotasYFolio(item).notas.join(' · ');
+            if (!notas) {
+                return `<span style="color: var(--text-muted); opacity: 0.4;">-</span>`;
+            }
+            return `<div style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.35; max-width: 240px; margin: 0 auto; word-break: break-word;" title="${escapeHtml(notas)}">${escapeHtml(notas)}</div>`;
         }
 
         function formatFecha(fechaStr) {
@@ -1277,7 +1288,7 @@ $filtroSkuJs = json_encode($filtroSku);
         }
 
         function updateSortIcons() {
-            ['fecha_hora', 'tipo_movimiento', 'tipo_producto', 'producto_descripcion', 'cantidad', 'costo_unitario', 'usuario_nombre'].forEach(col => {
+            ['fecha_hora', 'tipo_movimiento', 'tipo_producto', 'producto_descripcion', 'cantidad', 'costo_unitario', 'ticket_folio', 'notas_texto', 'usuario_nombre'].forEach(col => {
                 const icon = document.getElementById(`sort-${col}`);
                 if (icon) {
                     if (sortColumn === col) {
@@ -1303,7 +1314,7 @@ $filtroSkuJs = json_encode($filtroSku);
             const pageData = filteredData.slice(startIdx, startIdx + pageSize);
 
             if (pageData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron movimientos.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron movimientos.</td></tr>`;
             } else {
                 pageData.forEach((item, idx) => {
                     // ── Suprimir la fila padre VENTA POS de un Kit: los insumos KIT_CONSUMO ya aparecen como filas propias ──
@@ -1319,11 +1330,6 @@ $filtroSkuJs = json_encode($filtroSku);
                     const stockDespuesNum = parseFloat(item.stock_despues ?? 0);
                     const stockAntesFormatted = isNaN(stockAntesNum) ? '0.00' : stockAntesNum.toFixed(2);
                     const stockDespuesFormatted = isNaN(stockDespuesNum) ? '0.00' : stockDespuesNum.toFixed(2);
-
-                    const folioVal = formatNotasFolio(item.motivo);
-                    const folioHtml = (folioVal !== '-')
-                        ? `<span style="font-family: monospace; font-weight: 700; color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.25); white-space: nowrap;">${folioVal}</span>`
-                        : `<span style="color: var(--text-muted); opacity: 0.4;">-</span>`;
 
                     // ── Detectar y parsear insumos del Kit ──────────────────────
                     const isKit = (item.tipo_producto === 'KIT' || (item.kit_detalle && item.kit_detalle !== 'null' && item.kit_detalle !== '[]'));
@@ -1387,6 +1393,9 @@ $filtroSkuJs = json_encode($filtroSku);
                         </td>
                         <td style="text-align: right; font-size: 0.85rem;">${costoFormatted}</td>
                         <td style="font-size: 0.85rem; text-align: center; vertical-align: middle;">
+                            ${renderTicketColumna(item)}
+                        </td>
+                        <td style="font-size: 0.85rem; text-align: center; vertical-align: middle;">
                             ${renderNotasColumna(item)}
                         </td>
                         <td style="font-size: 0.85rem; font-weight: 500;">${item.usuario_nombre || 'Sistema'}</td>
@@ -1427,6 +1436,9 @@ $filtroSkuJs = json_encode($filtroSku);
                                 </td>
                                 <td style="text-align:right; font-size:0.8rem; color:var(--text-muted);">
                                     <span style="opacity:0.5;">—</span>
+                                </td>
+                                <td style="font-size:0.82rem; text-align:center; vertical-align:middle;">
+                                    ${renderTicketColumna(item)}
                                 </td>
                                 <td style="font-size:0.82rem; text-align:center; vertical-align:middle;">
                                     ${renderNotasColumna(item)}
@@ -1783,6 +1795,7 @@ $filtroSkuJs = json_encode($filtroSku);
                 'Stock Antes',
                 'Stock Después',
                 'Costo Unitario ($)',
+                'No. Ticket',
                 'Notas',
                 'Usuario'
             ];
@@ -1792,16 +1805,8 @@ $filtroSkuJs = json_encode($filtroSku);
 
             filteredData.forEach(item => {
                 const { folio: folioExp, notas: notasExp } = getNotasYFolio(item);
-                let notasDisplay = '';
-                if (folioExp && notasExp.length > 0) {
-                    notasDisplay = `Ticket: ${folioExp} | ${notasExp.join(' - ')}`;
-                } else if (folioExp) {
-                    notasDisplay = folioExp;
-                } else if (notasExp.length > 0) {
-                    notasDisplay = notasExp.join(' - ');
-                } else {
-                    notasDisplay = '-';
-                }
+                const ticketDisplay = folioExp || '-';
+                const notasDisplay = notasExp.length > 0 ? notasExp.join(' - ') : '-';
 
                 let descProductoExport = item.producto_descripcion || '';
                 let kitDetalleArr = null;
@@ -1822,6 +1827,7 @@ $filtroSkuJs = json_encode($filtroSku);
                     parseFloat(item.stock_antes || 0).toFixed(2),
                     parseFloat(item.stock_despues || 0).toFixed(2),
                     parseFloat(item.costo_unitario || 0).toFixed(2),
+                    ticketDisplay,
                     notasDisplay,
                     item.usuario_nombre || 'Sistema'
                 ];
