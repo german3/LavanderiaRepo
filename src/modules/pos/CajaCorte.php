@@ -89,8 +89,9 @@ class CajaCorte
             // Ignorar si no se tienen permisos ALTER
         }
 
-        // Migraciones para control de cargas no entregadas y cobros pendientes
+        // Migraciones para control de cargas no entregadas, cobros pendientes y trazabilidad de usuario
         $migraciones = [
+            "ALTER TABLE caja_cortes ADD COLUMN usuario_cierre_id VARCHAR(36) NULL AFTER usuario_id",
             "ALTER TABLE caja_cortes ADD COLUMN cargas_pendientes_entrega INT NOT NULL DEFAULT 0",
             "ALTER TABLE caja_cortes ADD COLUMN cargas_pendientes_pago INT NOT NULL DEFAULT 0",
             "ALTER TABLE caja_cortes ADD COLUMN monto_pendiente_cobro DECIMAL(12,2) NOT NULL DEFAULT 0.00",
@@ -258,14 +259,18 @@ class CajaCorte
     }
 
     /**
-     * Obtiene los datos del último turno de caja cerrado
+     * Obtiene los datos del último turno de caja cerrado con los usuarios de apertura y cierre
      */
     public function obtenerUltimoCorte(): ?array
     {
         try {
-            $sql = "SELECT c.*, u.nombre as usuario_nombre 
+            $sql = "SELECT c.*, 
+                           uA.nombre as usuario_nombre,
+                           uA.nombre as usuario_apertura_nombre,
+                           uC.nombre as usuario_cierre_nombre
                     FROM caja_cortes c
-                    LEFT JOIN usuarios u ON c.usuario_id COLLATE utf8mb4_unicode_ci = u.id COLLATE utf8mb4_unicode_ci
+                    LEFT JOIN usuarios uA ON c.usuario_id COLLATE utf8mb4_unicode_ci = uA.id COLLATE utf8mb4_unicode_ci
+                    LEFT JOIN usuarios uC ON c.usuario_cierre_id COLLATE utf8mb4_unicode_ci = uC.id COLLATE utf8mb4_unicode_ci
                     WHERE c.estado = 'CERRADA'
                     ORDER BY c.fecha_cierre DESC LIMIT 1";
             $stmt = $this->conn->query($sql);
@@ -277,11 +282,13 @@ class CajaCorte
     }
 
     /**
-     * Obtiene la caja abierta actual (del usuario o global)
+     * Obtiene la caja abierta actual (del usuario o global del establecimiento)
      */
     public function obtenerCajaAbierta(?string $usuarioId = null): ?array
     {
-        $sql = "SELECT c.*, u.nombre as usuario_nombre 
+        $sql = "SELECT c.*, 
+                       u.nombre as usuario_nombre,
+                       u.nombre as usuario_apertura_nombre
                 FROM caja_cortes c
                 JOIN usuarios u ON c.usuario_id COLLATE utf8mb4_unicode_ci = u.id COLLATE utf8mb4_unicode_ci
                 WHERE c.estado = 'ABIERTA'";
@@ -295,22 +302,29 @@ class CajaCorte
 
         $stmt = $this->conn->prepare($sql);
         $stmt->execute($params);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
 
         return $row ?: null;
     }
 
     /**
-     * Abre un nuevo turno de caja y registra la custodia de cargas recibidas del turno anterior
+     * Abre un nuevo turno de caja registrando al usuario autenticado y la custodia de prendas
      */
     public function abrirCaja(string $usuarioId, float $montoInicial, ?string $observaciones = null): array
     {
-        // Verificar si ya existe una caja abierta para este usuario
-        $existente = $this->obtenerCajaAbierta($usuarioId);
+        if (empty($usuarioId)) {
+            return [
+                'success' => false,
+                'message' => 'El usuario que inicia el turno es requerido.'
+            ];
+        }
+
+        // Verificar si ya existe una caja abierta en el sistema
+        $existente = $this->obtenerCajaAbierta(null);
         if ($existente) {
             return [
                 'success' => false,
-                'message' => 'Ya existe un turno de caja abierto para este usuario.',
+                'message' => 'Ya existe un turno de caja abierto en el sistema (iniciado por ' . ($existente['usuario_nombre'] ?? 'otro cajero') . '). Debe realizar el corte y cierre de ese turno antes de abrir uno nuevo.',
                 'caja'    => $existente
             ];
         }
@@ -352,7 +366,15 @@ class CajaCorte
      */
     public function obtenerResumenTurno(string $cajaId): array
     {
-        $stmt = $this->conn->prepare("SELECT * FROM caja_cortes WHERE id = :id LIMIT 1");
+        $sqlCaja = "SELECT c.*, 
+                           uA.nombre AS usuario_nombre,
+                           uA.nombre AS usuario_apertura_nombre,
+                           uC.nombre AS usuario_cierre_nombre
+                    FROM caja_cortes c
+                    LEFT JOIN usuarios uA ON c.usuario_id COLLATE utf8mb4_unicode_ci = uA.id COLLATE utf8mb4_unicode_ci
+                    LEFT JOIN usuarios uC ON c.usuario_cierre_id COLLATE utf8mb4_unicode_ci = uC.id COLLATE utf8mb4_unicode_ci
+                    WHERE c.id = :id LIMIT 1";
+        $stmt = $this->conn->prepare($sqlCaja);
         $stmt->execute([':id' => $cajaId]);
         $caja = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -445,9 +467,9 @@ class CajaCorte
     }
 
     /**
-     * Cierra el turno de caja, calcula diferencia y guarda snapshot de cargas en custodia
+     * Cierra el turno de caja, calcula diferencia, registra usuario de cierre y guarda snapshot de cargas en custodia
      */
-    public function cerrarCaja(string $cajaId, float $efectivoDeclarado, ?string $observaciones = null): array
+    public function cerrarCaja(string $cajaId, float $efectivoDeclarado, ?string $observaciones = null, ?string $usuarioCierreId = null): array
     {
         $resumen = $this->obtenerResumenTurno($cajaId);
         if (!$resumen['success']) {
@@ -466,6 +488,7 @@ class CajaCorte
         $stmt = $this->conn->prepare(
             "UPDATE caja_cortes SET 
                 fecha_cierre                    = NOW(),
+                usuario_cierre_id               = :usuario_cierre_id,
                 total_efectivo                  = :total_efectivo,
                 total_tarjeta                   = :total_tarjeta,
                 total_transferencia             = :total_transferencia,
@@ -482,6 +505,7 @@ class CajaCorte
         );
 
         $stmt->execute([
+            ':usuario_cierre_id'     => $usuarioCierreId,
             ':total_efectivo'        => $totalEfectivo,
             ':total_tarjeta'         => $totalTarjeta,
             ':total_transferencia'   => $totalTransf,

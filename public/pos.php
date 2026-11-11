@@ -492,8 +492,9 @@ $isAdmin  = $auth->isPosAdmin();
             font-weight: 600 !important;
         }
 
-        /* Paneles de Custodia de Cargas en Apertura y Corte de Caja */
+        /* Paneles de Custodia y Usuario en Apertura y Corte de Caja */
         [data-theme="light"] #apertura-custodia-card,
+        [data-theme="light"] #modal-apertura-caja .pos-modal-body > div,
         [data-theme="light"] #modal-corte-caja .pos-modal-body > div {
             background: #f8fafc !important;
             border-color: #cbd5e1 !important;
@@ -1005,6 +1006,19 @@ $isAdmin  = $auth->isPosAdmin();
             </div>
             <div class="pos-modal-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:1rem; padding-right:0.5rem;">
                 
+                <!-- Trazabilidad de Usuario en Turno y Corte -->
+                <div style="background:rgba(30,41,59,0.7); border:1px solid rgba(148,163,184,0.25); border-radius:8px; padding:0.6rem 0.85rem; display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
+                    <div>
+                        <span style="color:var(--pos-text-muted);">👤 Turno abierto por:</span>
+                        <strong id="corte-usuario-apertura" style="color:#e2e8f0; margin-left:4px;">Cargando...</strong>
+                    </div>
+                    <div style="border-left:1px solid rgba(255,255,255,0.15); height:18px;"></div>
+                    <div>
+                        <span style="color:var(--pos-text-muted);">✍️ Corte realizado por:</span>
+                        <strong id="corte-usuario-sesion" style="color:#38bdf8; margin-left:4px;">Usuario en Sesión</strong>
+                    </div>
+                </div>
+
                 <!-- Resumen Financiero -->
                 <div style="background:rgba(15,23,42,0.6); border:1px solid var(--pos-border); border-radius:10px; padding:1rem; display:grid; grid-template-columns:1fr 1fr; gap:0.65rem; font-size:0.85rem;">
                     <div>Fondo Inicial de Caja:</div>
@@ -1115,6 +1129,12 @@ $isAdmin  = $auth->isPosAdmin();
             <form onsubmit="event.preventDefault(); POS.abrirCajaForm(this);" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
                 <div class="pos-modal-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:1rem; padding-right:0.5rem;">
                     
+                    <!-- Cajero que inicia el turno -->
+                    <div style="background:rgba(30,41,59,0.7); border:1px solid rgba(148,163,184,0.25); border-radius:8px; padding:0.6rem 0.85rem; display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
+                        <span style="color:var(--pos-text-muted);">👤 Cajero responsable de apertura:</span>
+                        <strong id="apertura-usuario-nombre" style="color:#38bdf8; font-size:0.88rem;">Cargando...</strong>
+                    </div>
+
                     <!-- Panel Informativo de Ropa y Cargas en Custodia -->
                     <div id="apertura-custodia-card" style="background:rgba(15,23,42,0.7); border:1.5px solid rgba(59,130,246,0.35); border-radius:10px; padding:0.9rem;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">

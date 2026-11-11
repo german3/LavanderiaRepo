@@ -60,8 +60,8 @@ try {
         // ─────────────────────────────────────────────────────────────
         case 'init_data':
             $cajaAbierta = $cajaModel->obtenerCajaAbierta($currentUserId);
-            if (!$cajaAbierta && $isAdmin) {
-                // Si es admin y no tiene caja propia, revisar si hay alguna abierta
+            if (!$cajaAbierta) {
+                // Si este usuario no abrió la caja, revisar si hay una caja abierta en el establecimiento
                 $cajaAbierta = $cajaModel->obtenerCajaAbierta(null);
             }
 
@@ -182,12 +182,19 @@ try {
             $montoInicial = floatval($_POST['monto_inicial'] ?? 0);
             $observaciones = trim($_POST['observaciones'] ?? '');
 
+            if (!$currentUserId) {
+                echo json_encode(['success' => false, 'message' => 'Sesión expirada o usuario no identificado. Favor de iniciar sesión.']);
+                exit;
+            }
+
             if ($montoInicial < 0) {
                 echo json_encode(['success' => false, 'message' => 'El monto inicial no puede ser negativo.']);
                 exit;
             }
 
             $res = $cajaModel->abrirCaja($currentUserId, $montoInicial, $observaciones);
+            $res['usuario_apertura_id'] = $currentUserId;
+            $res['usuario_apertura_nombre'] = $currentUserName;
             echo json_encode($res);
             break;
 
@@ -198,6 +205,9 @@ try {
             $cajaId = $_GET['caja_id'] ?? $_POST['caja_id'] ?? '';
             if (empty($cajaId)) {
                 $caja = $cajaModel->obtenerCajaAbierta($currentUserId);
+                if (!$caja) {
+                    $caja = $cajaModel->obtenerCajaAbierta(null);
+                }
                 $cajaId = $caja ? $caja['id'] : '';
             }
 
@@ -207,6 +217,8 @@ try {
             }
 
             $resumen = $cajaModel->obtenerResumenTurno($cajaId);
+            $resumen['usuario_sesion_id'] = $currentUserId;
+            $resumen['usuario_sesion_nombre'] = $currentUserName;
             echo json_encode($resumen);
             break;
 
@@ -218,8 +230,16 @@ try {
             $efectivoDeclarado = floatval($_POST['efectivo_declarado'] ?? 0);
             $observaciones = trim($_POST['observaciones'] ?? '');
 
+            if (!$currentUserId) {
+                echo json_encode(['success' => false, 'message' => 'Sesión expirada o usuario no identificado. Favor de iniciar sesión.']);
+                exit;
+            }
+
             if (empty($cajaId)) {
                 $caja = $cajaModel->obtenerCajaAbierta($currentUserId);
+                if (!$caja) {
+                    $caja = $cajaModel->obtenerCajaAbierta(null);
+                }
                 $cajaId = $caja ? $caja['id'] : '';
             }
 
@@ -228,7 +248,9 @@ try {
                 exit;
             }
 
-            $res = $cajaModel->cerrarCaja($cajaId, $efectivoDeclarado, $observaciones);
+            $res = $cajaModel->cerrarCaja($cajaId, $efectivoDeclarado, $observaciones, $currentUserId);
+            $res['usuario_cierre_id'] = $currentUserId;
+            $res['usuario_cierre_nombre'] = $currentUserName;
             echo json_encode($res);
             break;
 

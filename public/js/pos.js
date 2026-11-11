@@ -2645,6 +2645,11 @@ const POS = {
   // Control de Turno y Corte de Caja (Fase 13 y Custodia de Cargas)
   // ─────────────────────────────────────────────────────────────
   renderAperturaCustodia(custodia) {
+    const usuarioEl = document.getElementById("apertura-usuario-nombre");
+    if (usuarioEl) {
+      usuarioEl.textContent = this.user ? this.user.nombre : "Cajero en Sesión";
+    }
+
     if (!custodia) return;
     const badgeEl = document.getElementById("apertura-cargas-badge");
     const montoPendEl = document.getElementById("apertura-monto-pendiente");
@@ -2795,6 +2800,16 @@ const POS = {
       if (!data.success) {
         alert(data.message);
         return;
+      }
+
+      // 0. Trazabilidad de Usuarios
+      const userAperturaEl = document.getElementById("corte-usuario-apertura");
+      if (userAperturaEl) {
+        userAperturaEl.textContent = (data.caja && (data.caja.usuario_apertura_nombre || data.caja.usuario_nombre)) || "Cajero Inicial";
+      }
+      const userSesionEl = document.getElementById("corte-usuario-sesion");
+      if (userSesionEl) {
+        userSesionEl.textContent = data.usuario_sesion_nombre || (this.user ? this.user.nombre : "Cajero en Sesión");
       }
 
       // 1. Resumen Financiero
