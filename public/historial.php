@@ -884,9 +884,6 @@ $filtroSkuJs = json_encode($filtroSku);
                                 <th class="sort-header" onclick="sortData('costo_unitario')" style="text-align: right;">
                                     Costo Unit. <span class="sort-icon" id="sort-costo_unitario">⇅</span>
                                 </th>
-                                <th class="sort-header" onclick="sortData('ticket_folio')" style="text-align: center;">
-                                    No. Ticket <span class="sort-icon" id="sort-ticket_folio">⇅</span>
-                                </th>
                                 <th class="sort-header" onclick="sortData('notas_texto')" style="text-align: center;">
                                     Notas <span class="sort-icon" id="sort-notas_texto">⇅</span>
                                 </th>
@@ -965,9 +962,9 @@ $filtroSkuJs = json_encode($filtroSku);
     <script>
         const rawData = <?php echo $movimientosJson; ?> || [];
         rawData.forEach(item => {
-            const { folio, notas } = getNotasYFolio(item);
+            const { folio } = getNotasYFolio(item);
             item.ticket_folio = folio || '';
-            item.notas_texto = notas.join(' · ');
+            item.notas_texto = getNotasTexto(item);
         });
         let filteredData = [...rawData];
         
@@ -1108,6 +1105,40 @@ $filtroSkuJs = json_encode($filtroSku);
             return { folio, notas: notasList };
         }
 
+        function getNotasTexto(item) {
+            if (!item) return '-';
+            const mov = (item.tipo_movimiento || '').toUpperCase();
+            const motivo = (item.motivo || '').trim();
+
+            // 1. Si es Venta (VENTA POS, KIT_CONSUMO, CONSUMO KIT) -> solamente el Número del Ticket
+            if (mov === 'VENTA POS' || mov === 'KIT_CONSUMO' || mov === 'CONSUMO KIT') {
+                const folio = formatNotasFolio(motivo);
+                if (folio && folio !== '-') return folio;
+                if (item.ticket_folio) return item.ticket_folio;
+                return '-';
+            }
+
+            // 2. Si es Entrada (ENTRADA STOCK, ENTRADA) -> lo escrito en "Motivo / Proveedor"; si no se escribe nada -> "Entrada Stock"
+            if (mov === 'ENTRADA STOCK' || mov === 'ENTRADA') {
+                return motivo !== '' ? motivo : 'Entrada Stock';
+            }
+
+            // 3. Si es Salida (SALIDA STOCK, SALIDA) -> lo escrito en "Motivo / Proveedor"; si no se escribe nada -> "Salida Stock"
+            if (mov === 'SALIDA STOCK' || mov === 'SALIDA') {
+                return motivo !== '' ? motivo : 'Salida Stock';
+            }
+
+            // Otros movimientos (Alta, Edición, Eliminación)
+            if (motivo !== '') {
+                return motivo;
+            }
+            if (mov === 'ALTA PRODUCTO') return 'Alta Producto';
+            if (mov === 'ELIMINACION PRODUCTO') return 'Eliminación Producto';
+            if (mov === 'EDICION PRODUCTO') return 'Edición Producto';
+
+            return '-';
+        }
+
         function renderTicketColumna(item) {
             const folio = item.ticket_folio || getNotasYFolio(item).folio;
             if (!folio) {
@@ -1117,11 +1148,34 @@ $filtroSkuJs = json_encode($filtroSku);
         }
 
         function renderNotasColumna(item) {
-            const notas = item.notas_texto || getNotasYFolio(item).notas.join(' · ');
-            if (!notas) {
+            const mov = (item.tipo_movimiento || '').toUpperCase();
+            const texto = item.notas_texto !== undefined ? item.notas_texto : getNotasTexto(item);
+
+            if (!texto || texto === '-') {
                 return `<span style="color: var(--text-muted); opacity: 0.4;">-</span>`;
             }
-            return `<div style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.35; max-width: 240px; margin: 0 auto; word-break: break-word;" title="${escapeHtml(notas)}">${escapeHtml(notas)}</div>`;
+
+            // Venta: solamente el número del ticket (con botón clickeable para ver e imprimir ticket)
+            if (mov === 'VENTA POS' || mov === 'KIT_CONSUMO' || mov === 'CONSUMO KIT') {
+                const folio = (texto !== '-') ? texto : (item.ticket_folio || '');
+                if (folio && folio !== '-') {
+                    return `<span class="btn-ticket" onclick="verTicketHistorial('${escapeHtml(folio)}')" title="Clic para ver e imprimir ticket ${escapeHtml(folio)}">🎫 ${escapeHtml(folio)}</span>`;
+                }
+                return `<span style="color: var(--text-muted); opacity: 0.4;">-</span>`;
+            }
+
+            // Entrada: cuando no se escribió motivo, muestra "Entrada Stock"
+            if ((mov === 'ENTRADA STOCK' || mov === 'ENTRADA') && texto === 'Entrada Stock') {
+                return `<span style="color: #6ee7b7; font-size: 0.78rem; font-weight: 500;">Entrada Stock</span>`;
+            }
+
+            // Salida: cuando no se escribió motivo, muestra "Salida Stock"
+            if ((mov === 'SALIDA STOCK' || mov === 'SALIDA') && texto === 'Salida Stock') {
+                return `<span style="color: #fda4af; font-size: 0.78rem; font-weight: 500;">Salida Stock</span>`;
+            }
+
+            // Movimiento con motivo escrito o cualquier otro caso
+            return `<div style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.35; max-width: 240px; margin: 0 auto; word-break: break-word;" title="${escapeHtml(texto)}">${escapeHtml(texto)}</div>`;
         }
 
         function formatFecha(fechaStr) {
@@ -1189,6 +1243,7 @@ $filtroSkuJs = json_encode($filtroSku);
                 const motivo  = (item.motivo               || '').toLowerCase();
                 const vNotas  = ((item.venta_notas || item.detalle_notas || '') + ' ' + (item.venta_observaciones || '')).toLowerCase();
                 const kitStr  = (item.kit_detalle ? (typeof item.kit_detalle === 'string' ? item.kit_detalle : JSON.stringify(item.kit_detalle)) : '').toLowerCase();
+                const nTexto  = (item.notas_texto || '').toLowerCase();
 
                 const tipoMovDisplay = esKitConsumo ? 'venta pos' : tipoMov;
                 const matchQuery = !query ||
@@ -1199,6 +1254,7 @@ $filtroSkuJs = json_encode($filtroSku);
                     usuario.includes(query) ||
                     motivo.includes(query)  ||
                     vNotas.includes(query)  ||
+                    nTexto.includes(query)  ||
                     kitStr.includes(query);
 
                 // Filtro de rango de fechas
@@ -1288,7 +1344,7 @@ $filtroSkuJs = json_encode($filtroSku);
         }
 
         function updateSortIcons() {
-            ['fecha_hora', 'tipo_movimiento', 'tipo_producto', 'producto_descripcion', 'cantidad', 'costo_unitario', 'ticket_folio', 'notas_texto', 'usuario_nombre'].forEach(col => {
+            ['fecha_hora', 'tipo_movimiento', 'tipo_producto', 'producto_descripcion', 'cantidad', 'costo_unitario', 'notas_texto', 'usuario_nombre'].forEach(col => {
                 const icon = document.getElementById(`sort-${col}`);
                 if (icon) {
                     if (sortColumn === col) {
@@ -1314,7 +1370,7 @@ $filtroSkuJs = json_encode($filtroSku);
             const pageData = filteredData.slice(startIdx, startIdx + pageSize);
 
             if (pageData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron movimientos.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron movimientos.</td></tr>`;
             } else {
                 pageData.forEach((item, idx) => {
                     // ── Suprimir la fila padre VENTA POS de un Kit: los insumos KIT_CONSUMO ya aparecen como filas propias ──
@@ -1393,9 +1449,6 @@ $filtroSkuJs = json_encode($filtroSku);
                         </td>
                         <td style="text-align: right; font-size: 0.85rem;">${costoFormatted}</td>
                         <td style="font-size: 0.85rem; text-align: center; vertical-align: middle;">
-                            ${renderTicketColumna(item)}
-                        </td>
-                        <td style="font-size: 0.85rem; text-align: center; vertical-align: middle;">
                             ${renderNotasColumna(item)}
                         </td>
                         <td style="font-size: 0.85rem; font-weight: 500;">${item.usuario_nombre || 'Sistema'}</td>
@@ -1436,9 +1489,6 @@ $filtroSkuJs = json_encode($filtroSku);
                                 </td>
                                 <td style="text-align:right; font-size:0.8rem; color:var(--text-muted);">
                                     <span style="opacity:0.5;">—</span>
-                                </td>
-                                <td style="font-size:0.82rem; text-align:center; vertical-align:middle;">
-                                    ${renderTicketColumna(item)}
                                 </td>
                                 <td style="font-size:0.82rem; text-align:center; vertical-align:middle;">
                                     ${renderNotasColumna(item)}
@@ -1795,7 +1845,6 @@ $filtroSkuJs = json_encode($filtroSku);
                 'Stock Antes',
                 'Stock Después',
                 'Costo Unitario ($)',
-                'No. Ticket',
                 'Notas',
                 'Usuario'
             ];
@@ -1804,9 +1853,7 @@ $filtroSkuJs = json_encode($filtroSku);
             csvContent += headers.map(h => `"${h}"`).join(',') + '\n';
 
             filteredData.forEach(item => {
-                const { folio: folioExp, notas: notasExp } = getNotasYFolio(item);
-                const ticketDisplay = folioExp || '-';
-                const notasDisplay = notasExp.length > 0 ? notasExp.join(' - ') : '-';
+                const notasDisplay = item.notas_texto !== undefined ? item.notas_texto : getNotasTexto(item);
 
                 let descProductoExport = item.producto_descripcion || '';
                 let kitDetalleArr = null;
@@ -1827,7 +1874,6 @@ $filtroSkuJs = json_encode($filtroSku);
                     parseFloat(item.stock_antes || 0).toFixed(2),
                     parseFloat(item.stock_despues || 0).toFixed(2),
                     parseFloat(item.costo_unitario || 0).toFixed(2),
-                    ticketDisplay,
                     notasDisplay,
                     item.usuario_nombre || 'Sistema'
                 ];

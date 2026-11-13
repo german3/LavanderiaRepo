@@ -121,7 +121,7 @@ class CajaCorte
     /**
      * Obtiene el inventario actual de cargas en custodia pendientes de entrega y/o cobro
      */
-    public function obtenerCargasPendientes(): array
+    public function obtenerCargasPendientes(?string $cajaId = null, ?string $fechaApertura = null): array
     {
         $sql = "SELECT 
                     cg.id,
@@ -139,14 +139,26 @@ class CajaCorte
                     COALESCE(c.nombre, 'Público General') AS cliente_nombre,
                     c.telefono AS cliente_telefono,
                     v.folio AS venta_folio,
-                    v.metodo_pago AS venta_metodo_pago
+                    v.metodo_pago AS venta_metodo_pago,
+                    v.estado AS venta_estado,
+                    v.estado_pago AS venta_estado_pago
                 FROM cargas cg
-                LEFT JOIN clientes c ON cg.cliente_id = c.id
-                LEFT JOIN ventas v ON cg.venta_id = v.id
+                LEFT JOIN clientes c ON cg.cliente_id COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci
+                LEFT JOIN ventas v ON cg.venta_id COLLATE utf8mb4_unicode_ci = v.id COLLATE utf8mb4_unicode_ci
                 WHERE cg.estado IN ('RECIBIDA', 'EN_PROCESO', 'LISTA_CONCLUIDA')
-                ORDER BY cg.fecha_recepcion ASC";
+                  AND (v.estado IS NULL OR v.estado != 'CANCELADA')";
 
-        $stmt = $this->conn->query($sql);
+        $params = [];
+        if ($cajaId) {
+            $sql .= " AND (v.caja_id = :caja_id OR (v.caja_id IS NULL AND cg.fecha_recepcion >= :fecha_apertura))";
+            $params[':caja_id'] = $cajaId;
+            $params[':fecha_apertura'] = $fechaApertura ?: '1970-01-01 00:00:00';
+        }
+
+        $sql .= " ORDER BY cg.fecha_recepcion ASC";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
         $items = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
 
         $totalEntrega = count($items);
@@ -163,7 +175,8 @@ class CajaCorte
 
         foreach ($items as $item) {
             $total = floatval($item['total'] ?? 0);
-            if ($item['estado_pago'] === 'PENDIENTE') {
+            $isPendiente = ($item['estado_pago'] === 'PENDIENTE' || ($item['venta_estado_pago'] ?? '') === 'PENDIENTE');
+            if ($isPendiente) {
                 $totalPendientePago++;
                 $montoPendienteCobro += $total;
             } else {
@@ -290,7 +303,7 @@ class CajaCorte
                        u.nombre as usuario_nombre,
                        u.nombre as usuario_apertura_nombre
                 FROM caja_cortes c
-                JOIN usuarios u ON c.usuario_id COLLATE utf8mb4_unicode_ci = u.id COLLATE utf8mb4_unicode_ci
+                LEFT JOIN usuarios u ON c.usuario_id COLLATE utf8mb4_unicode_ci = u.id COLLATE utf8mb4_unicode_ci
                 WHERE c.estado = 'ABIERTA'";
         
         $params = [];
@@ -384,15 +397,14 @@ class CajaCorte
 
         // 1. Ventas originadas en este turno
         $sqlVentas = "SELECT 
-                        COALESCE(SUM(CASE WHEN metodo_pago = 'EFECTIVO' AND estado_pago = 'PAGADO' THEN total ELSE 0 END), 0) AS total_efectivo,
-                        COALESCE(SUM(CASE WHEN metodo_pago = 'TARJETA' AND estado_pago = 'PAGADO' THEN total ELSE 0 END), 0) AS total_tarjeta,
-                        COALESCE(SUM(CASE WHEN metodo_pago = 'TRANSFERENCIA' AND estado_pago = 'PAGADO' THEN total ELSE 0 END), 0) AS total_transferencia,
-                        COALESCE(SUM(CASE WHEN estado_pago = 'PENDIENTE' THEN total ELSE 0 END), 0) AS total_pendiente,
+                        COALESCE(SUM(CASE WHEN metodo_pago = 'EFECTIVO' AND estado_pago = 'PAGADO' AND estado = 'ACTIVA' THEN total ELSE 0 END), 0) AS total_efectivo,
+                        COALESCE(SUM(CASE WHEN metodo_pago = 'TARJETA' AND estado_pago = 'PAGADO' AND estado = 'ACTIVA' THEN total ELSE 0 END), 0) AS total_tarjeta,
+                        COALESCE(SUM(CASE WHEN metodo_pago = 'TRANSFERENCIA' AND estado_pago = 'PAGADO' AND estado = 'ACTIVA' THEN total ELSE 0 END), 0) AS total_transferencia,
+                        COALESCE(SUM(CASE WHEN estado_pago = 'PENDIENTE' AND estado = 'ACTIVA' THEN total ELSE 0 END), 0) AS total_pendiente,
                         COALESCE(COUNT(CASE WHEN estado = 'ACTIVA' THEN 1 END), 0) AS cantidad_ventas,
                         COALESCE(COUNT(CASE WHEN estado = 'CANCELADA' THEN 1 END), 0) AS cantidad_canceladas
                       FROM ventas 
-                      WHERE (caja_id = :caja_id OR (caja_id IS NULL AND fecha_venta >= :fecha_apertura))
-                        AND estado = 'ACTIVA'";
+                      WHERE (caja_id = :caja_id OR (caja_id IS NULL AND fecha_venta >= :fecha_apertura))";
 
         $stmtVentas = $this->conn->prepare($sqlVentas);
         $stmtVentas->execute([
@@ -421,8 +433,8 @@ class CajaCorte
         $totalVentasPagadas = $totalEfectivo + $totalTarjeta + $totalTransf;
         $totalEsperadoEfectivo = $montoInicial + $totalEfectivo;
 
-        // 3. Inventario actual de cargas en custodia que quedarán pendientes para el siguiente turno
-        $custodia = $this->obtenerCargasPendientes();
+        // 3. Inventario actual de cargas del turno que quedarán pendientes para el siguiente turno
+        $custodia = $this->obtenerCargasPendientes($cajaId, $caja['fecha_apertura']);
 
         // 4. Cargas entregadas durante este turno
         $cantEntregadasTurno = 0;
@@ -440,6 +452,33 @@ class CajaCorte
             $cantEntregadasTurno = (int) $stmtEntregadas->fetchColumn();
         } catch (\Throwable $e) {
             // Ignorar
+        }
+
+        // 5. Detalle de cancelaciones en este turno
+        $cancelaciones = [];
+        try {
+            $sqlCancel = "SELECT v.folio, v.total, v.metodo_pago, v.fecha_venta,
+                                 cv.motivo AS motivo_cancelacion,
+                                 cv.fecha AS fecha_cancelacion,
+                                 COALESCE(c.nombre, 'Público General') AS cliente_nombre,
+                                 u.nombre AS cajero_nombre,
+                                 uc.nombre AS cancelado_por
+                          FROM ventas v
+                          JOIN usuarios u ON v.usuario_id COLLATE utf8mb4_unicode_ci = u.id COLLATE utf8mb4_unicode_ci
+                          LEFT JOIN clientes c ON v.cliente_id COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci
+                          LEFT JOIN cancelaciones_ventas cv ON cv.venta_id COLLATE utf8mb4_unicode_ci = v.id COLLATE utf8mb4_unicode_ci
+                          LEFT JOIN usuarios uc ON cv.usuario_id COLLATE utf8mb4_unicode_ci = uc.id COLLATE utf8mb4_unicode_ci
+                          WHERE (v.caja_id = :caja_id OR (v.caja_id IS NULL AND v.fecha_venta >= :fecha_apertura))
+                            AND v.estado = 'CANCELADA'
+                          ORDER BY COALESCE(cv.fecha, v.fecha_venta) DESC";
+            $stmtCancel = $this->conn->prepare($sqlCancel);
+            $stmtCancel->execute([
+                ':caja_id'        => $cajaId,
+                ':fecha_apertura' => $caja['fecha_apertura']
+            ]);
+            $cancelaciones = $stmtCancel->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            error_log("Error obteniendo cancelaciones corte: " . $e->getMessage());
         }
 
         return [
@@ -462,7 +501,8 @@ class CajaCorte
             ],
             'cobros_turnos_anteriores' => $cobrosAnteriores,
             'cargas_entregadas_turno'  => $cantEntregadasTurno,
-            'custodia_cargas'          => $custodia
+            'custodia_cargas'          => $custodia,
+            'cancelaciones'            => $cancelaciones
         ];
     }
 

@@ -222,6 +222,24 @@ class Venta
         $montoRecibido = floatval($datos['monto_recibido'] ?? 0);
         $observaciones = $datos['observaciones'] ?? '';
 
+        // Regla de Negocio: Solo permitir pago pendiente si la orden contiene al menos un Kit
+        if ($estadoPago === 'PENDIENTE') {
+            $tieneKit = false;
+            foreach ($items as $it) {
+                $tipoIt = strtoupper($it['tipo'] ?? $it['tipo_producto'] ?? '');
+                if ($tipoIt === 'KIT' || $tipoIt === 'KIT_PAQUETE') {
+                    $tieneKit = true;
+                    break;
+                }
+            }
+            if (!$tieneKit) {
+                return [
+                    'success' => false,
+                    'message' => 'No se permite pago pendiente: Solo las ventas que incluyan al menos un Kit pueden quedar pendientes de pago. Los insumos o productos sin Kit no deben quedar pendientes de pago.'
+                ];
+            }
+        }
+
         try {
             $this->conn->beginTransaction();
 
@@ -869,11 +887,11 @@ class Venta
     /**
      * Obtiene ventas recientes para el historial del POS
      */
-    public function obtenerVentasRecientes(int $limite = 40): array
+    public function obtenerVentasRecientes(int $limite = 100): array
     {
         $stmt = $this->conn->prepare(
-            "SELECT v.*, 
-                    u.nombre AS cajero_nombre, 
+            "SELECT v.*,
+                    u.nombre AS cajero_nombre,
                     COALESCE(c.nombre, 'Público General') AS cliente_nombre,
                     c.telefono AS cliente_telefono,
                     cg.numero_carga
@@ -881,6 +899,7 @@ class Venta
              JOIN usuarios u ON v.usuario_id = u.id
              LEFT JOIN clientes c ON v.cliente_id = c.id
              LEFT JOIN cargas cg ON cg.venta_id = v.id
+             WHERE DATE(v.fecha_venta) = CURDATE()
              ORDER BY v.fecha_venta DESC
              LIMIT :limite"
         );
@@ -891,6 +910,7 @@ class Venta
 
     /**
      * Obtiene ventas pendientes de cobro (Pago Posterior)
+     * Solo incluye ventas activas vinculadas a cargas de servicio/kit en custodia
      */
     public function obtenerVentasPendientes(?string $busqueda = null): array
     {
@@ -904,8 +924,10 @@ class Venta
                 FROM ventas v
                 JOIN usuarios u ON v.usuario_id = u.id
                 LEFT JOIN clientes c ON v.cliente_id = c.id
-                LEFT JOIN cargas cg ON cg.venta_id = v.id
-                WHERE v.estado = 'ACTIVA' AND v.estado_pago = 'PENDIENTE'";
+                JOIN cargas cg ON cg.venta_id = v.id
+                WHERE v.estado = 'ACTIVA' 
+                  AND v.estado_pago = 'PENDIENTE'
+                  AND cg.estado IN ('RECIBIDA', 'EN_PROCESO', 'LISTA_CONCLUIDA')";
 
         $params = [];
         if ($busqueda && trim($busqueda) !== '') {

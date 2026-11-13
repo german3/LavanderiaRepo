@@ -376,7 +376,34 @@ $isAdmin  = $auth->isPosAdmin();
             background: #fecaca !important;
         }
 
-        /* â”€â”€ MODAL DE CONTROL DE LAVADO DE CARGAS (Imagen 2) â”€â”€ */
+        .pos-btn-refresh-lavado {
+            background: rgba(56, 189, 248, 0.15) !important;
+            border: 1px solid rgba(56, 189, 248, 0.35) !important;
+            color: #38bdf8 !important;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            transition: all 0.2s;
+        }
+        .pos-btn-refresh-lavado:hover {
+            background: rgba(56, 189, 248, 0.3) !important;
+            color: #ffffff !important;
+            border-color: rgba(56, 189, 248, 0.6) !important;
+        }
+        [data-theme="light"] .pos-btn-refresh-lavado {
+            background: #e0f2fe !important;
+            border: 1px solid #bae6fd !important;
+            color: #0284c7 !important;
+        }
+        [data-theme="light"] .pos-btn-refresh-lavado:hover {
+            background: #bae6fd !important;
+            color: #0369a1 !important;
+        }
+
+        /* ── MODAL DE CONTROL DE LAVADO DE CARGAS (Imagen 2) ── */
         [data-theme="light"] .pos-lavado-modal-card {
             background: #ffffff !important;
             border: 1px solid #cbd5e1 !important;
@@ -812,23 +839,6 @@ $isAdmin  = $auth->isPosAdmin();
         <!-- Right: Order Ticket & Checkout Terminal -->
         <aside class="pos-cart-panel">
             
-            <!-- Customer Bar -->
-            <div class="pos-customer-bar">
-                <div class="pos-cust-current">
-                    <div class="pos-cust-label">Lista de Registros a Cobrar</div>
-                    <div id="pos-cust-name" class="pos-cust-name">0 registros acumulados</div>
-                </div>
-                <div style="display:flex; gap:0.4rem;">
-                    <button class="pos-btn-cust" onclick="POS.openModal('modal-buscar-cliente')" title="Buscar cliente existente">
-                        <svg style="width:14px;height:14px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <span>Clientes</span>
-                    </button>
-                    <button class="pos-btn-cust" onclick="POS.openModal('modal-nuevo-cliente')" title="Registrar nuevo cliente">
-                        <span>+ Nuevo</span>
-                    </button>
-                </div>
-            </div>
-
             <!-- Encabezado de Cliente para la Orden / Carrito -->
             <div id="pos-cart-client-header" class="pos-cart-client-header" style="display: none;">
                 <div class="pos-cart-client-badge" onclick="POS.openModal('modal-buscar-cliente')" style="cursor: pointer;" title="Haz clic para cambiar el cliente asignado a estos registros">
@@ -896,7 +906,7 @@ $isAdmin  = $auth->isPosAdmin();
     <div id="modal-cobro" class="pos-modal-overlay">
         <div class="pos-modal-card">
             <div class="pos-modal-head">
-                <h3>💳 Procesar Cobro de Venta</h3>
+                <h3 id="pos-modal-cobro-title">💳 Procesar Cobro de Venta</h3>
                 <button class="pos-modal-close" onclick="POS.closeModal('modal-cobro')">✕</button>
             </div>
             <div class="pos-modal-body">
@@ -970,7 +980,7 @@ $isAdmin  = $auth->isPosAdmin();
     <div id="modal-pendientes" class="pos-modal-overlay">
         <div class="pos-modal-card" style="max-width:720px;">
             <div class="pos-modal-head">
-                <h3>🕒 Cobros y Entregas Pendientes (Pago Posterior)</h3>
+                <h3>🕒 Cobros Pendientes (Pago Posterior)</h3>
                 <button class="pos-modal-close" onclick="POS.closeModal('modal-pendientes')">✕</button>
             </div>
             <div class="pos-modal-body">
@@ -993,7 +1003,7 @@ $isAdmin  = $auth->isPosAdmin();
          MODAL 3: Corte de Caja (Arqueo y Cierre)
          ═════════════════════════════════════════════════════════════ -->
     <div id="modal-corte-caja" class="pos-modal-overlay">
-        <div class="pos-modal-card" style="max-width:740px; width:95%; max-height:92vh; display:flex; flex-direction:column;">
+        <div class="pos-modal-card" style="max-width:1180px; width:96vw; max-height:94vh; display:flex; flex-direction:column;">
             <div class="pos-modal-head">
                 <div style="display:flex; align-items:center; gap:0.6rem;">
                     <span style="font-size:1.3rem;">💵</span>
@@ -1004,10 +1014,10 @@ $isAdmin  = $auth->isPosAdmin();
                 </div>
                 <button class="pos-modal-close" onclick="POS.closeModal('modal-corte-caja')">✕</button>
             </div>
-            <div class="pos-modal-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:1rem; padding-right:0.5rem;">
+            <div class="pos-modal-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:0.85rem; padding:1rem 1.25rem;">
                 
                 <!-- Trazabilidad de Usuario en Turno y Corte -->
-                <div style="background:rgba(30,41,59,0.7); border:1px solid rgba(148,163,184,0.25); border-radius:8px; padding:0.6rem 0.85rem; display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
+                <div style="background:rgba(30,41,59,0.7); border:1px solid rgba(148,163,184,0.25); border-radius:8px; padding:0.6rem 1rem; display:flex; justify-content:space-between; align-items:center; font-size:0.82rem;">
                     <div>
                         <span style="color:var(--pos-text-muted);">👤 Turno abierto por:</span>
                         <strong id="corte-usuario-apertura" style="color:#e2e8f0; margin-left:4px;">Cargando...</strong>
@@ -1019,91 +1029,137 @@ $isAdmin  = $auth->isPosAdmin();
                     </div>
                 </div>
 
-                <!-- Resumen Financiero -->
-                <div style="background:rgba(15,23,42,0.6); border:1px solid var(--pos-border); border-radius:10px; padding:1rem; display:grid; grid-template-columns:1fr 1fr; gap:0.65rem; font-size:0.85rem;">
-                    <div>Fondo Inicial de Caja:</div>
-                    <div id="corte-fondo-inicial" style="font-weight:700; text-align:right;">$0.00</div>
-                    <div>Ventas Nuevas en Efectivo:</div>
-                    <div id="corte-efectivo-ventas" style="font-weight:700; color:#34d399; text-align:right;">$0.00</div>
-                    <div>Cobros de Cargas Previas (Efectivo):</div>
-                    <div id="corte-cobros-anteriores-efec" style="font-weight:700; color:#38bdf8; text-align:right;">$0.00</div>
-                    <div>Ventas con Tarjeta:</div>
-                    <div id="corte-tarjeta-ventas" style="font-weight:700; text-align:right;">$0.00</div>
-                    <div>Ventas por Transferencia:</div>
-                    <div id="corte-transf-ventas" style="font-weight:700; text-align:right;">$0.00</div>
-                    <div>Total de Ventas Realizadas en Turno:</div>
-                    <div id="corte-cant-ventas" style="font-weight:700; text-align:right;">0</div>
-                    <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:0.5rem; font-weight:800;">Efectivo Esperado en Caja:</div>
-                    <div id="corte-esperado-efectivo" style="border-top:1px solid rgba(255,255,255,0.1); padding-top:0.5rem; font-weight:800; font-size:1.15rem; color:#34d399; text-align:right;">$0.00</div>
-                </div>
-
-                <!-- Panel: Control de Ropa en Custodia que se Queda para el Siguiente Turno -->
-                <div style="background:rgba(15,23,42,0.7); border:1.5px solid rgba(59,130,246,0.35); border-radius:10px; padding:0.9rem;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
-                        <span style="font-weight:800; font-size:0.92rem; color:#93c5fd; display:flex; align-items:center; gap:0.4rem;">
-                            🧺 Ropa en Custodia (Queda para el Próximo Turno)
-                        </span>
-                        <span id="corte-total-custodia-badge" class="pos-tab-badge badge-proceso" style="font-size:0.75rem; padding:3px 10px;">0 cargas</span>
-                    </div>
-                    <p style="font-size:0.78rem; color:var(--pos-text-muted); margin-bottom:0.75rem; line-height:1.4;">
-                        Prendas no entregadas que permanecen en las instalaciones. El siguiente turno recibirá esta custodia para continuar su proceso o entrega.
-                    </p>
-
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.65rem;">
-                        <div style="background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); border-radius:8px; padding:0.65rem;">
-                            <div style="color:#fbbf24; font-size:0.72rem; font-weight:800; letter-spacing:0.02em;">💳 PAGO PENDIENTE POR COBRAR</div>
-                            <div id="corte-custodia-monto-pend" style="font-size:1.25rem; font-weight:900; color:#fbbf24; margin-top:0.2rem;">$0.00</div>
-                            <div id="corte-custodia-cant-pend" style="font-size:0.75rem; color:var(--pos-text-muted); margin-top:0.15rem;">0 cargas pendientes de cobro</div>
+                <!-- Grid de Distribución a 2 Columnas -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(480px, 1fr)); gap:1.1rem; align-items:start;">
+                    
+                    <!-- COLUMNA IZQUIERDA: Resumen Financiero y Arqueo -->
+                    <div style="display:flex; flex-direction:column; gap:0.85rem;">
+                        <!-- Resumen Financiero -->
+                        <div style="background:rgba(15,23,42,0.6); border:1px solid var(--pos-border); border-radius:10px; padding:0.9rem 1rem; display:grid; grid-template-columns:1fr auto; gap:0.5rem; font-size:0.84rem;">
+                            <div>Fondo Inicial de Caja:</div>
+                            <div id="corte-fondo-inicial" style="font-weight:700; text-align:right;">$0.00</div>
+                            <div>Ventas Nuevas en Efectivo:</div>
+                            <div id="corte-efectivo-ventas" style="font-weight:700; color:#34d399; text-align:right;">$0.00</div>
+                            <div>Cobros de Cargas Previas (Efectivo):</div>
+                            <div id="corte-cobros-anteriores-efec" style="font-weight:700; color:#38bdf8; text-align:right;">$0.00</div>
+                            <div>Ventas con Tarjeta:</div>
+                            <div id="corte-tarjeta-ventas" style="font-weight:700; text-align:right;">$0.00</div>
+                            <div>Ventas por Transferencia:</div>
+                            <div id="corte-transf-ventas" style="font-weight:700; text-align:right;">$0.00</div>
+                            <div>Total de Ventas Realizadas en Turno:</div>
+                            <div id="corte-cant-ventas" style="font-weight:700; text-align:right;">0</div>
+                            <div>Ventas Canceladas en Turno:</div>
+                            <div id="corte-cant-canceladas" style="font-weight:700; color:#f87171; text-align:right;">0</div>
+                            <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:0.5rem; font-weight:800;">Efectivo Esperado en Caja:</div>
+                            <div id="corte-esperado-efectivo" style="border-top:1px solid rgba(255,255,255,0.1); padding-top:0.5rem; font-weight:800; font-size:1.15rem; color:#34d399; text-align:right;">$0.00</div>
                         </div>
-                        <div style="background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); border-radius:8px; padding:0.65rem;">
-                            <div style="color:#34d399; font-size:0.72rem; font-weight:800; letter-spacing:0.02em;">✅ YA PAGADAS (SIN RECOGER)</div>
-                            <div id="corte-custodia-cant-pagadas" style="font-size:1.25rem; font-weight:900; color:#34d399; margin-top:0.2rem;">0 cargas</div>
-                            <div id="corte-custodia-monto-pagado" style="font-size:0.75rem; color:var(--pos-text-muted); margin-top:0.15rem;">Listas / en proceso</div>
+
+                        <!-- Arqueo de Efectivo Real y Observaciones -->
+                        <div style="background:rgba(15,23,42,0.6); border:1px solid var(--pos-border); border-radius:10px; padding:0.9rem 1rem; display:flex; flex-direction:column; gap:0.75rem;">
+                            <div>
+                                <label style="font-size:0.82rem; font-weight:700; color:var(--pos-text-muted); display:block; margin-bottom:0.35rem;">
+                                    Efectivo Real Contado en Caja ($):
+                                </label>
+                                <input type="number" step="0.01" id="corte-efectivo-declarado" class="pos-search-input" style="font-size:1.35rem; font-weight:800; text-align:center; font-family:'JetBrains Mono',monospace;">
+                            </div>
+
+                            <div class="pos-change-box" style="justify-content:space-between; padding:0.6rem 0.85rem; margin:0;">
+                                <div>
+                                    <div class="pos-change-label">Diferencia de Caja:</div>
+                                    <span id="corte-diferencia-badge" class="pos-badge-front" style="margin-top:0.25rem;">Caja Cuadrada</span>
+                                </div>
+                                <div id="corte-diferencia-val" class="pos-change-val">$0.00</div>
+                            </div>
+
+                            <div>
+                                <label style="font-size:0.8rem; font-weight:600; color:var(--pos-text-muted); display:block; margin-bottom:0.25rem;">Observaciones de Cierre:</label>
+                                <textarea id="corte-observaciones" class="pos-search-input" rows="2" style="resize:vertical; font-size:0.8rem;" placeholder="Notas sobre el turno, incidencias, prendas con situaciones especiales o motivos de diferencia..."></textarea>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Fases de lavado pendientes -->
-                    <div style="display:flex; justify-content:space-around; align-items:center; background:rgba(0,0,0,0.2); border-radius:8px; padding:0.45rem; margin-top:0.65rem; font-size:0.75rem;">
-                        <div>⏳ En Espera: <strong id="corte-fase-espera">0</strong></div>
-                        <div style="border-left:1px solid rgba(255,255,255,0.1); height:16px;"></div>
-                        <div>⚙️ En Proceso: <strong id="corte-fase-proceso">0</strong></div>
-                        <div style="border-left:1px solid rgba(255,255,255,0.1); height:16px;"></div>
-                        <div>✅ Listas para Entrega: <strong id="corte-fase-listas">0</strong></div>
+                    <!-- COLUMNA DERECHA: Ropa en Custodia y Cancelaciones -->
+                    <div style="display:flex; flex-direction:column; gap:0.85rem;">
+                        <!-- Panel: Control de Ropa en Custodia que se Queda para el Siguiente Turno -->
+                        <div style="background:rgba(15,23,42,0.7); border:1.5px solid rgba(59,130,246,0.35); border-radius:10px; padding:0.85rem 0.95rem;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                                <span style="font-weight:800; font-size:0.92rem; color:#93c5fd; display:flex; align-items:center; gap:0.4rem;">
+                                    🧺 Prendas y Cargas del Turno Actual (Pendientes de Entrega)
+                                </span>
+                                <span id="corte-total-custodia-badge" class="pos-tab-badge badge-proceso" style="font-size:0.75rem; padding:3px 10px;">0 cargas</span>
+                            </div>
+                            <p style="font-size:0.77rem; color:var(--pos-text-muted); margin-bottom:0.6rem; line-height:1.3;">
+                                Prendas de este turno que permanecen en el local (sin recoger) y pasarán en custodia al siguiente turno.
+                            </p>
+
+                            <!-- Distribución: Izquierda (2 Tarjetas) | Derecha (4 Fases + Desglose) -->
+                            <div style="display:grid; grid-template-columns: 1.15fr 0.85fr; gap:0.65rem; align-items:stretch;">
+                                <!-- LADO IZQUIERDO: 2 Tarjetas lado a lado -->
+                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.55rem;">
+                                    <div style="background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); border-radius:8px; padding:0.6rem 0.65rem; display:flex; flex-direction:column; justify-content:space-between;">
+                                        <div style="color:#fbbf24; font-size:0.7rem; font-weight:800; letter-spacing:0.02em; line-height:1.25;">💳 PAGO PENDIENTE POR COBRAR</div>
+                                        <div id="corte-custodia-monto-pend" style="font-size:1.25rem; font-weight:900; color:#fbbf24; margin:0.35rem 0 0.15rem 0;">$0.00</div>
+                                        <div id="corte-custodia-cant-pend" style="font-size:0.72rem; color:var(--pos-text-muted);">0 cargas pendientes de cobro</div>
+                                    </div>
+                                    <div style="background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); border-radius:8px; padding:0.6rem 0.65rem; display:flex; flex-direction:column; justify-content:space-between;">
+                                        <div style="color:#34d399; font-size:0.7rem; font-weight:800; letter-spacing:0.02em; line-height:1.25;">✅ YA PAGADAS (SIN RECOGER)</div>
+                                        <div id="corte-custodia-cant-pagadas" style="font-size:1.25rem; font-weight:900; color:#34d399; margin:0.35rem 0 0.15rem 0;">0 cargas</div>
+                                        <div id="corte-custodia-monto-pagado" style="font-size:0.72rem; color:var(--pos-text-muted);">$0.00 pagadas del turno</div>
+                                    </div>
+                                </div>
+
+                                <!-- LADO DERECHO: 4 Fases de lavado + Botón desglose -->
+                                <div style="display:flex; flex-direction:column; justify-content:space-between; gap:0.25rem; background:rgba(0,0,0,0.22); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:0.45rem 0.6rem;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.74rem; padding:0.12rem 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                                        <span style="color:#cbd5e1;">⏳ En Espera:</span>
+                                        <strong id="corte-fase-espera" style="color:#f8fafc; font-size:0.82rem;">0</strong>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.74rem; padding:0.12rem 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                                        <span style="color:#cbd5e1;">⚙️ En Proceso:</span>
+                                        <strong id="corte-fase-proceso" style="color:#f8fafc; font-size:0.82rem;">0</strong>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.74rem; padding:0.12rem 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                                        <span style="color:#cbd5e1;">✅ Listas para Entrega:</span>
+                                        <strong id="corte-fase-listas" style="color:#f8fafc; font-size:0.82rem;">0</strong>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.74rem; padding:0.12rem 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                                        <span style="color:#cbd5e1;">🚚 Entregadas en Turno:</span>
+                                        <strong id="corte-fase-entregadas" style="color:#34d399; font-size:0.82rem;">0</strong>
+                                    </div>
+                                    <button type="button" class="pos-btn-clear" style="font-size:0.71rem; padding:0.25rem 0.5rem; width:100%; text-align:center; margin-top:0.2rem; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); border-radius:5px; color:#93c5fd; display:flex; align-items:center; justify-content:center; gap:0.35rem; cursor:pointer;" onclick="POS.toggleDetalleCorteCustodia()">
+                                        <span>📋</span> <span id="corte-btn-toggle-text">Ver desglose de prendas pendientes</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Desglose desplegable (ocupa todo el ancho si se activa) -->
+                            <div id="corte-custodia-detalle-list" style="display:none; margin-top:0.65rem; max-height:180px; overflow-y:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:0.5rem; font-size:0.75rem;">
+                                <!-- Llenado dinámico -->
+                            </div>
+                        </div>
+
+                        <!-- Cancelaciones del Turno (Expandido) -->
+                        <div id="corte-cancelaciones-panel" style="background:rgba(239,68,68,0.07); border:1.5px solid rgba(239,68,68,0.3); border-radius:10px; padding:0.9rem; flex:1; display:flex; flex-direction:column;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                                <span style="font-weight:800; font-size:0.92rem; color:#f87171; display:flex; align-items:center; gap:0.4rem;">
+                                    ❌ Cancelaciones del Turno
+                                </span>
+                                <span id="corte-cancelaciones-badge" style="background:rgba(239,68,68,0.18); color:#f87171; font-size:0.72rem; font-weight:700; padding:3px 10px; border-radius:12px;">0 cancelaciones</span>
+                            </div>
+                            <div id="corte-cancelaciones-list" style="font-size:0.8rem; flex:1;">
+                                <div style="text-align:center; color:var(--pos-text-muted); padding:1rem;">Sin cancelaciones en este turno ✅</div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div style="margin-top:0.65rem; text-align:right;">
-                        <button type="button" class="pos-btn-clear" style="font-size:0.75rem; padding:0.25rem 0.65rem;" onclick="POS.toggleDetalleCorteCustodia()">
-                            📋 <span id="corte-btn-toggle-text">Ver desglose de prendas pendientes</span>
-                        </button>
-                    </div>
-                    <div id="corte-custodia-detalle-list" style="display:none; margin-top:0.65rem; max-height:180px; overflow-y:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:0.5rem; font-size:0.75rem;">
-                        <!-- Llenado dinámico -->
-                    </div>
-                </div>
+                </div> <!-- Fin Grid 2 Columnas -->
 
-                <!-- Input Efectivo Real -->
-                <div>
-                    <label style="font-size:0.85rem; font-weight:700; color:var(--pos-text-muted); display:block; margin-bottom:0.4rem;">
-                        Efectivo Real Contado en Caja ($):
-                    </label>
-                    <input type="number" step="0.01" id="corte-efectivo-declarado" class="pos-search-input" style="font-size:1.4rem; font-weight:800; text-align:center; font-family:'JetBrains Mono',monospace;">
-                </div>
-
-                <div class="pos-change-box" style="justify-content:space-between;">
-                    <div>
-                        <div class="pos-change-label">Diferencia de Caja:</div>
-                        <span id="corte-diferencia-badge" class="pos-badge-front" style="margin-top:0.25rem;">Caja Cuadrada</span>
-                    </div>
-                    <div id="corte-diferencia-val" class="pos-change-val">$0.00</div>
-                </div>
-
-                <div>
-                    <label style="font-size:0.8rem; font-weight:600; color:var(--pos-text-muted); display:block; margin-bottom:0.3rem;">Observaciones de Cierre:</label>
-                    <textarea id="corte-observaciones" class="pos-search-input" rows="2" placeholder="Notas sobre el turno, incidencias, prendas con situaciones especiales o motivos de diferencia..."></textarea>
-                </div>
             </div>
             <div class="pos-modal-foot">
                 <button class="pos-btn-clear" onclick="POS.closeModal('modal-corte-caja')">Cancelar</button>
+                <button class="pos-btn-cust" style="padding:0.6rem 1.1rem; font-size:0.9rem;" onclick="POS.imprimirCorte()" title="Imprimir resumen del turno actual">
+                    🖨️ Imprimir Corte
+                </button>
                 <button class="pos-btn-pay" style="background:#ef4444; box-shadow:0 4px 15px rgba(239,68,68,0.4);" onclick="POS.cerrarCajaConfirm()">
                     🔒 Cerrar Turno de Caja
                 </button>
@@ -1124,15 +1180,20 @@ $isAdmin  = $auth->isPosAdmin();
                         <div style="font-size:0.75rem; color:var(--pos-text-muted); margin-top:2px;">Recepción de fondo y custodia de prendas de turnos anteriores</div>
                     </div>
                 </div>
-                <button class="pos-modal-close" onclick="POS.closeModal('modal-apertura-caja')">✕</button>
+                <button class="pos-modal-close" onclick="POS.cerrarModalApertura()">✕</button>
             </div>
             <form onsubmit="event.preventDefault(); POS.abrirCajaForm(this);" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
                 <div class="pos-modal-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:1rem; padding-right:0.5rem;">
                     
                     <!-- Cajero que inicia el turno -->
                     <div style="background:rgba(30,41,59,0.7); border:1px solid rgba(148,163,184,0.25); border-radius:8px; padding:0.6rem 0.85rem; display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
-                        <span style="color:var(--pos-text-muted);">👤 Cajero responsable de apertura:</span>
-                        <strong id="apertura-usuario-nombre" style="color:#38bdf8; font-size:0.88rem;">Cargando...</strong>
+                        <div>
+                            <span style="color:var(--pos-text-muted);">👤 Cajero responsable de apertura:</span>
+                            <strong id="apertura-usuario-nombre" style="color:#38bdf8; font-size:0.88rem; margin-left:4px;">Cargando...</strong>
+                        </div>
+                        <a href="pos_logout.php" style="color:#fca5a5; font-size:0.75rem; text-decoration:none; padding:4px 10px; border-radius:6px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:4px; font-weight:600;" title="Iniciar sesión con otro cajero">
+                            🔁 Cambiar Cajero
+                        </a>
                     </div>
 
                     <!-- Panel Informativo de Ropa y Cargas en Custodia -->
@@ -1189,8 +1250,11 @@ $isAdmin  = $auth->isPosAdmin();
                         <input type="text" name="observaciones" class="pos-search-input" placeholder="Ej. Cambio en billetes de $50 y $20...">
                     </div>
                 </div>
-                <div class="pos-modal-foot">
-                    <button type="submit" class="pos-btn-pay" style="width:100%; justify-content:center;">
+                <div class="pos-modal-foot" style="display:flex; gap:0.75rem;">
+                    <a href="pos_logout.php" class="pos-btn-clear" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:0.4rem; padding:0.65rem 1rem; color:#fca5a5; border:1px solid rgba(239,68,68,0.3); font-size:0.85rem;" title="Cerrar sesión y volver al login">
+                        🚪 Cerrar Sesión
+                    </a>
+                    <button type="submit" class="pos-btn-pay" style="flex:1; justify-content:center;">
                         Abrir Caja y Comenzar Turno
                     </button>
                 </div>
@@ -1202,13 +1266,13 @@ $isAdmin  = $auth->isPosAdmin();
          MODAL 5: Historial de Ventas del Día y Cancelaciones
          ═════════════════════════════════════════════════════════════ -->
     <div id="modal-historial" class="pos-modal-overlay">
-        <div class="pos-modal-card" style="max-width:760px;">
+        <div class="pos-modal-card" style="max-width:1100px; width:97vw;">
             <div class="pos-modal-head">
                 <h3>📜 Historial de Ventas de Hoy</h3>
                 <button class="pos-modal-close" onclick="POS.closeModal('modal-historial')">✕</button>
             </div>
-            <div class="pos-modal-body">
-                <div id="pos-historial-list" style="display:flex; flex-direction:column; gap:0.65rem; max-height:480px; overflow-y:auto;">
+            <div class="pos-modal-body" style="padding:0;">
+                <div id="pos-historial-list" style="overflow-x:auto; max-height:520px; overflow-y:auto;">
                     <!-- Llenado dinámico -->
                 </div>
             </div>
@@ -1500,7 +1564,7 @@ $isAdmin  = $auth->isPosAdmin();
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:0.5rem;">
-                    <button class="pos-btn-clear" style="padding:0.4rem 0.8rem;font-size:0.8rem;" onclick="POS.cargarPanelLavado()" title="Actualizar">
+                    <button class="pos-btn-refresh-lavado" style="padding:0.4rem 0.85rem;font-size:0.8rem;" onclick="POS.cargarPanelLavado()" title="Actualizar">
                         🔄 Actualizar
                     </button>
                     <button class="pos-modal-close" onclick="POS.closeModal('modal-lavado')">✕</button>

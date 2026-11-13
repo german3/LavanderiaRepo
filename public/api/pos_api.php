@@ -251,6 +251,10 @@ try {
             $res = $cajaModel->cerrarCaja($cajaId, $efectivoDeclarado, $observaciones, $currentUserId);
             $res['usuario_cierre_id'] = $currentUserId;
             $res['usuario_cierre_nombre'] = $currentUserName;
+            if (!empty($res['success'])) {
+                // Cerrar la sesión POS inmediatamente en el servidor para exigir credenciales al siguiente cajero
+                $auth->logoutPos();
+            }
             echo json_encode($res);
             break;
 

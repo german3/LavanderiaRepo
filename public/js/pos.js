@@ -1720,6 +1720,11 @@ const POS = {
     if (totalEl) totalEl.textContent = `$${granTotal.toFixed(2)}`;
 
     const hasItems = this.cart.length > 0;
+    const hasKit = this.cart.some((it) => {
+      const t = (it.tipo || it.tipo_producto || "").toUpperCase();
+      return t === "KIT" || t === "KIT_PAQUETE";
+    });
+
     if (payBtn) {
       payBtn.disabled = !hasItems;
       payBtn.innerHTML = `
@@ -1727,7 +1732,16 @@ const POS = {
                 <span>CONFIRMAR COBRO $${granTotal.toFixed(2)}</span>
             `;
     }
-    if (pendBtn) pendBtn.disabled = !hasItems;
+    if (pendBtn) {
+      pendBtn.disabled = !hasItems || !hasKit;
+      if (!hasItems) {
+        pendBtn.title = "Agrega artículos al carrito";
+      } else if (!hasKit) {
+        pendBtn.title = "Pago pendiente solo permitido si la orden incluye al menos un Kit";
+      } else {
+        pendBtn.title = "Dejar ropa y cobrar al recoger";
+      }
+    }
   },
 
   // ─────────────────────────────────────────────────────────────
@@ -2024,6 +2038,22 @@ const POS = {
     document.getElementById("pos-pay-total-due").textContent =
       `$${granTotal.toFixed(2)}`;
 
+    // Solo habilitar la opción de pago PENDIENTE si hay al menos un Kit en la orden
+    const hasKit = this.cart.some((it) => {
+      const t = (it.tipo || it.tipo_producto || "").toUpperCase();
+      return t === "KIT" || t === "KIT_PAQUETE";
+    });
+    const optPendiente = document.querySelector('.pos-pay-opt[data-method="PENDIENTE"]');
+    if (optPendiente) {
+      if (hasKit) {
+        optPendiente.style.display = "flex";
+        optPendiente.title = "Dejar ropa o venta pendiente de pago para liquidar después";
+      } else {
+        optPendiente.style.display = "none";
+        optPendiente.title = "Pago pendiente solo permitido si la orden incluye al menos un Kit";
+      }
+    }
+
     // Default Efectivo
     this.setPayMethod("EFECTIVO");
     const inputRecibido = document.getElementById("pos-pay-received");
@@ -2038,6 +2068,18 @@ const POS = {
   },
 
   setPayMethod(method) {
+    if (method === "PENDIENTE") {
+      const hasKit = this.cart.some((it) => {
+        const t = (it.tipo || it.tipo_producto || "").toUpperCase();
+        return t === "KIT" || t === "KIT_PAQUETE";
+      });
+      if (!hasKit) {
+        alert("No se permite pago pendiente: Solo las ventas que incluyan al menos un Kit pueden quedar pendientes de pago. Los insumos o productos sin Kit no deben quedar pendientes de pago.");
+        this.setPayMethod("EFECTIVO");
+        return;
+      }
+    }
+
     this.selectedPayMethod = method;
     document.querySelectorAll(".pos-pay-opt").forEach((opt) => {
       opt.classList.toggle("selected", opt.dataset.method === method);
@@ -2061,11 +2103,14 @@ const POS = {
   },
 
   setDenomination(amount) {
-    const granTotal = this.cart.reduce(
-      (acc, it) => acc + parseFloat(it.subtotal || 0),
-      0,
-    );
+    const granTotal = this._cobroPendiente
+      ? this._cobroPendiente.total
+      : this.cart.reduce(
+          (acc, it) => acc + parseFloat(it.subtotal || 0),
+          0,
+        );
     const inputRecibido = document.getElementById("pos-pay-received");
+    if (!inputRecibido) return;
     if (amount === "exact") {
       inputRecibido.value = granTotal.toFixed(2);
     } else {
@@ -2075,28 +2120,35 @@ const POS = {
   },
 
   calcCambio() {
-    const granTotal = this.cart.reduce(
-      (acc, it) => acc + parseFloat(it.subtotal || 0),
-      0,
-    );
+    const granTotal = this._cobroPendiente
+      ? this._cobroPendiente.total
+      : this.cart.reduce(
+          (acc, it) => acc + parseFloat(it.subtotal || 0),
+          0,
+        );
     const inputRecibido = document.getElementById("pos-pay-received");
     const cambioEl = document.getElementById("pos-pay-change-val");
     const submitBtn = document.getElementById("pos-pay-confirm-btn");
 
     if (this.selectedPayMethod === "EFECTIVO") {
-      const recibido = parseFloat(inputRecibido.value) || 0;
+      const recibido = parseFloat(inputRecibido ? inputRecibido.value : 0) || 0;
       const cambio = Math.max(0, recibido - granTotal);
-      cambioEl.textContent = `$${cambio.toFixed(2)}`;
+      if (cambioEl) cambioEl.textContent = `$${cambio.toFixed(2)}`;
       if (submitBtn) {
         submitBtn.disabled = recibido < granTotal;
       }
     } else {
-      cambioEl.textContent = "$0.00";
+      if (cambioEl) cambioEl.textContent = "$0.00";
       if (submitBtn) submitBtn.disabled = false;
     }
   },
 
   async confirmarVenta(isPagoPosterior = false) {
+    if (this._cobroPendiente) {
+      await this.confirmarCobroPendiente();
+      return;
+    }
+
     if (this.cart.length === 0) return;
 
     const granTotal = this.cart.reduce(
@@ -2107,6 +2159,15 @@ const POS = {
     let metodo = this.selectedPayMethod;
 
     if (isPagoPosterior || metodo === "PENDIENTE") {
+      const hasKit = this.cart.some((it) => {
+        const t = (it.tipo || it.tipo_producto || "").toUpperCase();
+        return t === "KIT" || t === "KIT_PAQUETE";
+      });
+      if (!hasKit) {
+        alert("No se permite pago pendiente: Solo las ventas que incluyan al menos un Kit pueden quedar pendientes de pago. Los insumos o productos sin Kit no deben quedar pendientes de pago.");
+        return;
+      }
+
       isPagoPosterior = true;
       metodo = "PENDIENTE";
       montoRecibido = 0;
@@ -2570,8 +2631,8 @@ const POS = {
                         <div style="font-size:1.4rem; font-weight:800; color:#34d399; font-family:'JetBrains Mono',monospace;">
                             $${parseFloat(item.total).toFixed(2)}
                         </div>
-                        <button class="pos-btn-pay" style="padding:0.45rem 0.9rem; font-size:0.82rem; margin-top:0.4rem;" onclick="POS.abrirCobroPendiente('${item.id}', '${item.folio}', ${item.total})">
-                            Cobrar y Entregar
+                        <button class="pos-btn-pay" style="padding:0.45rem 1rem; font-size:0.85rem; margin-top:0.4rem;" onclick="POS.abrirCobroPendiente('${item.id}', '${item.folio}', ${item.total}, '${this.escapeHtml(item.cliente_nombre)}')">
+                            Cobrar
                         </button>
                     </div>
                 </div>
@@ -2584,21 +2645,93 @@ const POS = {
     }
   },
 
-  abrirCobroPendiente(ventaId, folio, total) {
-    const metodo = prompt(
-      `Cobrar Nota ${folio} por $${parseFloat(total).toFixed(2)}\n\nElige método de pago:\n1 = EFECTIVO\n2 = TARJETA\n3 = TRANSFERENCIA`,
-      "1",
-    );
-    if (!metodo) return;
+  abrirCobroPendiente(ventaId, folio, total, clienteNombre = "") {
+    this.closeModal("modal-pendientes");
 
-    let metodoNombre = "EFECTIVO";
-    if (metodo === "2") metodoNombre = "TARJETA";
-    if (metodo === "3") metodoNombre = "TRANSFERENCIA";
+    const granTotal = parseFloat(total || 0);
 
-    this.liquidarVentaPendiente(ventaId, metodoNombre, total);
+    this._cobroPendiente = {
+      ventaId,
+      folio,
+      total: granTotal,
+      clienteNombre
+    };
+
+    // Actualizar total a pagar en modal-cobro
+    const totalDueEl = document.getElementById("pos-pay-total-due");
+    if (totalDueEl) {
+      totalDueEl.textContent = `$${granTotal.toFixed(2)}`;
+    }
+
+    // Título descriptivo en modal-cobro
+    const titleEl = document.getElementById("pos-modal-cobro-title") || document.querySelector("#modal-cobro .pos-modal-head h3");
+    if (titleEl) {
+      titleEl.innerHTML = `💳 Cobrar Venta Pendiente <span style="color:#60a5fa; font-family:'JetBrains Mono',monospace;">${this.escapeHtml(folio)}</span>`;
+    }
+
+    // Ocultar opción PENDIENTE porque ya se está liquidando
+    const optPendiente = document.querySelector('.pos-pay-opt[data-method="PENDIENTE"]');
+    if (optPendiente) {
+      optPendiente.style.display = "none";
+    }
+
+    // Seleccionar Efectivo por defecto
+    this.setPayMethod("EFECTIVO");
+
+    const inputRecibido = document.getElementById("pos-pay-received");
+    if (inputRecibido) {
+      inputRecibido.value = granTotal.toFixed(2);
+    }
+    this.calcCambio();
+
+    const submitBtn = document.getElementById("pos-pay-confirm-btn");
+    if (submitBtn) {
+      submitBtn.innerHTML = "Cobrar e Imprimir Ticket";
+      submitBtn.disabled = false;
+    }
+
+    this.openModal("modal-cobro");
+    setTimeout(() => {
+      if (inputRecibido) {
+        inputRecibido.focus();
+        inputRecibido.select();
+      }
+    }, 100);
   },
 
-  async liquidarVentaPendiente(ventaId, metodo, total) {
+  async confirmarCobroPendiente() {
+    if (!this._cobroPendiente) return;
+
+    const { ventaId, folio, total } = this._cobroPendiente;
+    const metodo = this.selectedPayMethod;
+    if (metodo === "PENDIENTE") {
+      this.mostrarNotificacion("error", "Selecciona un método de pago válido para liquidar la venta.");
+      return;
+    }
+
+    let montoRecibido = total;
+    if (metodo === "EFECTIVO") {
+      const inp = document.getElementById("pos-pay-received");
+      montoRecibido = parseFloat(inp ? inp.value : total) || total;
+      if (montoRecibido < total) {
+        this.mostrarNotificacion(
+          "error",
+          "El monto recibido ($" +
+            montoRecibido.toFixed(2) +
+            ") no puede ser menor al total ($" +
+            total.toFixed(2) +
+            ").",
+        );
+        return;
+      }
+    }
+
+    const btn = document.getElementById("pos-pay-confirm-btn");
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = "Procesando cobro...";
+    }
+
     try {
       const res = await fetch("api/pos_api.php", {
         method: "POST",
@@ -2607,13 +2740,22 @@ const POS = {
           action: "pagar_pendiente",
           venta_id: ventaId,
           metodo_pago: metodo,
-          monto_recibido: total,
+          monto_recibido: montoRecibido,
         }),
       });
+
       const data = await res.json();
+
       if (data.success) {
-        alert("Cobro registrado exitosamente.");
-        this.closeModal("modal-pendientes");
+        this.closeModal("modal-cobro");
+        this._cobroPendiente = null;
+
+        this.mostrarNotificacion("success", `Nota ${folio} cobrada exitosamente.`);
+
+        // Actualizar datos del POS (badge pendientes, ventas recientes, corte, etc.)
+        await this.loadInitialData();
+
+        // Mostrar ticket para imprimir
         if (data.ticket) {
           if (
             this.clientePrevioInfo &&
@@ -2632,13 +2774,27 @@ const POS = {
           }
           this.mostrarTicket(data.ticket);
         }
-        this.loadInitialData();
       } else {
-        alert(data.message || "Error al liquidar cobro");
+        this.mostrarNotificacion("error", data.message || "Error al registrar el cobro.");
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = "Cobrar e Imprimir Ticket";
+        }
       }
-    } catch (e) {
-      alert("Error de conexión");
+    } catch (err) {
+      this.mostrarNotificacion("error", "Error de conexión al procesar el pago.");
+      console.error(err);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = "Cobrar e Imprimir Ticket";
+      }
     }
+  },
+
+  async liquidarVentaPendiente(ventaId, metodo, total) {
+    this._cobroPendiente = { ventaId, folio: "", total: parseFloat(total || 0), clienteNombre: "" };
+    this.selectedPayMethod = metodo;
+    await this.confirmarCobroPendiente();
   },
 
   // ─────────────────────────────────────────────────────────────
@@ -2736,6 +2892,24 @@ const POS = {
     `;
   },
 
+  cerrarModalApertura() {
+    if (!this.caja) {
+      this.mostrarConfirmacion({
+        tipo: "warning",
+        titulo: "¿Cerrar Sesión de POS?",
+        mensaje:
+          "No se ha abierto un turno de caja. Para operar el Punto de Venta es obligatorio abrir un turno.\n\n¿Deseas cerrar tu sesión para que otro cajero ingrese sus credenciales?",
+        btnConfirmar: "Sí, cerrar sesión",
+        colorConfirmar: "#ef4444",
+        onConfirm: () => {
+          window.location.replace("pos_logout.php");
+        },
+      });
+      return;
+    }
+    this.closeModal("modal-apertura-caja");
+  },
+
   async abrirCajaForm(form) {
     const monto = parseFloat(form.monto_inicial.value) || 0;
     const obs = form.observaciones.value;
@@ -2787,6 +2961,9 @@ const POS = {
 
   async abrirModalCorte() {
     if (!this.caja) {
+      await this.loadInitialData();
+    }
+    if (!this.caja) {
       alert("No hay una caja abierta actualmente.");
       return;
     }
@@ -2830,15 +3007,20 @@ const POS = {
         `$${data.total_transferencia.toFixed(2)}`;
       document.getElementById("corte-cant-ventas").textContent =
         data.cantidad_ventas;
+      const cantCancelEl = document.getElementById("corte-cant-canceladas");
+      if (cantCancelEl) {
+        cantCancelEl.textContent = data.cantidad_canceladas || 0;
+      }
       document.getElementById("corte-esperado-efectivo").textContent =
         `$${data.total_esperado_efectivo.toFixed(2)}`;
 
-      // 2. Ropa y Cargas en Custodia que quedan para el siguiente turno
+      // 2. Ropa y Cargas del Turno que quedan para el siguiente turno
       const custodia = data.custodia_cargas || {};
       const totCustodia = custodia.total_pendientes_entrega || 0;
       const totPendPago = custodia.total_pendientes_pago || 0;
       const montoPend = parseFloat(custodia.monto_pendiente_cobro || 0);
       const totPagadas = custodia.total_pagadas_no_entregadas || 0;
+      const montoPagadas = parseFloat(custodia.monto_pagadas_no_entregadas || 0);
       const porEstado = custodia.por_estado || { espera: 0, proceso: 0, finalizado: 0 };
 
       const badgeCustodia = document.getElementById("corte-total-custodia-badge");
@@ -2853,6 +3035,9 @@ const POS = {
       const cantPagadasEl = document.getElementById("corte-custodia-cant-pagadas");
       if (cantPagadasEl) cantPagadasEl.textContent = `${totPagadas} ${totPagadas === 1 ? 'carga' : 'cargas'}`;
 
+      const montoPagadoEl = document.getElementById("corte-custodia-monto-pagado");
+      if (montoPagadoEl) montoPagadoEl.textContent = `$${montoPagadas.toFixed(2)} pagadas del turno`;
+
       const faseEspEl = document.getElementById("corte-fase-espera");
       if (faseEspEl) faseEspEl.textContent = porEstado.espera || 0;
 
@@ -2862,10 +3047,13 @@ const POS = {
       const faseLisEl = document.getElementById("corte-fase-listas");
       if (faseLisEl) faseLisEl.textContent = porEstado.finalizado || 0;
 
+      const faseEntEl = document.getElementById("corte-fase-entregadas");
+      if (faseEntEl) faseEntEl.textContent = data.cargas_entregadas_turno || 0;
+
       const corteDetalleList = document.getElementById("corte-custodia-detalle-list");
       if (corteDetalleList) {
         if (!custodia.items || custodia.items.length === 0) {
-          corteDetalleList.innerHTML = '<div style="text-align:center;color:var(--pos-text-muted);padding:0.75rem;">¡Excelente! No queda ninguna carga pendiente de entrega en el local.</div>';
+          corteDetalleList.innerHTML = '<div style="text-align:center;color:var(--pos-text-muted);padding:0.75rem;">¡Excelente! No queda ninguna carga de este turno pendiente de entrega en el local.</div>';
         } else {
           corteDetalleList.innerHTML = custodia.items.map(c => this._renderFilaCustodiaMini(c)).join('');
         }
@@ -2882,10 +3070,156 @@ const POS = {
         this.calcDiferenciaCorte(data.total_esperado_efectivo);
       };
 
+      // — Cancelaciones del turno —
+      const cancelList   = document.getElementById("corte-cancelaciones-list");
+      const cancelBadge  = document.getElementById("corte-cancelaciones-badge");
+      const cancelaciones = data.cancelaciones || [];
+      if (cancelBadge) cancelBadge.textContent = `${cancelaciones.length} cancelación${cancelaciones.length !== 1 ? 'es' : ''}`;
+      if (cantCancelEl) {
+        const totCancMonto = cancelaciones.reduce((acc, c) => acc + parseFloat(c.total || 0), 0);
+        cantCancelEl.textContent = cancelaciones.length > 0
+          ? `${cancelaciones.length} (-$${totCancMonto.toFixed(2)})`
+          : "0";
+      }
+
+      if (cancelList) {
+        if (cancelaciones.length === 0) {
+          cancelList.innerHTML = '<div style="text-align:center; color:var(--pos-text-muted); padding:0.5rem;">Sin cancelaciones en este turno ✅</div>';
+        } else {
+          const thC = 'padding:0.45rem 0.6rem;text-align:left;color:var(--pos-text-muted);font-weight:600;font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid rgba(239,68,68,0.25);white-space:nowrap;';
+          const tdC = 'padding:0.4rem 0.6rem;border-bottom:1px solid rgba(239,68,68,0.12);vertical-align:top;';
+          const rows = cancelaciones.map((c, i) => {
+            const hora = c.fecha_cancelacion ? c.fecha_cancelacion.substring(11, 16) : (c.fecha_venta ? c.fecha_venta.substring(11, 16) : '—');
+            const zebra = i % 2 === 1 ? 'background:rgba(239,68,68,0.04);' : '';
+            return `<tr style="${zebra}">
+              <td style="${tdC}font-weight:700;color:#fca5a5;white-space:nowrap;">${this.escapeHtml(c.folio || '—')}</td>
+              <td style="${tdC}white-space:nowrap;">${this.escapeHtml(c.cliente_nombre || '—')}</td>
+              <td style="${tdC}text-align:center;font-family:'JetBrains Mono',monospace;color:#cbd5e1;">${hora}</td>
+              <td style="${tdC}text-align:right;font-weight:800;color:#f87171;font-family:'JetBrains Mono',monospace;white-space:nowrap;">$${parseFloat(c.total || 0).toFixed(2)}</td>
+              <td style="${tdC}font-size:0.75rem;color:var(--pos-text-muted);max-width:180px;">${this.escapeHtml(c.motivo_cancelacion || '—')}</td>
+              <td style="${tdC}font-size:0.72rem;color:var(--pos-text-muted);white-space:nowrap;">${this.escapeHtml(c.cancelado_por || c.cajero_nombre || '—')}</td>
+            </tr>`;
+          }).join('');
+          cancelList.innerHTML = `<div style="overflow-x:auto;max-height:280px;overflow-y:auto;border-radius:6px;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.78rem;color:var(--pos-text);">
+              <thead style="position:sticky;top:0;background:#1e1a24;z-index:2;"><tr>
+                <th style="${thC}">Ticket</th>
+                <th style="${thC}">Cliente</th>
+                <th style="${thC}text-align:center;">Hora</th>
+                <th style="${thC}text-align:right;">Monto</th>
+                <th style="${thC}">Motivo</th>
+                <th style="${thC}">Cancelado por</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table></div>`;
+        }
+      }
+
+      this._lastCorteData = data; // Guardado para imprimirCorte()
       this.openModal("modal-corte-caja");
     } catch (e) {
       alert("Error obteniendo resumen de corte");
     }
+  },
+
+  imprimirCorte() {
+    const caja = this.caja;
+    const d = this._lastCorteData || {};
+    if (!caja) { alert('No hay turno abierto.'); return; }
+
+    const ahora = new Date().toLocaleString('es-MX');
+    const abiertaEn = caja.abierta_en ? new Date(caja.abierta_en).toLocaleString('es-MX') : '—';
+
+    const usuarioApertura = (d.caja && (d.caja.usuario_apertura_nombre || d.caja.usuario_nombre)) || 'Cajero Inicial';
+    const usuarioSesion   = d.usuario_sesion_nombre || (this.user ? this.user.nombre : '—');
+
+    const montoInicial  = (d.monto_inicial || 0).toFixed(2);
+    const efectivoV     = (d.ventas_nuevas ? d.ventas_nuevas.efectivo : (d.total_efectivo || 0)).toFixed(2);
+    const cobrosAntEfec = (d.cobros_turnos_anteriores ? d.cobros_turnos_anteriores.total_efectivo : 0).toFixed(2);
+    const tarjeta       = (d.total_tarjeta || 0).toFixed(2);
+    const transferencia = (d.total_transferencia || 0).toFixed(2);
+    const numVentas     = d.cantidad_ventas || 0;
+    const esperadoEfec  = (d.total_esperado_efectivo || 0).toFixed(2);
+
+    const custodia      = d.custodia_cargas || {};
+    const totCustodia   = custodia.total_pendientes_entrega || 0;
+    const totPendPago   = custodia.total_pendientes_pago || 0;
+    const montoPend     = parseFloat(custodia.monto_pendiente_cobro || 0).toFixed(2);
+    const totPagadas    = custodia.total_pagadas_no_entregadas || 0;
+    const porEstado     = custodia.por_estado || { espera: 0, proceso: 0, finalizado: 0 };
+
+    const cancelaciones = d.cancelaciones || [];
+    let cancelHtml = '';
+    if (cancelaciones.length > 0) {
+      cancelHtml = `
+<hr>
+<div class="sec-title">Cancelaciones (${cancelaciones.length})</div>
+<table>
+  ${cancelaciones.map(c => `
+    <tr><td>${c.folio || '—'} (${c.cliente_nombre || '—'}):</td><td>-$${parseFloat(c.total || 0).toFixed(2)}</td></tr>
+    <tr><td colspan="2" style="font-size:10px; color:#555; padding-bottom:4px;">Motivo: ${c.motivo_cancelacion || '—'}</td></tr>
+  `).join('')}
+</table>`;
+    }
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Corte de Caja</title>
+<style>
+  body { font-family: monospace; font-size: 12px; padding: 20px; color: #000; max-width: 400px; margin: 0 auto; }
+  h2 { text-align: center; margin-bottom: 2px; font-size: 15px; }
+  .sub { text-align: center; font-size: 11px; color: #444; margin-bottom: 2px; }
+  hr { border: none; border-top: 1px dashed #000; margin: 7px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 2px 0; vertical-align: top; }
+  td:last-child { text-align: right; font-weight: bold; }
+  .sec-title { font-weight: 900; font-size: 11px; letter-spacing: .05em; margin: 6px 0 2px; text-transform: uppercase; }
+  .total-row td { border-top: 1px solid #000; font-weight: 900; font-size: 13px; padding-top: 4px; }
+  @media print { body { margin: 0; padding: 10px; } }
+</style>
+</head><body>
+<h2>LAVANDERÍA VERA</h2>
+<div class="sub">Corte y Arqueo de Caja</div>
+<div class="sub">Impreso: ${ahora}</div>
+<hr>
+<div class="sec-title">Turno</div>
+<table>
+  <tr><td>Cajero Apertura:</td><td>${usuarioApertura}</td></tr>
+  <tr><td>Cajero en Sesión:</td><td>${usuarioSesion}</td></tr>
+  <tr><td>Apertura del turno:</td><td>${abiertaEn}</td></tr>
+  <tr><td>Fondo inicial de caja:</td><td>$${montoInicial}</td></tr>
+</table>
+<hr>
+<div class="sec-title">Ventas del Turno</div>
+<table>
+  <tr><td>Núm. de ventas:</td><td>${numVentas}</td></tr>
+  <tr><td>Efectivo (ventas nuevas):</td><td>$${efectivoV}</td></tr>
+  <tr><td>Cobros de turnos ant. (efec):</td><td>$${cobrosAntEfec}</td></tr>
+  <tr><td>Tarjeta Déb/Créd:</td><td>$${tarjeta}</td></tr>
+  <tr><td>Transferencia:</td><td>$${transferencia}</td></tr>
+  <tr class="total-row"><td>TOTAL ESPERADO EN CAJA:</td><td>$${esperadoEfec}</td></tr>
+</table>
+<hr>
+<div class="sec-title">Cargas del Turno</div>
+<table>
+  <tr><td>Cargas pendientes de entrega:</td><td>${totCustodia}</td></tr>
+  <tr><td>&nbsp;&nbsp;En espera:</td><td>${porEstado.espera || 0}</td></tr>
+  <tr><td>&nbsp;&nbsp;En proceso:</td><td>${porEstado.proceso || 0}</td></tr>
+  <tr><td>&nbsp;&nbsp;Listas p/ entregar:</td><td>${porEstado.finalizado || 0}</td></tr>
+  <tr><td>&nbsp;&nbsp;Entregadas en el turno:</td><td>${d.cargas_entregadas_turno || 0}</td></tr>
+  <tr><td>Ya pagadas (sin recoger):</td><td>${totPagadas} ($${parseFloat(custodia.monto_pagadas_no_entregadas || 0).toFixed(2)})</td></tr>
+  <tr><td>Pendientes de cobro:</td><td>${totPendPago} carga(s) — $${montoPend}</td></tr>
+</table>
+${cancelHtml}
+<hr>
+<div class="sub">— Fin del Reporte de Turno —</div>
+</body></html>`;
+
+    const win = window.open('', '_blank', 'width=440,height=680');
+    if (!win) { alert('El navegador bloqueó la ventana emergente. Permite pop-ups para este sitio.'); return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 500);
   },
 
   calcDiferenciaCorte(esperado) {
@@ -2950,17 +3284,19 @@ const POS = {
       const data = await res.json();
       if (data.success) {
         this.closeModal("modal-corte-caja");
-        await this.loadInitialData();
+        // Bloquear POS — requerir nuevo inicio de sesión antes de abrir otro turno
+        this._bloquearPosTrasCorte();
 
         let custMsg = "";
         if (data.cargas_pendientes_entrega > 0) {
-          custMsg = `\n🧺 Ropa en custodia para el sig. turno: ${data.cargas_pendientes_entrega} carga(s) ($${parseFloat(data.monto_pendiente_cobro || 0).toFixed(2)} por cobrar)`;
+          custMsg = `<br>🧺 Ropa en custodia para el sig. turno: ${data.cargas_pendientes_entrega} carga(s) ($${parseFloat(data.monto_pendiente_cobro || 0).toFixed(2)} por cobrar)`;
         }
 
         this.mostrarMensaje({
           tipo: "success",
           titulo: "¡Caja Cerrada con Éxito!",
-          mensaje: `Caja cerrada exitosamente.\nDiferencia final: $${data.diferencia.toFixed(2)}${custMsg}`,
+          mensaje: `Caja cerrada exitosamente.<br>Diferencia final: $${data.diferencia.toFixed(2)}${custMsg}<br><br>🔐 Por seguridad, se cerrará la sesión. El siguiente cajero deberá iniciar sesión para abrir un nuevo turno.`,
+          onConfirm: () => { window.location.replace("pos_logout.php"); },
         });
       } else {
         this.mostrarMensaje({
@@ -2975,6 +3311,46 @@ const POS = {
         titulo: "Error de Conexión",
         mensaje: "Error de conexión al cerrar caja",
       });
+    }
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // Bloqueo de POS tras cierre de turno (requiere nuevo login)
+  // ─────────────────────────────────────────────────────────────
+  _bloquearPosTrasCorte() {
+    // Crear overlay de bloqueo sobre todo el POS
+    let overlay = document.getElementById("pos-lock-overlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "pos-lock-overlay";
+      overlay.style.cssText = [
+        "position:fixed",
+        "inset:0",
+        "z-index:999990",
+        "background:rgba(0,0,0,0.75)",
+        "backdrop-filter:blur(6px)",
+        "display:flex",
+        "flex-direction:column",
+        "align-items:center",
+        "justify-content:center",
+        "gap:1rem",
+      ].join(";");
+      overlay.innerHTML = `
+        <div style="color:#34d399;font-size:3rem;">🔒</div>
+        <div style="color:#e2e8f0;font-size:1.1rem;font-weight:700;">Turno Cerrado</div>
+        <div style="color:#9ca3af;font-size:0.85rem;text-align:center;max-width:300px;line-height:1.5;">
+          El turno fue cerrado correctamente.<br>Redirigiendo al inicio de sesión…
+        </div>
+        <div style="width:200px;height:4px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;margin-top:0.5rem;">
+          <div id="pos-lock-progress" style="height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:4px;width:0%;transition:width 3s linear;"></div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      // Animar barra de progreso
+      setTimeout(() => {
+        const bar = document.getElementById("pos-lock-progress");
+        if (bar) bar.style.width = "100%";
+      }, 50);
     }
   },
 
@@ -2998,50 +3374,53 @@ const POS = {
         return;
       }
 
-      container.innerHTML = data.ventas
-        .map((v) => {
-          const isCancel = v.estado === "CANCELADA";
-          const isPagada = v.estado_pago === "PAGADO";
-          return `
-                    <div style="background:rgba(15,23,42,0.6); border:1px solid var(--pos-border); border-radius:10px; padding:0.85rem 1rem; display:flex; justify-content:space-between; align-items:center; gap:0.75rem;">
-                        <div>
-                            <div style="display:flex; align-items:center; gap:0.5rem;">
-                                <strong style="font-size:0.95rem; color:#fff;">${v.folio}</strong>
-                                ${v.numero_carga ? `<span style="background:rgba(59,130,246,0.15); color:#60a5fa; font-size:0.7rem; font-weight:700; padding:0.15rem 0.4rem; border-radius:4px;">${v.numero_carga}</span>` : ""}
-                                <span style="font-size:0.68rem; font-weight:700; padding:0.15rem 0.45rem; border-radius:4px; ${isCancel ? "background:rgba(239,68,68,0.2); color:#f87171;" : isPagada ? "background:rgba(16,185,129,0.2); color:#34d399;" : "background:rgba(245,158,11,0.2); color:#fbbf24;"}">
-                                    ${isCancel ? "CANCELADA" : isPagada ? "PAGADO" : "PENDIENTE"}
-                                </span>
-                            </div>
-                            <div style="font-size:0.82rem; color:#fff; margin-top:0.25rem;">
-                                Cliente: <strong>${this.escapeHtml(v.cliente_nombre)}</strong>
-                            </div>
-                            <div style="font-size:0.72rem; color:var(--pos-text-muted);">
-                                ${v.fecha_venta} | Cajero: ${this.escapeHtml(v.cajero_nombre)} | Pago: ${v.metodo_pago}
-                            </div>
-                        </div>
-                        <div style="text-align:right;">
-                            <div style="font-size:1.25rem; font-weight:800; color:#34d399; font-family:'JetBrains Mono',monospace;">
-                                $${parseFloat(v.total).toFixed(2)}
-                            </div>
-                            <div style="display:flex; gap:0.4rem; justify-content:flex-end; margin-top:0.35rem;">
-                                <button class="pos-btn-head" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="POS.reimprimirTicket('${v.id}')">
-                                    🖨️ Ticket
-                                </button>
-                                ${
-                                  !isCancel
-                                    ? `
-                                <button class="pos-btn-head" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-color:rgba(239,68,68,0.4); color:#f87171;" onclick="POS.iniciarCancelacion('${v.id}', '${v.folio}')">
-                                    ❌ Cancelar
-                                </button>
-                                `
-                                    : ""
-                                }
-                            </div>
-                        </div>
-                    </div>
-                `;
-        })
-        .join("");
+      // — Render como tabla —
+      const estadoBadge = (v) => {
+        if (v.estado === 'CANCELADA')
+          return '<span style="background:rgba(239,68,68,0.18);color:#f87171;font-size:0.7rem;font-weight:700;padding:0.18rem 0.5rem;border-radius:5px;white-space:nowrap;">CANCELADA</span>';
+        if (v.estado_pago === 'PENDIENTE')
+          return '<span style="background:rgba(245,158,11,0.18);color:#fbbf24;font-size:0.7rem;font-weight:700;padding:0.18rem 0.5rem;border-radius:5px;white-space:nowrap;">PENDIENTE</span>';
+        return '<span style="background:rgba(16,185,129,0.18);color:#34d399;font-size:0.7rem;font-weight:700;padding:0.18rem 0.5rem;border-radius:5px;white-space:nowrap;">PAGADA</span>';
+      };
+      const metodoBadge = (metodo) => {
+        const m = (metodo || '').toUpperCase();
+        const map = {
+          'EFECTIVO':      { bg:'rgba(16,185,129,0.15)', color:'#34d399' },
+          'TARJETA':       { bg:'rgba(59,130,246,0.15)', color:'#60a5fa' },
+          'TRANSFERENCIA': { bg:'rgba(139,92,246,0.15)', color:'#a78bfa' },
+          'PENDIENTE':     { bg:'rgba(245,158,11,0.15)', color:'#fbbf24' },
+        };
+        const style = map[m] || { bg:'rgba(100,116,139,0.2)', color:'#94a3b8' };
+        return `<span style="background:${style.bg};color:${style.color};font-size:0.7rem;font-weight:700;padding:0.18rem 0.5rem;border-radius:5px;white-space:nowrap;">${this.escapeHtml(metodo || '—')}</span>`;
+      };
+      const thS = 'padding:0.6rem 0.8rem;text-align:left;color:var(--pos-text-muted);font-weight:600;font-size:0.7rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--pos-border);white-space:nowrap;position:sticky;top:0;background:rgba(10,18,36,0.97);z-index:2;';
+      const tdB = 'padding:0.5rem 0.8rem;border-bottom:1px solid rgba(51,65,85,0.45);vertical-align:middle;';
+      const rows = data.ventas.map((v, idx) => {
+        const isCancel = v.estado === 'CANCELADA';
+        const hora = v.fecha_venta ? v.fecha_venta.substring(11, 16) : '—';
+        const zebra = idx % 2 === 1 ? 'background:rgba(255,255,255,0.025);' : '';
+        const dim   = isCancel ? 'opacity:0.55;' : '';
+        return `<tr style="${zebra}${dim}">
+          <td style="${tdB}font-weight:700;color:#e2e8f0;white-space:nowrap;">${this.escapeHtml(v.folio)}${v.numero_carga ? `<br><span style="background:rgba(59,130,246,0.15);color:#60a5fa;font-size:0.65rem;font-weight:700;padding:0.1rem 0.35rem;border-radius:4px;">${this.escapeHtml(v.numero_carga)}</span>` : ''}</td>
+          <td style="${tdB}white-space:nowrap;">${this.escapeHtml(v.cliente_nombre)}</td>
+          <td style="${tdB}text-align:center;font-weight:700;color:#cbd5e1;font-family:'JetBrains Mono',monospace;">${hora}</td>
+          <td style="${tdB}text-align:center;">${estadoBadge(v)}</td>
+          <td style="${tdB}text-align:right;font-weight:800;color:#34d399;font-family:'JetBrains Mono',monospace;white-space:nowrap;">$${parseFloat(v.total).toFixed(2)}</td>
+          <td style="${tdB}text-align:center;">${metodoBadge(v.metodo_pago)}</td>
+          <td style="${tdB}font-size:0.75rem;color:var(--pos-text-muted);white-space:nowrap;">${this.escapeHtml(v.cajero_nombre)}</td>
+          <td style="${tdB}text-align:center;white-space:nowrap;"><div style="display:flex;gap:0.35rem;justify-content:center;"><button class="pos-btn-head" style="padding:0.28rem 0.55rem;font-size:0.72rem;" onclick="POS.reimprimirTicket('${v.id}')" title="Reimprimir ticket">🖨️ Ticket</button>${!isCancel ? `<button class="pos-btn-head" style="padding:0.28rem 0.55rem;font-size:0.72rem;border-color:rgba(239,68,68,0.4);color:#f87171;" onclick="POS.iniciarCancelacion('${v.id}','${this.escapeHtml(v.folio)}')" title="Cancelar venta">❌ Cancelar</button>` : ''}</div></td>
+        </tr>`;
+      }).join('');
+      container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:0.82rem;color:var(--pos-text);"><thead><tr>
+        <th style="${thS}">No. Ticket</th>
+        <th style="${thS}">Cliente</th>
+        <th style="${thS}text-align:center;">Hora</th>
+        <th style="${thS}text-align:center;">Estado</th>
+        <th style="${thS}text-align:right;">Monto</th>
+        <th style="${thS}text-align:center;">Tipo Pago</th>
+        <th style="${thS}">Cajero</th>
+        <th style="${thS}text-align:center;">Acciones</th>
+      </tr></thead><tbody>${rows}</tbody></table>`;
     } catch (e) {
       container.innerHTML =
         '<div style="color:red; text-align:center;">Error cargando historial.</div>';
@@ -4086,6 +4465,36 @@ const POS = {
       modal.classList.remove("active");
       if (this.activeModal === id) this.activeModal = null;
     }
+
+    // Restaurar estado del modal-cobro si fue usado para cobro de venta pendiente
+    if (id === "modal-cobro" && this._cobroPendiente) {
+      this._cobroPendiente = null;
+      const titleEl = document.getElementById("pos-modal-cobro-title") || document.querySelector("#modal-cobro .pos-modal-head h3");
+      if (titleEl) titleEl.textContent = "💳 Procesar Cobro de Venta";
+
+      const optPendiente = document.querySelector('.pos-pay-opt[data-method="PENDIENTE"]');
+      if (optPendiente) {
+        const hasKit = this.cart.some((it) => {
+          const t = (it.tipo || it.tipo_producto || "").toUpperCase();
+          return t === "KIT" || t === "KIT_PAQUETE";
+        });
+        optPendiente.style.display = hasKit ? "flex" : "none";
+      }
+
+      const submitBtn = document.getElementById("pos-pay-confirm-btn");
+      if (submitBtn) {
+        submitBtn.innerHTML = "Confirmar Cobro e Imprimir Ticket";
+        submitBtn.disabled = false;
+      }
+
+      const granTotal = this.cart.reduce(
+        (acc, it) => acc + parseFloat(it.subtotal || 0),
+        0,
+      );
+      const totalDueEl = document.getElementById("pos-pay-total-due");
+      if (totalDueEl) totalDueEl.textContent = `$${granTotal.toFixed(2)}`;
+    }
+
     // Restaurar estado del modal-cobro si fue usado para cobro de carga
     if (id === "modal-cobro" && this._cobrarCargaCleanup) {
       this._cobrarCargaCleanup();
@@ -4117,6 +4526,8 @@ const POS = {
     onConfirm = null,
   }) {
     this.notifCallback = onConfirm;
+    // Marcar si el backdrop debe quedar bloqueado (p.ej. cierre de turno = redirect obligatorio)
+    this._notifBlockBackdrop = typeof onConfirm === "function";
     const modal = document.getElementById("modal-notificacion-pos");
     const iconWrap = document.getElementById("notif-pos-icon-wrap");
     const iconSvg = document.getElementById("notif-pos-icon-svg");
@@ -4131,6 +4542,18 @@ const POS = {
 
     if (titleEl) titleEl.textContent = titulo;
     if (msgEl) msgEl.innerHTML = mensaje;
+
+    // Texto del botón: si hay callback de redireccionamiento, usar texto especial
+    if (btn) {
+      btn.textContent = this._notifBlockBackdrop ? "Entendido — Cerrar Sesión" : "Aceptar";
+    }
+
+    // Bloquear o habilitar el backdrop según si hay callback de redirect
+    const backdrop = document.getElementById("modal-notificacion-pos-backdrop");
+    if (backdrop) {
+      backdrop.onclick = this._notifBlockBackdrop ? null : () => POS.cerrarMensaje();
+      backdrop.style.cursor = this._notifBlockBackdrop ? "default" : "pointer";
+    }
 
     if (tipo === "success") {
       if (iconWrap) iconWrap.style.background = "rgba(16, 185, 129, 0.15)";
@@ -4175,11 +4598,23 @@ const POS = {
   },
 
   cerrarMensaje() {
+    // Si hay callback de bloqueo (p.ej. cierre de turno), el modal no se puede cerrar por backdrop
+    // Solo se cierra a través del botón Aceptar
     const modal = document.getElementById("modal-notificacion-pos");
     if (modal) {
       modal.style.display = "none";
       document.body.style.overflow = "";
     }
+    // Restaurar btn a texto normal
+    const btn = document.getElementById("notif-pos-btn");
+    if (btn) btn.textContent = "Aceptar";
+    // Restaurar backdrop
+    const backdrop = document.getElementById("modal-notificacion-pos-backdrop");
+    if (backdrop) {
+      backdrop.onclick = () => POS.cerrarMensaje();
+      backdrop.style.cursor = "pointer";
+    }
+    this._notifBlockBackdrop = false;
     if (typeof this.notifCallback === "function") {
       const cb = this.notifCallback;
       this.notifCallback = null;
