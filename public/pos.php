@@ -1114,12 +1114,12 @@ $isAdmin  = $auth->isPosAdmin();
                         <div style="background:rgba(15,23,42,0.7); border:1.5px solid rgba(59,130,246,0.35); border-radius:10px; padding:0.85rem 0.95rem;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
                                 <span style="font-weight:800; font-size:0.92rem; color:#93c5fd; display:flex; align-items:center; gap:0.4rem;">
-                                    🧺 Prendas y Cargas del Turno Actual (Pendientes de Entrega)
+                                    🧺 Prendas y Cargas del Turno.
                                 </span>
                                 <span id="corte-total-custodia-badge" class="pos-tab-badge badge-proceso" style="font-size:0.75rem; padding:3px 10px;">0 cargas</span>
                             </div>
                             <p style="font-size:0.77rem; color:var(--pos-text-muted); margin-bottom:0.6rem; line-height:1.3;">
-                                Prendas de este turno que permanecen en el local (sin recoger) y pasarán en custodia al siguiente turno.
+                                
                             </p>
 
                             <!-- Distribución: Izquierda (2 Tarjetas) | Derecha (4 Fases + Desglose) -->
@@ -1131,11 +1131,11 @@ $isAdmin  = $auth->isPosAdmin();
                                         <div id="corte-custodia-monto-pend" style="font-size:1.25rem; font-weight:900; color:#fbbf24; margin:0.35rem 0 0.15rem 0;">$0.00</div>
                                         <div id="corte-custodia-cant-pend" style="font-size:0.72rem; color:var(--pos-text-muted);">0 cargas pendientes de cobro</div>
                                     </div>
-                                    <div style="background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); border-radius:8px; padding:0.6rem 0.65rem; display:flex; flex-direction:column; justify-content:space-between;">
+                                    <!-- <div style="background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); border-radius:8px; padding:0.6rem 0.65rem; display:flex; flex-direction:column; justify-content:space-between;">
                                         <div style="color:#34d399; font-size:0.7rem; font-weight:800; letter-spacing:0.02em; line-height:1.25;">✅ YA PAGADAS (SIN RECOGER)</div>
                                         <div id="corte-custodia-cant-pagadas" style="font-size:1.25rem; font-weight:900; color:#34d399; margin:0.35rem 0 0.15rem 0;">0 cargas</div>
                                         <div id="corte-custodia-monto-pagado" style="font-size:0.72rem; color:var(--pos-text-muted);">$0.00 pagadas del turno</div>
-                                    </div>
+                                    </div> -->
                                 </div>
 
                                 <!-- LADO DERECHO: 4 Fases de lavado + Botón desglose -->
