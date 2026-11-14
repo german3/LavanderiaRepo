@@ -1470,10 +1470,8 @@ const POS = {
 
   clearCart() {
     if (this.cart.length === 0) return;
-    if (confirm("¿Vaciar la lista de registros acumulados?")) {
-      this.cart = [];
-      this.renderCart();
-    }
+    this.cart = [];
+    this.renderCart();
   },
 
   renderCart() {
@@ -2610,35 +2608,80 @@ const POS = {
 
       this.updatePendingBadge(data.pendientes.length);
 
-      container.innerHTML = data.pendientes
-        .map(
-          (item) => `
-                <div style="background:rgba(15,23,42,0.7); border:1px solid var(--pos-border); border-radius:10px; padding:1rem; display:flex; justify-content:space-between; align-items:center; gap:1rem;">
-                    <div>
-                        <div style="display:flex; align-items:center; gap:0.5rem;">
-                            <span style="font-weight:800; color:#fff; font-size:0.95rem;">${item.folio}</span>
-                            ${item.numero_carga ? `<span style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); font-size:0.7rem; font-weight:700; padding:0.15rem 0.4rem; border-radius:4px;">${item.numero_carga}</span>` : ""}
-                            <span style="background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3); font-size:0.7rem; font-weight:700; padding:0.15rem 0.4rem; border-radius:4px;">PENDIENTE</span>
-                        </div>
-                        <div style="margin-top:0.3rem; font-size:0.85rem; color:#fff;">
-                            <strong>${this.escapeHtml(item.cliente_nombre)}</strong> ${item.cliente_telefono ? `(📞 ${this.escapeHtml(item.cliente_telefono)})` : ""}
-                        </div>
-                        <div style="font-size:0.72rem; color:var(--pos-text-muted); margin-top:0.2rem;">
-                            Ingresó: ${item.fecha_venta} | Registró: ${this.escapeHtml(item.cajero_nombre)}
-                        </div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:1.4rem; font-weight:800; color:#34d399; font-family:'JetBrains Mono',monospace;">
-                            $${parseFloat(item.total).toFixed(2)}
-                        </div>
-                        <button class="pos-btn-pay" style="padding:0.45rem 1rem; font-size:0.85rem; margin-top:0.4rem;" onclick="POS.abrirCobroPendiente('${item.id}', '${item.folio}', ${item.total}, '${this.escapeHtml(item.cliente_nombre)}')">
-                            Cobrar
-                        </button>
-                    </div>
-                </div>
-            `,
-        )
-        .join("");
+      // — Render como tabla de registros expandida (estilo Historial de Ventas) —
+      const cargaBadge = (estado) => {
+        const est = (estado || '').toUpperCase();
+        if (est === 'EN_PROCESO') {
+          return '<span style="background:rgba(59,130,246,0.18);color:#60a5fa;font-size:0.7rem;font-weight:700;padding:0.18rem 0.5rem;border-radius:5px;white-space:nowrap;">⚙️ EN PROCESO</span>';
+        }
+        if (est === 'LISTA_CONCLUIDA') {
+          return '<span style="background:rgba(16,185,129,0.18);color:#34d399;font-size:0.7rem;font-weight:700;padding:0.18rem 0.5rem;border-radius:5px;white-space:nowrap;">✅ LISTA P/ ENTREGA</span>';
+        }
+        return '<span style="background:rgba(245,158,11,0.18);color:#fbbf24;font-size:0.7rem;font-weight:700;padding:0.18rem 0.5rem;border-radius:5px;white-space:nowrap;">⏳ EN ESPERA</span>';
+      };
+
+      const thS = 'padding:0.6rem 0.8rem;text-align:left;color:var(--pos-text-muted);font-weight:600;font-size:0.7rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--pos-border);white-space:nowrap;position:sticky;top:0;background:rgba(10,18,36,0.97);z-index:2;';
+      const tdB = 'padding:0.5rem 0.8rem;border-bottom:1px solid rgba(51,65,85,0.45);vertical-align:middle;';
+
+      const rows = data.pendientes.map((item, idx) => {
+        const hora = item.fecha_venta ? item.fecha_venta.substring(11, 16) : '—';
+        const fecha = item.fecha_venta ? item.fecha_venta.substring(0, 10) : '';
+        const zebra = idx % 2 === 1 ? 'background:rgba(255,255,255,0.025);' : '';
+        const kgTxt = item.ropa_kg && parseFloat(item.ropa_kg) > 0 ? ` <span style="color:#94a3b8;font-size:0.65rem;">(${parseFloat(item.ropa_kg).toFixed(1)} kg)</span>` : '';
+
+        return `<tr style="${zebra}">
+          <td style="${tdB}font-weight:700;color:#e2e8f0;white-space:nowrap;">
+            ${this.escapeHtml(item.folio)}
+            ${item.numero_carga ? `<br><span style="background:rgba(59,130,246,0.18);color:#60a5fa;font-size:0.65rem;font-weight:700;padding:0.1rem 0.4rem;border-radius:4px;border:1px solid rgba(59,130,246,0.3);">${this.escapeHtml(item.numero_carga)}</span>${kgTxt}` : ''}
+          </td>
+          <td style="${tdB}white-space:nowrap;">
+            <strong style="color:#f1f5f9;">${this.escapeHtml(item.cliente_nombre)}</strong>
+            ${item.cliente_telefono ? `<br><span style="font-size:0.72rem;color:#38bdf8;font-family:'JetBrains Mono',monospace;">📞 ${this.escapeHtml(item.cliente_telefono)}</span>` : ''}
+          </td>
+          <td style="${tdB}text-align:center;white-space:nowrap;">
+            <div style="font-weight:700;color:#cbd5e1;font-family:'JetBrains Mono',monospace;">${hora}</div>
+            <div style="font-size:0.68rem;color:var(--pos-text-muted);">${fecha}</div>
+          </td>
+          <td style="${tdB}text-align:center;">
+            ${cargaBadge(item.carga_estado)}
+          </td>
+          <td style="${tdB}text-align:center;">
+            <span style="background:rgba(245,158,11,0.18);color:#fbbf24;font-size:0.7rem;font-weight:700;padding:0.18rem 0.5rem;border-radius:5px;white-space:nowrap;">PENDIENTE</span>
+          </td>
+          <td style="${tdB}text-align:right;font-weight:800;color:#34d399;font-family:'JetBrains Mono',monospace;font-size:1.05rem;white-space:nowrap;">
+            $${parseFloat(item.total).toFixed(2)}
+          </td>
+          <td style="${tdB}font-size:0.75rem;color:var(--pos-text-muted);white-space:nowrap;">
+            ${this.escapeHtml(item.cajero_nombre || '—')}
+          </td>
+          <td style="${tdB}text-align:center;white-space:nowrap;">
+            <div style="display:flex;gap:0.4rem;justify-content:center;align-items:center;">
+              <button class="pos-btn-pay" style="padding:0.35rem 0.85rem;font-size:0.8rem;border-radius:6px;font-weight:700;box-shadow:0 0 10px rgba(16,185,129,0.3);" onclick="POS.abrirCobroPendiente('${item.id}', '${item.folio}', ${item.total}, '${this.escapeHtml(item.cliente_nombre)}')">
+                💵 Cobrar
+              </button>
+              <button class="pos-btn-head" style="padding:0.32rem 0.55rem;font-size:0.72rem;" onclick="POS.reimprimirTicket('${item.id}')" title="Ver / Reimprimir ticket">
+                🖨️ Ticket
+              </button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:0.82rem;color:var(--pos-text);">
+        <thead>
+          <tr>
+            <th style="${thS}">No. Ticket / Carga</th>
+            <th style="${thS}">Cliente</th>
+            <th style="${thS}text-align:center;">Hora / Fecha</th>
+            <th style="${thS}text-align:center;">Estado Carga</th>
+            <th style="${thS}text-align:center;">Estado Pago</th>
+            <th style="${thS}text-align:right;">Monto</th>
+            <th style="${thS}">Cajero</th>
+            <th style="${thS}text-align:center;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
     } catch (e) {
       container.innerHTML =
         '<div style="color:red; text-align:center;">Error cargando notas pendientes.</div>';
@@ -3005,6 +3048,15 @@ const POS = {
         `$${data.total_tarjeta.toFixed(2)}`;
       document.getElementById("corte-transf-ventas").textContent =
         `$${data.total_transferencia.toFixed(2)}`;
+
+      const elTotalVentasMonto = document.getElementById("corte-total-ventas-monto");
+      if (elTotalVentasMonto) {
+        const totalVentasPagadas = typeof data.total_ventas_pagadas !== "undefined"
+          ? parseFloat(data.total_ventas_pagadas)
+          : (parseFloat(data.total_efectivo || 0) + parseFloat(data.total_tarjeta || 0) + parseFloat(data.total_transferencia || 0));
+        elTotalVentasMonto.textContent = `$${totalVentasPagadas.toFixed(2)}`;
+      }
+
       document.getElementById("corte-cant-ventas").textContent =
         data.cantidad_ventas;
       const cantCancelEl = document.getElementById("corte-cant-canceladas");
@@ -3138,6 +3190,9 @@ const POS = {
     const cobrosAntEfec = (d.cobros_turnos_anteriores ? d.cobros_turnos_anteriores.total_efectivo : 0).toFixed(2);
     const tarjeta       = (d.total_tarjeta || 0).toFixed(2);
     const transferencia = (d.total_transferencia || 0).toFixed(2);
+    const totalVentasPag = (typeof d.total_ventas_pagadas !== 'undefined'
+      ? parseFloat(d.total_ventas_pagadas)
+      : (parseFloat(d.total_efectivo || 0) + parseFloat(d.total_tarjeta || 0) + parseFloat(d.total_transferencia || 0))).toFixed(2);
     const numVentas     = d.cantidad_ventas || 0;
     const esperadoEfec  = (d.total_esperado_efectivo || 0).toFixed(2);
 
@@ -3196,6 +3251,7 @@ const POS = {
   <tr><td>Cobros de turnos ant. (efec):</td><td>$${cobrosAntEfec}</td></tr>
   <tr><td>Tarjeta Déb/Créd:</td><td>$${tarjeta}</td></tr>
   <tr><td>Transferencia:</td><td>$${transferencia}</td></tr>
+  <tr style="border-top:1px dashed #666; font-weight:bold;"><td>TOTAL VENTAS (Todos los métodos):</td><td>$${totalVentasPag}</td></tr>
   <tr class="total-row"><td>TOTAL ESPERADO EN CAJA:</td><td>$${esperadoEfec}</td></tr>
 </table>
 <hr>

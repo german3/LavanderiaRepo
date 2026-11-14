@@ -579,11 +579,11 @@ $productosJson = json_encode($productos);
                     <div class="details-val" id="det-stock-minimo"></div>
                 </div>
                 <div class="details-card">
-                    <div class="details-label">Costo ($)</div>
+                    <div class="details-label" id="det-label-costo">Costo ($)</div>
                     <div class="details-val" id="det-costo" style="color: #94a3b8;"></div>
                 </div>
                 <div class="details-card">
-                    <div class="details-label">Precio de Venta ($)</div>
+                    <div class="details-label" id="det-label-precio">Precio de Venta ($)</div>
                     <div class="details-val" id="det-precio" style="color: #4ade80;"></div>
                 </div>
                 <div class="details-card" id="card-det-margen">
@@ -794,6 +794,27 @@ $productosJson = json_encode($productos);
     </div>
 
     <!-- ══════════════════════════════════════════════════
+         MODAL DE ALERTA PERSONALIZADO
+    ═══════════════════════════════════════════════════ -->
+    <div id="modal-alerta-prod" class="modal-overlay" style="z-index: 10060;" onclick="cerrarAlertaProd(event)">
+        <div class="modal-box" style="max-width: 420px; text-align: center; padding: 2rem 2.25rem;" onclick="event.stopPropagation()">
+            <div id="modal-alerta-prod-icono" style="width: 58px; height: 58px; border-radius: 50%; background: rgba(245,158,11,0.15); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #f59e0b; margin: 0 auto 1.25rem; border: 1px solid rgba(245,158,11,0.35);">
+                ⚠️
+            </div>
+            <h3 id="modal-alerta-prod-titulo" style="font-size: 1.2rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem;">
+                Atención
+            </h3>
+            <p id="modal-alerta-prod-mensaje" style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5; margin-bottom: 1.75rem; white-space: pre-line;">
+            </p>
+            <div style="display: flex; justify-content: center;">
+                <button type="button" class="btn-primary btn-cerrar-alerta" style="width: 100%; padding: 0.75rem 1.5rem; border-radius: 10px; font-weight: 700; font-size: 0.95rem;" onclick="cerrarAlertaProd()">
+                    Entendido
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
          MODAL ELIMINAR PRODUCTO
     ═══════════════════════════════════════════════════ -->
     <div id="modal-eliminar" class="modal-overlay" onclick="cerrarModales(event)">
@@ -905,11 +926,42 @@ $productosJson = json_encode($productos);
                 cardStockMinimo.style.display = 'block';
             }
 
-            // Costo y Precio
+            // Costo y Precio con unidad de medida dinámica
             const costo = parseFloat(prod.costo || 0);
             const precio = parseFloat(prod.precio_venta || 0);
             document.getElementById('det-costo').textContent = `$${costo.toFixed(2)}`;
             document.getElementById('det-precio').textContent = `$${precio.toFixed(2)}`;
+
+            let unidadTexto = '';
+            if (prod.tipo === 'KIT') {
+                unidadTexto = 'Kit';
+            } else if (prod.tipo === 'SERVICIO') {
+                unidadTexto = 'Servicio';
+            } else {
+                const uMap = {
+                    'KG':        'Kilo',
+                    'KILOGRAMO': 'Kilo',
+                    'LITRO':     'Litro',
+                    'LITROS':    'Litro',
+                    'MILILITRO': 'Mililitro',
+                    'PIEZA':     'Pieza',
+                    'GRAMO':     'Gramo',
+                    'METRO':     'Metro',
+                    'CARGA':     'Carga',
+                    'SERVICIO':  'Servicio'
+                };
+                const uKey = String(prod.unidad_medida || '').trim().toUpperCase();
+                unidadTexto = uMap[uKey] || prod.unidad_medida || 'Pieza';
+            }
+
+            const elLblCosto = document.getElementById('det-label-costo');
+            const elLblPrecio = document.getElementById('det-label-precio');
+            if (elLblCosto) {
+                elLblCosto.textContent = `Costo ($) Por: ${unidadTexto}`;
+            }
+            if (elLblPrecio) {
+                elLblPrecio.textContent = `Precio de Venta ($) Por: ${unidadTexto}`;
+            }
 
             // Margen
             const margen = precio - costo;
@@ -1111,6 +1163,47 @@ $productosJson = json_encode($productos);
             document.getElementById('modal-confirmar-guardar').classList.remove('active');
             document.getElementById('form-editar').submit();
         }
+
+        // ── Modal de Alerta Personalizado ─────────────────────────────────
+        function mostrarAlerta(mensaje, titulo, icono, color, bg, borde) {
+            titulo   = titulo  || 'Atención';
+            icono    = icono   || '⚠️';
+            color    = color   || '#f59e0b';
+            bg       = bg     || 'rgba(245,158,11,0.15)';
+            borde    = borde  || 'rgba(245,158,11,0.35)';
+
+            const modal = document.getElementById('modal-alerta-prod');
+            if (!modal) { alert(mensaje); return; }
+
+            const titEl = document.getElementById('modal-alerta-prod-titulo');
+            const msgEl = document.getElementById('modal-alerta-prod-mensaje');
+            const icoEl = document.getElementById('modal-alerta-prod-icono');
+
+            if (titEl) titEl.textContent = titulo;
+            if (msgEl) msgEl.textContent = mensaje;
+            if (icoEl) {
+                icoEl.textContent = icono;
+                icoEl.style.color = color;
+                icoEl.style.background = bg;
+                icoEl.style.border = '1px solid ' + borde;
+            }
+            modal.classList.add('active');
+        }
+
+        function cerrarAlertaProd(e) {
+            if (e && e.target && e.target !== e.currentTarget && !e.target.classList.contains('btn-cerrar-alerta')) return;
+            const modal = document.getElementById('modal-alerta-prod');
+            if (modal) modal.classList.remove('active');
+        }
+
+        // Tecla Escape cierra modales
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                cerrarAlertaProd();
+                cerrarModalConfirmarGuardar();
+                cerrarModalSinCambios();
+            }
+        });
 
         // ── Modal Eliminar ────────────────────────────────────────────────
         function abrirModalEliminar(id, descripcion, sku) {
@@ -1479,7 +1572,7 @@ $productosJson = json_encode($productos);
                 .filter(f => f.style.display !== 'none' && f.dataset.filtrado !== '0');
 
             if (filasVisibles.length === 0) {
-                alert('No hay registros visibles para exportar en la página actual.');
+                mostrarAlerta('No hay registros visibles para exportar en la página actual.', 'Sin Registros', 'ℹ️', '#60a5fa', 'rgba(59,130,246,0.15)', 'rgba(59,130,246,0.35)');
                 return;
             }
 

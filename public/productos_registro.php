@@ -436,7 +436,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
 
                 <!-- ── Fila 2: Tipo + Unidad + Stock Mínimo + Costo + Precio + Ropa Kg (Kit) ── -->
-                <div id="fila-detalles-producto" style="display:grid;grid-template-columns:1fr 1fr 140px 140px 140px;gap:1.25rem;margin-bottom:0;">
+                <div id="fila-detalles-producto" style="display:grid;grid-template-columns:1fr 1fr 140px 140px 140px;gap:1.25rem;margin-bottom:0;align-items:end;">
                     <div class="form-group" style="margin-bottom:0;" id="group-tipo">
                         <label class="form-label">Tipo *</label>
                         <div class="select-wrapper">
@@ -454,12 +454,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <div class="form-group" style="margin-bottom:0;" id="group-unidad">
                         <label class="form-label">Unidad de Medida *</label>
                         <div class="select-wrapper">
-                            <select name="unidad_medida" id="sel-unidad" class="form-control" required>
+                            <select name="unidad_medida" id="sel-unidad" class="form-control" required onchange="actualizarIndicadorCosto()">
                                 <?php
                                 $unidades = ['PIEZA' => 'Pieza', 'LITRO' => 'Litros', 'KG' => 'Kilogramo', 'GRAMO' => 'Gramo', 'METRO' => 'Metro', 'CARGA' => 'Carga', 'SERVICIO' => 'Servicio'];
                                 $valUnidad = $esEdicion ? $productoEditar['unidad_medida'] : ($_POST['unidad_medida'] ?? 'PIEZA');
                                 // Compatibilidad: MILILITRO legado se trata como LITRO
                                 if ($valUnidad === 'MILILITRO') $valUnidad = 'LITRO';
+                                $mapUnidadesTexto = [
+                                    'PIEZA'     => 'Por Pieza',
+                                    'LITRO'     => 'Por Litro',
+                                    'MILILITRO' => 'Por Mililitro',
+                                    'KG'        => 'Por Kg',
+                                    'GRAMO'     => 'Por Gramo',
+                                    'METRO'     => 'Por Metro',
+                                    'CARGA'     => 'Por Carga',
+                                    'SERVICIO'  => 'Por Servicio'
+                                ];
+                                $mostrarUnidadCostoInicial = ($tipoVal === 'NORMAL' || $tipoVal === 'INSUMO');
+                                $textoUnidadCostoInicial   = $mapUnidadesTexto[$valUnidad] ?? ('Por ' . ($unidades[$valUnidad] ?? $valUnidad));
                                 foreach ($unidades as $uVal => $uLabel):
                                 ?>
                                     <option value="<?= $uVal ?>" <?= ($valUnidad === $uVal) ? 'selected' : '' ?>><?= $uLabel ?></option>
@@ -480,7 +492,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         </div>
                     </div>
                     <div class="form-group" style="margin-bottom:0;" id="group-costo">
-                        <label class="form-label">Costo ($) *</label>
+                        <label class="form-label" style="margin-bottom:0.2rem;">Costo ($) *</label>
+                        <div id="wrap-costo-unidad-indicador" style="min-height:22px; margin-bottom:0.35rem; display:<?= $mostrarUnidadCostoInicial ? 'block' : 'none' ?>;">
+                            <span id="costo-unidad-indicador" style="display:inline-block; font-size:0.75rem; font-weight:800; color:#10b981; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.45); border-radius:4px; padding:2px 8px; letter-spacing:0.02em; box-shadow:0 0 8px rgba(16,185,129,0.25);">
+                                <span id="costo-unidad-indicador-texto"><?= htmlspecialchars($textoUnidadCostoInicial) ?></span>
+                            </span>
+                        </div>
                         <div class="number-input-wrapper">
                             <input type="number" step="0.01" min="0" name="costo" id="inp-costo"
                                    class="form-control" value="<?= htmlspecialchars($esEdicion ? number_format($productoEditar['costo'], 2, '.', '') : ($_POST['costo'] ?? '0.00')) ?>" required>
@@ -633,6 +650,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════
+     MODAL DE ALERTA PERSONALIZADO (FRAMEWORK UI)
+═══════════════════════════════════════════════════ -->
+<div id="modal-alerta" class="modal-overlay" style="z-index: 10060;" onclick="cerrarModalAlerta(event)">
+    <div class="modal-box" style="max-width: 420px; text-align: center; padding: 2rem 2.25rem;" onclick="event.stopPropagation()">
+        <div id="modal-alerta-icono" style="width: 58px; height: 58px; border-radius: 50%; background: rgba(245, 158, 11, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #f59e0b; margin: 0 auto 1.25rem; border: 1px solid rgba(245, 158, 11, 0.35);">
+            ⚠️
+        </div>
+        <h3 id="modal-alerta-titulo" style="font-size: 1.2rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem;">
+            Atención
+        </h3>
+        <p id="modal-alerta-mensaje" style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5; margin-bottom: 1.75rem; white-space: pre-line;">
+            Este producto ya fue agregado al Kit. Modifica la cantidad en el chip o elimínalo primero.
+        </p>
+        <div style="display: flex; justify-content: center;">
+            <button type="button" class="btn-primary" style="width: 100%; padding: 0.75rem 1.5rem; border-radius: 10px; font-weight: 700; font-size: 0.95rem;" onclick="cerrarModalAlerta()">
+                Entendido
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
 // ── Helper para incrementar/decrementar campos numéricos con diseño personalizado ──
 function stepNumberInput(id, dir) {
@@ -659,6 +698,44 @@ const productosNormales = <?= $productosNormalesJson ?>;
 
 // ── Estado interno del Kit (Cargado en edición o vacío al crear) ──
 let kitInsumos = <?= $insumosKitExistentesJson ?> || [];
+
+// ── Indicador dinámico de Costo según Unidad de Medida ─────────────
+function actualizarIndicadorCosto() {
+    const selTipo   = document.getElementById('sel-tipo');
+    const selUnidad = document.getElementById('sel-unidad');
+    const wrap      = document.getElementById('wrap-costo-unidad-indicador');
+    const badgeTxt  = document.getElementById('costo-unidad-indicador-texto');
+    if (!wrap) return;
+
+    const tipo = selTipo ? selTipo.value : 'NORMAL';
+    if (tipo !== 'NORMAL' && tipo !== 'INSUMO') {
+        wrap.style.display = 'none';
+        return;
+    }
+
+    const unidad = selUnidad ? selUnidad.value : 'PIEZA';
+    const mapaUnidades = {
+        'PIEZA':     'Por Pieza',
+        'LITRO':     'Por Litro',
+        'MILILITRO': 'Por Mililitro',
+        'KG':        'Por Kg',
+        'GRAMO':     'Por Gramo',
+        'METRO':     'Por Metro',
+        'CARGA':     'Por Carga',
+        'SERVICIO':  'Por Servicio'
+    };
+
+    let texto = mapaUnidades[unidad];
+    if (!texto) {
+        const selectedOpt = selUnidad ? selUnidad.options[selUnidad.selectedIndex] : null;
+        texto = 'Por ' + (selectedOpt ? selectedOpt.text : unidad);
+    }
+
+    if (badgeTxt) {
+        badgeTxt.textContent = texto;
+    }
+    wrap.style.display = 'block';
+}
 
 // ── Toggle Tipo ───────────────────────────────────────────────────
 function onTipoChange(tipo) {
@@ -747,6 +824,8 @@ function onTipoChange(tipo) {
         kitInsumos = [];
         renderChips();
     }
+
+    actualizarIndicadorCosto();
 }
 
 // ── Al seleccionar un producto en el kit, actualizar unidad ───────
@@ -867,17 +946,17 @@ function kitAgregar() {
     const ropaKg   = parseFloat(inpRopa ? inpRopa.value : 0) || 0;
 
     if (!id) {
-        alert('Selecciona un producto antes de agregar.');
+        mostrarAlerta('Selecciona un insumo antes de agregar.', 'Insumo Requerido', 'ℹ️', '#60a5fa', 'rgba(59, 130, 246, 0.15)', 'rgba(59, 130, 246, 0.35)');
         return;
     }
     if (isNaN(cantidad) || cantidad <= 0) {
-        alert('Ingresa una cantidad válida mayor a 0.');
+        mostrarAlerta('Ingresa una cantidad válida mayor a 0.', 'Cantidad Inválida', '⚠️', '#f59e0b', 'rgba(245, 158, 11, 0.15)', 'rgba(245, 158, 11, 0.35)');
         return;
     }
 
     // Evitar duplicados
     if (kitInsumos.find(i => i.id === id)) {
-        alert('Este producto ya fue agregado al Kit. Modifica la cantidad en el chip o elimínalo primero.');
+        mostrarAlerta('Este producto ya fue agregado al Kit. Modifica la cantidad en el chip o elimínalo primero.', 'Insumo ya Agregado', '⚠️', '#f59e0b', 'rgba(245, 158, 11, 0.15)', 'rgba(245, 158, 11, 0.35)');
         return;
     }
 
@@ -980,7 +1059,7 @@ document.getElementById('form-producto').addEventListener('submit', function(e) 
     if (tipo === 'KIT') {
         if (kitInsumos.length === 0) {
             e.preventDefault();
-            alert('Un Kit debe tener al menos un insumo agregado.');
+            mostrarAlerta('Un Kit debe tener al menos un insumo agregado.', 'Insumos Requeridos', '⚠️', '#f59e0b', 'rgba(245, 158, 11, 0.15)', 'rgba(245, 158, 11, 0.35)');
             return;
         }
         const ropaKgGlobal = document.getElementById('kit-inp-ropa-kg') ? parseFloat(document.getElementById('kit-inp-ropa-kg').value || 0) : 0;
@@ -1013,6 +1092,40 @@ function ejecutarGuardarProducto() {
     document.getElementById('form-producto').submit();
 }
 
+// ── Modal de Alerta Personalizado (Framework UI) ──────────────────
+function mostrarAlerta(mensaje, titulo = 'Atención', icono = '⚠️', color = '#f59e0b', bg = 'rgba(245, 158, 11, 0.15)', borderColor = 'rgba(245, 158, 11, 0.35)') {
+    const modal = document.getElementById('modal-alerta');
+    const msgEl = document.getElementById('modal-alerta-mensaje');
+    const titEl = document.getElementById('modal-alerta-titulo');
+    const icoEl = document.getElementById('modal-alerta-icono');
+    if (!modal) {
+        alert(mensaje);
+        return;
+    }
+    if (msgEl) msgEl.textContent = mensaje;
+    if (titEl) titEl.textContent = titulo;
+    if (icoEl) {
+        icoEl.textContent = icono;
+        icoEl.style.color = color;
+        icoEl.style.background = bg;
+        icoEl.style.borderColor = borderColor;
+    }
+    modal.classList.add('active');
+}
+
+function cerrarModalAlerta(e) {
+    if (e && e.target && e.target !== e.currentTarget && e.target.id !== 'modal-alerta') return;
+    const modal = document.getElementById('modal-alerta');
+    if (modal) modal.classList.remove('active');
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        cerrarModalAlerta();
+        cerrarModalConfirmarGuardar();
+    }
+});
+
 // ── Utilidades ────────────────────────────────────────────────────
 function escHtml(str) {
     return String(str)
@@ -1039,6 +1152,7 @@ if (formProd) {
     }
     const selU = document.getElementById('sel-unidad');
     if (selU) selU.value = 'PIEZA';
+    actualizarIndicadorCosto();
     const inpSM = document.getElementById('inp-stock-minimo');
     if (inpSM) inpSM.value = '0';
     const inpC = document.getElementById('inp-costo');

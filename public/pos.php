@@ -529,6 +529,17 @@ $isAdmin  = $auth->isPosAdmin();
         [data-theme="light"] #modal-corte-caja .pos-modal-body > div div {
             color: #334155;
         }
+        [data-theme="light"] #corte-box-total-ventas {
+            background: #f3e8ff !important;
+            border-color: #d8b4fe !important;
+        }
+        [data-theme="light"] #corte-box-total-ventas div {
+            color: #581c87 !important;
+        }
+        [data-theme="light"] #corte-total-ventas-monto {
+            color: #7e22ce !important;
+            text-shadow: none !important;
+        }
         [data-theme="light"] #apertura-custodia-detalle-list,
         [data-theme="light"] #corte-custodia-detalle-list {
             border-top-color: #e2e8f0 !important;
@@ -978,19 +989,22 @@ $isAdmin  = $auth->isPosAdmin();
          MODAL 2: Cobros Pendientes (Pago Posterior)
          ═════════════════════════════════════════════════════════════ -->
     <div id="modal-pendientes" class="pos-modal-overlay">
-        <div class="pos-modal-card" style="max-width:720px;">
+        <div class="pos-modal-card" style="max-width:1120px; width:97vw;">
             <div class="pos-modal-head">
-                <h3>🕒 Cobros Pendientes (Pago Posterior)</h3>
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                    <span style="font-size:1.25rem;">🕒</span>
+                    <h3 style="margin:0;">Cobros Pendientes (Pago Posterior)</h3>
+                </div>
                 <button class="pos-modal-close" onclick="POS.closeModal('modal-pendientes')">✕</button>
             </div>
-            <div class="pos-modal-body">
-                <div class="pos-search-wrap">
+            <div class="pos-modal-body" style="padding:0.75rem 1rem; display:flex; flex-direction:column; gap:0.75rem;">
+                <div class="pos-search-wrap" style="margin:0;">
                     <svg class="pos-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     <input type="text" class="pos-search-input" placeholder="Buscar por cliente, teléfono, folio o número de carga..." oninput="POS.cargarPendientes(this.value)">
                 </div>
 
-                <div id="pos-pendientes-list" style="display:flex; flex-direction:column; gap:0.75rem; max-height:450px; overflow-y:auto;">
-                    <!-- Llenado dinámico -->
+                <div id="pos-pendientes-list" style="overflow-x:auto; max-height:520px; overflow-y:auto; border-radius:8px; border:1px solid rgba(51,65,85,0.4);">
+                    <!-- Llenado dinámico tipo tabla de registros -->
                 </div>
             </div>
             <div class="pos-modal-foot">
@@ -1046,6 +1060,22 @@ $isAdmin  = $auth->isPosAdmin();
                             <div id="corte-tarjeta-ventas" style="font-weight:700; text-align:right;">$0.00</div>
                             <div>Ventas por Transferencia:</div>
                             <div id="corte-transf-ventas" style="font-weight:700; text-align:right;">$0.00</div>
+
+                            <!-- Destacado: Total de Ventas Realizadas (Todos los métodos de Pago) -->
+                            <div id="corte-box-total-ventas" style="grid-column:1 / -1; margin:0.4rem 0; padding:0.75rem 0.95rem; background:linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.18)); border:1px solid rgba(168,85,247,0.45); border-radius:8px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 3px 12px rgba(147,51,234,0.18);">
+                                <div>
+                                    <div style="font-weight:800; font-size:0.88rem; color:#f8fafc; display:flex; align-items:center; gap:0.4rem;">
+                                        <span>💰 Total de Ventas Realizadas:</span>
+                                    </div>
+                                    <div style="font-size:0.73rem; font-weight:600; color:#c4b5fd; margin-top:2px;">
+                                        (Todos los métodos de Pago: Efectivo, Transferencia, Tarjeta Deb/Cred)
+                                    </div>
+                                </div>
+                                <div id="corte-total-ventas-monto" style="font-size:1.25rem; font-weight:900; color:#f3e8ff; font-family:'JetBrains Mono',monospace; text-align:right; text-shadow:0 0 10px rgba(168,85,247,0.45);">
+                                    $0.00
+                                </div>
+                            </div>
+
                             <div>Total de Ventas Realizadas en Turno:</div>
                             <div id="corte-cant-ventas" style="font-weight:700; text-align:right;">0</div>
                             <div>Ventas Canceladas en Turno:</div>
@@ -1419,19 +1449,68 @@ $isAdmin  = $auth->isPosAdmin();
         </div>
     </div>
 
-    <!-- Modal de confirmación de cierre de sesión POS (Idéntico a BackOffice) -->
+    <!-- Modal de confirmación de salida POS: Cerrar Turno o Salir Temporalmente -->
     <div id="modal-logout-pos" style="display:none; position:fixed; inset:0; z-index:99999; align-items:center; justify-content:center;">
-        <div id="modal-logout-pos-backdrop" onclick="cancelarCerrarSesionPos()" style="position:absolute; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px);"></div>
-        <div style="position:relative; background:#1e1e2e; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:2rem 2.5rem; width:100%; max-width:380px; box-shadow:0 25px 60px rgba(0,0,0,0.5); text-align:center; animation:modalInPos .25s ease;">
-            <div style="width:56px; height:56px; border-radius:50%; background:rgba(239,68,68,0.15); display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <div id="modal-logout-pos-backdrop" onclick="cancelarCerrarSesionPos()" style="position:absolute; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px);"></div>
+        <div style="position:relative; background:#181e2e; border:1px solid rgba(255,255,255,0.12); border-radius:18px; padding:2rem 2.25rem; width:100%; max-width:480px; box-shadow:0 25px 70px rgba(0,0,0,0.6); text-align:center; animation:modalInPos .25s ease;">
+            
+            <!-- Icono cabecera -->
+            <div style="width:60px; height:60px; border-radius:50%; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem; color:#f59e0b;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
             </div>
-            <h3 style="font-size:1.15rem; font-weight:600; color:#e2e8f0; margin-bottom:.5rem;">¿Cerrar sesión?</h3>
-            <p style="font-size:.875rem; color:#94a3b8; margin-bottom:1.75rem; line-height:1.4;">Se cerrará tu sesión actual y tendrás que volver a iniciar sesión para acceder al sistema.</p>
-            <div style="display:flex; gap:.75rem; justify-content:center;">
-                <button type="button" id="btn-logout-pos-cancel" onclick="cancelarCerrarSesionPos()" style="flex:1; padding:.65rem 1rem; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:#94a3b8; font-size:.875rem; cursor:pointer; transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">Cancelar</button>
-                <a id="btn-logout-pos-confirm" href="pos_logout.php" style="flex:1; padding:.65rem 1rem; border-radius:8px; border:none; background:#ef4444; color:#fff; font-size:.875rem; font-weight:600; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:all .2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Sí, cerrar sesión</a>
+
+            <h3 style="font-size:1.25rem; font-weight:800; color:#f8fafc; margin-bottom:.5rem; letter-spacing:-0.02em;">
+                ¿Cómo deseas salir del Punto de Venta?
+            </h3>
+            <p style="font-size:.875rem; color:#94a3b8; margin-bottom:1.5rem; line-height:1.45;">
+                Selecciona si deseas finalizar tu turno definitivamente realizando el corte de caja o si solo te ausentarás temporalmente.
+            </p>
+
+            <!-- Opciones -->
+            <div style="display:flex; flex-direction:column; gap:0.85rem; text-align:left; margin-bottom:1.5rem;">
+                
+                <!-- Opción 1: Salir Temporalmente -->
+                <button type="button" onclick="salirTemporalmentePos()" style="background:rgba(245,158,11,0.08); border:1.5px solid rgba(245,158,11,0.35); border-radius:12px; padding:1rem 1.15rem; cursor:pointer; display:flex; align-items:flex-start; gap:0.9rem; transition:all .2s; width:100%; text-align:left;" onmouseover="this.style.background='rgba(245,158,11,0.18)'; this.style.borderColor='#f59e0b';" onmouseout="this.style.background='rgba(245,158,11,0.08)'; this.style.borderColor='rgba(245,158,11,0.35)';">
+                    <div style="width:36px; height:36px; border-radius:8px; background:rgba(245,158,11,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#fbbf24; margin-top:2px;">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-weight:700; color:#fbbf24; font-size:0.95rem; display:flex; align-items:center; justify-content:space-between;">
+                            <span>Salir Temporalmente</span>
+                            <span style="font-size:0.7rem; background:rgba(245,158,11,0.25); color:#fde68a; padding:2px 8px; border-radius:6px; font-weight:700;">BLOQUEO ACTIVO</span>
+                        </div>
+                        <div style="font-size:0.78rem; color:#cbd5e1; margin-top:0.25rem; line-height:1.35;">
+                            Mantiene tu turno abierto. La pantalla quedará fija con tu usuario y solo tú o el Administrador podrán volver a ingresar.
+                        </div>
+                    </div>
+                </button>
+
+                <!-- Opción 2: Cerrar Turno (Corte de Caja) -->
+                <button type="button" onclick="cerrarTurnoCortePos()" style="background:rgba(239,68,68,0.08); border:1.5px solid rgba(239,68,68,0.35); border-radius:12px; padding:1rem 1.15rem; cursor:pointer; display:flex; align-items:flex-start; gap:0.9rem; transition:all .2s; width:100%; text-align:left;" onmouseover="this.style.background='rgba(239,68,68,0.18)'; this.style.borderColor='#ef4444';" onmouseout="this.style.background='rgba(239,68,68,0.08)'; this.style.borderColor='rgba(239,68,68,0.35)';">
+                    <div style="width:36px; height:36px; border-radius:8px; background:rgba(239,68,68,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#f87171; margin-top:2px;">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-weight:700; color:#f87171; font-size:0.95rem; display:flex; align-items:center; justify-content:space-between;">
+                            <span>Cerrar Turno de Caja</span>
+                            <span style="font-size:0.7rem; background:rgba(239,68,68,0.25); color:#fecaca; padding:2px 8px; border-radius:6px; font-weight:700;">CIERRE DEFINITIVO</span>
+                        </div>
+                        <div style="font-size:0.78rem; color:#cbd5e1; margin-top:0.25rem; line-height:1.35;">
+                            Realiza el arqueo de caja y cierra el turno para que otro cajero pueda iniciar un nuevo turno.
+                        </div>
+                    </div>
+                </button>
+
             </div>
+
+            <!-- Botón Cancelar -->
+            <button type="button" onclick="cancelarCerrarSesionPos()" style="width:100%; padding:.7rem 1rem; border-radius:10px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); color:#94a3b8; font-size:.875rem; font-weight:600; cursor:pointer; transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff';" onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.color='#94a3b8';">
+                Cancelar y permanecer en el POS
+            </button>
         </div>
     </div>
 
@@ -1509,6 +1588,21 @@ $isAdmin  = $auth->isPosAdmin();
         if (modal) {
             modal.style.display = 'none';
             document.body.style.overflow = '';
+        }
+    }
+
+    function salirTemporalmentePos() {
+        cancelarCerrarSesionPos();
+        window.location.href = 'pos_logout.php?temporal=1';
+    }
+
+    function cerrarTurnoCortePos() {
+        cancelarCerrarSesionPos();
+        if (typeof POS !== 'undefined' && POS.abrirModalCorte) {
+            POS.abrirModalCorte();
+        } else {
+            const m = document.getElementById('modal-corte-caja');
+            if (m) m.classList.add('active');
         }
     }
 
