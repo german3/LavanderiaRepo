@@ -3063,8 +3063,10 @@ const POS = {
       if (cantCancelEl) {
         cantCancelEl.textContent = data.cantidad_canceladas || 0;
       }
-      document.getElementById("corte-esperado-efectivo").textContent =
-        `$${data.total_esperado_efectivo.toFixed(2)}`;
+      const elEsperadoEfec = document.getElementById("corte-esperado-efectivo");
+      if (elEsperadoEfec) {
+        elEsperadoEfec.textContent = `$${data.total_esperado_efectivo.toFixed(2)}`;
+      }
 
       // 2. Ropa y Cargas del Turno que quedan para el siguiente turno
       const custodia = data.custodia_cargas || {};
@@ -3519,7 +3521,11 @@ ${cancelHtml}
     const ventaId = form.venta_id.value;
     const motivo = form.motivo.value.trim();
     if (!motivo) {
-      alert("El motivo de la cancelación es obligatorio.");
+      this.mostrarMensaje({
+        tipo: "warning",
+        titulo: "Motivo Requerido",
+        mensaje: "El motivo de la cancelación es obligatorio.",
+      });
       return;
     }
 
@@ -3533,9 +3539,11 @@ ${cancelHtml}
       payload.admin_correo = form.admin_correo ? form.admin_correo.value : "";
       payload.admin_password = form.admin_password.value;
       if (!payload.admin_password) {
-        alert(
-          "Se requiere la contraseña del administrador para autorizar la cancelación.",
-        );
+        this.mostrarMensaje({
+          tipo: "warning",
+          titulo: "Autorización Requerida",
+          mensaje: "Se requiere la contraseña del administrador para autorizar la cancelación.",
+        });
         return;
       }
     }
@@ -3548,15 +3556,27 @@ ${cancelHtml}
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message);
         this.closeModal("modal-cancelar-venta");
+        this.mostrarMensaje({
+          tipo: "success",
+          titulo: "Venta Cancelada",
+          mensaje: data.message,
+        });
         this.abrirModalHistorial();
         this.loadInitialData();
       } else {
-        alert(data.message || "Error al cancelar venta");
+        this.mostrarMensaje({
+          tipo: "error",
+          titulo: "No se pudo cancelar",
+          mensaje: data.message || "Error al cancelar venta.",
+        });
       }
     } catch (e) {
-      alert("Error de conexión");
+      this.mostrarMensaje({
+        tipo: "error",
+        titulo: "Error de Conexión",
+        mensaje: "Error de conexión al procesar la cancelación.",
+      });
     }
   },
 
@@ -4635,6 +4655,18 @@ ${cancelHtml}
         btn.onmouseover = () => (btn.style.background = "#dc2626");
         btn.onmouseout = () => (btn.style.background = "#ef4444");
       }
+    } else if (tipo === "warning") {
+      if (iconWrap) iconWrap.style.background = "rgba(245, 158, 11, 0.15)";
+      if (iconSvg) {
+        iconSvg.setAttribute("stroke", "#f59e0b");
+        iconSvg.innerHTML =
+          '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>';
+      }
+      if (btn) {
+        btn.style.background = "#f59e0b";
+        btn.onmouseover = () => (btn.style.background = "#d97706");
+        btn.onmouseout = () => (btn.style.background = "#f59e0b");
+      }
     } else {
       if (iconWrap) iconWrap.style.background = "rgba(59, 130, 246, 0.15)";
       if (iconSvg) {
@@ -4659,7 +4691,9 @@ ${cancelHtml}
     const modal = document.getElementById("modal-notificacion-pos");
     if (modal) {
       modal.style.display = "none";
-      document.body.style.overflow = "";
+      if (!document.querySelector(".pos-modal-overlay.active") && !document.getElementById("modal-logout-pos")?.style.display?.includes("flex")) {
+        document.body.style.overflow = "";
+      }
     }
     // Restaurar btn a texto normal
     const btn = document.getElementById("notif-pos-btn");
