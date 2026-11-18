@@ -1482,6 +1482,23 @@ $isAdmin  = $auth->isPosAdmin();
             <form onsubmit="event.preventDefault(); POS.abrirCajaForm(this);" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
                 <div class="pos-modal-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:1rem; padding-right:0.5rem;">
                     
+                    <?php if ($isAdmin): ?>
+                    <!-- Banner Corte del Día para Administrador -->
+                    <div style="background:linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.15)); border:1.5px solid rgba(139,92,246,0.45); border-radius:10px; padding:0.75rem 1rem; display:flex; justify-content:space-between; align-items:center; gap:0.75rem;">
+                        <div>
+                            <div style="font-size:0.82rem; font-weight:800; color:#c4b5fd; display:flex; align-items:center; gap:0.4rem;">
+                                📅 ¿Realizas el Corte General del Día?
+                            </div>
+                            <div style="font-size:0.73rem; color:#94a3b8; margin-top:2px; line-height:1.4;">
+                                Consolida los turnos cerrados sin necesidad de abrir una nueva caja.
+                            </div>
+                        </div>
+                        <button type="button" onclick="POS.irACorteDiaDesdeApertura()" style="background:linear-gradient(135deg,#6366f1,#7c3aed); color:#fff; border:none; border-radius:8px; padding:0.5rem 0.9rem; font-size:0.8rem; font-weight:800; cursor:pointer; white-space:nowrap; flex-shrink:0;">
+                            📅 Corte del Día
+                        </button>
+                    </div>
+                    <?php endif; ?>
+
                     <!-- Cajero que inicia el turno -->
                     <div style="background:rgba(30,41,59,0.7); border:1px solid rgba(148,163,184,0.25); border-radius:8px; padding:0.6rem 0.85rem; display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
                         <div>
@@ -1547,11 +1564,16 @@ $isAdmin  = $auth->isPosAdmin();
                         <input type="text" name="observaciones" class="pos-search-input" placeholder="Ej. Cambio en billetes de $50 y $20...">
                     </div>
                 </div>
-                <div class="pos-modal-foot" style="display:flex; gap:0.75rem;">
+                <div class="pos-modal-foot" style="display:flex; gap:0.75rem; flex-wrap:wrap;">
                     <a href="pos_logout.php" class="pos-btn-clear" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:0.4rem; padding:0.65rem 1rem; color:#fca5a5; border:1px solid rgba(239,68,68,0.3); font-size:0.85rem;" title="Cerrar sesión y volver al login">
                         🚪 Cerrar Sesión
                     </a>
-                    <button type="submit" class="pos-btn-pay" style="flex:1; justify-content:center;">
+                    <?php if ($isAdmin): ?>
+                    <button type="button" onclick="POS.closeModal('modal-apertura-caja')" class="pos-btn-clear" style="color:#94a3b8; border:1px solid rgba(148,163,184,0.3); font-size:0.85rem; padding:0.65rem 1rem;">
+                        ✕ Cancelar
+                    </button>
+                    <?php endif; ?>
+                    <button type="submit" class="pos-btn-pay" style="flex:1; justify-content:center; min-width:180px;">
                         Abrir Caja y Comenzar Turno
                     </button>
                 </div>
