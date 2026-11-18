@@ -69,9 +69,16 @@ const POS = {
       this.updateLavadoBadge(data.total_lavado_activo || 0);
       this.renderAperturaCustodia(data.custodia_cargas);
 
-      // Si la caja está cerrada, sugerir abrir turno
+      // Si la caja está cerrada, sugerir abrir turno (excepto si el usuario es Administrador)
       if (!this.caja) {
-        this.openModal("modal-apertura-caja");
+        const isAdmin = this.user && this.user.isAdmin;
+        if (!isAdmin) {
+          this.openModal("modal-apertura-caja");
+        } else {
+          // Admin sin turno abierto: mostrar modal de apertura pero con opción de cancelar
+          // El Admin puede cerrarlo para acceder al Corte del Día desde el header
+          this.openModal("modal-apertura-caja");
+        }
       }
     } catch (err) {
       console.error("Error cargando POS init:", err);
@@ -2936,7 +2943,9 @@ const POS = {
   },
 
   cerrarModalApertura() {
-    if (!this.caja) {
+    const isAdmin = this.user && this.user.isAdmin;
+    if (!this.caja && !isAdmin) {
+      // Cajero normal sin turno abierto: preguntar si quiere cerrar sesión
       this.mostrarConfirmacion({
         tipo: "warning",
         titulo: "¿Cerrar Sesión de POS?",
@@ -2950,7 +2959,13 @@ const POS = {
       });
       return;
     }
+    // Admin puede cerrar el modal libremente (para hacer corte del día u otras acciones)
     this.closeModal("modal-apertura-caja");
+  },
+
+  irACorteDiaDesdeApertura() {
+    this.closeModal("modal-apertura-caja");
+    this.abrirModalCorteDia();
   },
 
   async abrirCajaForm(form) {
