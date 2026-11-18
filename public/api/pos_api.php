@@ -251,9 +251,14 @@ try {
             $res = $cajaModel->cerrarCaja($cajaId, $efectivoDeclarado, $observaciones, $currentUserId);
             $res['usuario_cierre_id'] = $currentUserId;
             $res['usuario_cierre_nombre'] = $currentUserName;
+            $res['is_admin'] = $isAdmin;
             if (!empty($res['success'])) {
-                // Cerrar la sesión POS inmediatamente en el servidor para exigir credenciales al siguiente cajero
-                $auth->logoutPos();
+                // Solo cerrar la sesión en el servidor si el usuario NO es Administrador.
+                // Si es Administrador, mantenemos su sesión activa para permitirle realizar
+                // inmediatamente el Corte del Día.
+                if (!$isAdmin) {
+                    $auth->logoutPos();
+                }
             }
             echo json_encode($res);
             break;

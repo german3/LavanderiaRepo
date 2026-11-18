@@ -3309,12 +3309,16 @@ ${cancelHtml}
   },
 
   cerrarCajaConfirm() {
+    const isAdmin = (this.user && this.user.isAdmin);
+    const mensajeConf = isAdmin
+      ? "¿Estás seguro de que deseas cerrar tu turno de caja actual?\n\nComo Administrador, una vez cerrado el turno podrás realizar inmediatamente la consolidación del Corte del Día sin cerrar tu sesión."
+      : "¿Estás seguro de que deseas cerrar el turno de caja actual? Se generará el corte, se guardará el balance de custodia de prendas y no se podrán registrar más ventas en este turno.";
+
     this.mostrarConfirmacion({
       tipo: "danger",
       titulo: "¿Cerrar Turno de Caja?",
-      mensaje:
-        "¿Estás seguro de que deseas cerrar el turno de caja actual? Se generará el corte, se guardará el balance de custodia de prendas y no se podrán registrar más ventas en este turno.",
-      btnConfirmar: "Sí, cerrar caja",
+      mensaje: mensajeConf,
+      btnConfirmar: isAdmin ? "Sí, cerrar turno y continuar" : "Sí, cerrar caja",
       colorConfirmar: "#ef4444",
       onConfirm: async () => {
         await this.procesarCierreCaja();
@@ -3342,20 +3346,45 @@ ${cancelHtml}
       const data = await res.json();
       if (data.success) {
         this.closeModal("modal-corte-caja");
-        // Bloquear POS — requerir nuevo inicio de sesión antes de abrir otro turno
-        this._bloquearPosTrasCorte();
 
         let custMsg = "";
         if (data.cargas_pendientes_entrega > 0) {
           custMsg = `<br>🧺 Ropa en custodia para el sig. turno: ${data.cargas_pendientes_entrega} carga(s) ($${parseFloat(data.monto_pendiente_cobro || 0).toFixed(2)} por cobrar)`;
         }
 
-        this.mostrarMensaje({
-          tipo: "success",
-          titulo: "¡Caja Cerrada con Éxito!",
-          mensaje: `Caja cerrada exitosamente.<br>Diferencia final: $${data.diferencia.toFixed(2)}${custMsg}<br><br>🔐 Por seguridad, se cerrará la sesión. El siguiente cajero deberá iniciar sesión para abrir un nuevo turno.`,
-          onConfirm: () => { window.location.replace("pos_logout.php"); },
-        });
+        const isAdmin = (this.user && this.user.isAdmin) || (data.is_admin === true);
+
+        if (isAdmin) {
+          // El Administrador conserva su sesión activa en el POS para poder realizar el Corte del Día
+          this.caja = null;
+          this.renderCajaStatus();
+          this.loadInitialData();
+
+          this.mostrarMensaje({
+            tipo: "success",
+            titulo: "¡Turno de Caja Cerrado!",
+            mensaje: `El turno de caja se cerró exitosamente.<br>Diferencia de turno: <strong>$${data.diferencia.toFixed(2)}</strong>${custMsg}<br><br>📊 <strong>Como Administrador, ahora puedes proceder a realizar el Corte General del Día.</strong><br>Todos los turnos de caja están listos para consolidarse.`,
+            btnTexto: "📅 Realizar Corte del Día Ahora",
+            btnSecundarioTexto: "Permanecer en el POS",
+            bloquearBackdrop: false,
+            onConfirm: () => {
+              POS.abrirModalCorteDia();
+            },
+            onSecondaryConfirm: () => {
+              // Permanece en el POS con su sesión activa
+            }
+          });
+        } else {
+          // Bloquear POS — requerir nuevo inicio de sesión antes de abrir otro turno (para cajeros ordinarios)
+          this._bloquearPosTrasCorte();
+
+          this.mostrarMensaje({
+            tipo: "success",
+            titulo: "¡Caja Cerrada con Éxito!",
+            mensaje: `Caja cerrada exitosamente.<br>Diferencia final: $${data.diferencia.toFixed(2)}${custMsg}<br><br>🔐 Por seguridad, se cerrará la sesión. El siguiente cajero deberá iniciar sesión para abrir un nuevo turno.`,
+            onConfirm: () => { window.location.replace("pos_logout.php"); },
+          });
+        }
       } else {
         this.mostrarMensaje({
           tipo: "error",
@@ -4595,21 +4624,30 @@ ${cancelHtml}
       mensaje: mensaje,
     });
   },
+  notifCallback: null,
+  notifSecondaryCallback: null,
+
   mostrarMensaje({
     tipo = "success",
     titulo = "Aviso",
     mensaje = "",
+    btnTexto = null,
+    btnSecundarioTexto = null,
+    bloquearBackdrop = null,
     onConfirm = null,
+    onSecondaryConfirm = null,
   }) {
     this.notifCallback = onConfirm;
+    this.notifSecondaryCallback = onSecondaryConfirm;
     // Marcar si el backdrop debe quedar bloqueado (p.ej. cierre de turno = redirect obligatorio)
-    this._notifBlockBackdrop = typeof onConfirm === "function";
+    this._notifBlockBackdrop = bloquearBackdrop !== null ? bloquearBackdrop : (typeof onConfirm === "function");
     const modal = document.getElementById("modal-notificacion-pos");
     const iconWrap = document.getElementById("notif-pos-icon-wrap");
     const iconSvg = document.getElementById("notif-pos-icon-svg");
     const titleEl = document.getElementById("notif-pos-titulo");
     const msgEl = document.getElementById("notif-pos-mensaje");
     const btn = document.getElementById("notif-pos-btn");
+    const btnSec = document.getElementById("notif-pos-btn-secondary");
 
     if (!modal) {
       alert(mensaje);
@@ -4619,9 +4657,23 @@ ${cancelHtml}
     if (titleEl) titleEl.textContent = titulo;
     if (msgEl) msgEl.innerHTML = mensaje;
 
-    // Texto del botón: si hay callback de redireccionamiento, usar texto especial
+    // Texto del botón principal
     if (btn) {
-      btn.textContent = this._notifBlockBackdrop ? "Entendido — Cerrar Sesión" : "Aceptar";
+      if (btnTexto) {
+        btn.textContent = btnTexto;
+      } else {
+        btn.textContent = this._notifBlockBackdrop ? "Entendido — Cerrar Sesión" : "Aceptar";
+      }
+    }
+
+    // Botón secundario opcional
+    if (btnSec) {
+      if (btnSecundarioTexto) {
+        btnSec.textContent = btnSecundarioTexto;
+        btnSec.style.display = "block";
+      } else {
+        btnSec.style.display = "none";
+      }
     }
 
     // Bloquear o habilitar el backdrop según si hay callback de redirect
@@ -4686,8 +4738,6 @@ ${cancelHtml}
   },
 
   cerrarMensaje() {
-    // Si hay callback de bloqueo (p.ej. cierre de turno), el modal no se puede cerrar por backdrop
-    // Solo se cierra a través del botón Aceptar
     const modal = document.getElementById("modal-notificacion-pos");
     if (modal) {
       modal.style.display = "none";
@@ -4698,6 +4748,9 @@ ${cancelHtml}
     // Restaurar btn a texto normal
     const btn = document.getElementById("notif-pos-btn");
     if (btn) btn.textContent = "Aceptar";
+    const btnSec = document.getElementById("notif-pos-btn-secondary");
+    if (btnSec) btnSec.style.display = "none";
+
     // Restaurar backdrop
     const backdrop = document.getElementById("modal-notificacion-pos-backdrop");
     if (backdrop) {
@@ -4705,9 +4758,39 @@ ${cancelHtml}
       backdrop.style.cursor = "pointer";
     }
     this._notifBlockBackdrop = false;
+    this.notifSecondaryCallback = null;
+
     if (typeof this.notifCallback === "function") {
       const cb = this.notifCallback;
       this.notifCallback = null;
+      cb();
+    }
+  },
+
+  cerrarMensajeSecundario() {
+    const modal = document.getElementById("modal-notificacion-pos");
+    if (modal) {
+      modal.style.display = "none";
+      if (!document.querySelector(".pos-modal-overlay.active") && !document.getElementById("modal-logout-pos")?.style.display?.includes("flex")) {
+        document.body.style.overflow = "";
+      }
+    }
+    const btn = document.getElementById("notif-pos-btn");
+    if (btn) btn.textContent = "Aceptar";
+    const btnSec = document.getElementById("notif-pos-btn-secondary");
+    if (btnSec) btnSec.style.display = "none";
+
+    const backdrop = document.getElementById("modal-notificacion-pos-backdrop");
+    if (backdrop) {
+      backdrop.onclick = () => POS.cerrarMensaje();
+      backdrop.style.cursor = "pointer";
+    }
+    this._notifBlockBackdrop = false;
+    this.notifCallback = null;
+
+    if (typeof this.notifSecondaryCallback === "function") {
+      const cb = this.notifSecondaryCallback;
+      this.notifSecondaryCallback = null;
       cb();
     }
   },

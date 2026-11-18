@@ -1218,14 +1218,24 @@ $isAdmin  = $auth->isPosAdmin();
                 </div> <!-- Fin Grid 2 Columnas -->
 
             </div>
-            <div class="pos-modal-foot">
-                <button class="pos-btn-clear" onclick="POS.closeModal('modal-corte-caja')">Cancelar</button>
-                <button class="pos-btn-cust" style="padding:0.6rem 1.1rem; font-size:0.9rem;" onclick="POS.imprimirCorte()" title="Imprimir resumen del turno actual">
-                    🖨️ Imprimir Corte
-                </button>
-                <button class="pos-btn-pay" style="background:#ef4444; box-shadow:0 4px 15px rgba(239,68,68,0.4);" onclick="POS.cerrarCajaConfirm()">
-                    🔒 Cerrar Turno de Caja
-                </button>
+            <div class="pos-modal-foot" style="justify-content:space-between; flex-wrap:wrap; gap:0.6rem;">
+                <div>
+                    <?php if ($isAdmin): ?>
+                    <span style="font-size:0.75rem; color:#c4b5fd; display:inline-flex; align-items:center; gap:0.35rem;">
+                        <span>💡</span>
+                        <span>Al cerrar este turno, podrás realizar directamente el <strong>Corte del Día</strong>.</span>
+                    </span>
+                    <?php endif; ?>
+                </div>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <button class="pos-btn-clear" onclick="POS.closeModal('modal-corte-caja')">Cancelar</button>
+                    <button class="pos-btn-cust" style="padding:0.6rem 1.1rem; font-size:0.9rem;" onclick="POS.imprimirCorte()" title="Imprimir resumen del turno actual">
+                        🖨️ Imprimir Corte
+                    </button>
+                    <button class="pos-btn-pay" style="background:#ef4444; box-shadow:0 4px 15px rgba(239,68,68,0.4);" onclick="POS.cerrarCajaConfirm()">
+                        🔒 Cerrar Turno de Caja
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1799,8 +1809,9 @@ $isAdmin  = $auth->isPosAdmin();
             </div>
             <h3 id="notif-pos-titulo" style="font-size:1.2rem; font-weight:700; color:#f9fafb; margin-bottom:.5rem;">¡Caja Abierta con Éxito!</h3>
             <p id="notif-pos-mensaje" style="font-size:.92rem; color:#94a3b8; margin-bottom:1.75rem; line-height:1.5; white-space:pre-line;">Caja abierta correctamente.</p>
-            <div style="display:flex; justify-content:center;">
-                <button type="button" id="notif-pos-btn" onclick="POS.cerrarMensaje()" style="width:100%; padding:.75rem 1.5rem; border-radius:8px; border:none; background:#10b981; color:#fff; font-size:.95rem; font-weight:700; cursor:pointer; transition:all .2s; box-shadow:0 4px 12px rgba(16,185,129,0.25);" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">Aceptar</button>
+            <div style="display:flex; justify-content:center; gap:0.6rem;" id="notif-pos-actions">
+                <button type="button" id="notif-pos-btn-secondary" onclick="POS.cerrarMensajeSecundario()" style="display:none; flex:1; padding:.75rem 1rem; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:transparent; color:#94a3b8; font-size:.88rem; font-weight:600; cursor:pointer; transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.08)'; this.style.color='#fff';" onmouseout="this.style.background='transparent'; this.style.color='#94a3b8';">Cerrar</button>
+                <button type="button" id="notif-pos-btn" onclick="POS.cerrarMensaje()" style="flex:1; width:100%; padding:.75rem 1.25rem; border-radius:8px; border:none; background:#10b981; color:#fff; font-size:.92rem; font-weight:700; cursor:pointer; transition:all .2s; box-shadow:0 4px 12px rgba(16,185,129,0.25);" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">Aceptar</button>
             </div>
         </div>
     </div>
