@@ -4888,6 +4888,466 @@ ${cancelHtml}
     };
     return text.toString().replace(/[&<>"']/g, (m) => map[m]);
   },
+
+  // ═════════════════════════════════════════════════════════════════
+  // CORTE DEL DÍA (Consolidación de varios turnos — Solo Administrador)
+  // ═════════════════════════════════════════════════════════════════
+  async abrirModalCorteDia() {
+    try {
+      const res = await fetch("api/pos_api.php?action=resumen_corte_dia");
+      if (res.status === 403) {
+        this.mostrarMensaje({
+          tipo: "error",
+          titulo: "Acceso Denegado",
+          mensaje: "Solo los usuarios con rol ADMINISTRADOR tienen autorización para consultar y realizar el corte del día."
+        });
+        return;
+      }
+      const data = await res.json();
+      if (!data.success) {
+        this.mostrarMensaje({
+          tipo: "error",
+          titulo: "Error al Cargar Corte del Día",
+          mensaje: data.message || "No se pudo obtener el resumen del corte del día."
+        });
+        return;
+      }
+
+      this._corteDiaData = data;
+
+      // Elementos de la UI
+      const bannerBloqueo = document.getElementById("corte-dia-banner-bloqueo");
+      const bannerVacio = document.getElementById("corte-dia-banner-vacio");
+      const bannerListo = document.getElementById("corte-dia-banner-listo");
+      const cajerosBloqueoEl = document.getElementById("corte-dia-bloqueo-cajeros");
+      const listoSubtituloEl = document.getElementById("corte-dia-listo-subtitulo");
+      const periodoEl = document.getElementById("corte-dia-periodo");
+      const cantTurnosEl = document.getElementById("corte-dia-cant-turnos");
+      const badgeTurnosEl = document.getElementById("corte-dia-badge-turnos");
+      const tbody = document.getElementById("corte-dia-tbody-turnos");
+      const btnEjecutar = document.getElementById("corte-dia-btn-ejecutar");
+
+      // Reset banners
+      if (bannerBloqueo) bannerBloqueo.style.display = "none";
+      if (bannerVacio) bannerVacio.style.display = "none";
+      if (bannerListo) bannerListo.style.display = "none";
+
+      // 1. Manejo de Estado (Bloqueado por Turno Abierto / Sin Turnos / Listo)
+      if (data.motivo_bloqueo === "TURNO_ABIERTO") {
+        if (bannerBloqueo) bannerBloqueo.style.display = "block";
+        if (cajerosBloqueoEl) {
+          cajerosBloqueoEl.textContent = `Turno(s) detectado(s): ${data.cajeros_texto || "Cajero con turno abierto"}`;
+        }
+        if (btnEjecutar) {
+          btnEjecutar.disabled = true;
+          btnEjecutar.style.opacity = "0.45";
+          btnEjecutar.style.cursor = "not-allowed";
+        }
+      } else if (data.motivo_bloqueo === "SIN_TURNOS_PENDIENTES") {
+        if (bannerVacio) bannerVacio.style.display = "block";
+        if (btnEjecutar) {
+          btnEjecutar.disabled = true;
+          btnEjecutar.style.opacity = "0.45";
+          btnEjecutar.style.cursor = "not-allowed";
+        }
+      } else if (data.puede_cortar) {
+        if (bannerListo) bannerListo.style.display = "block";
+        if (listoSubtituloEl) {
+          listoSubtituloEl.textContent = `Listo para consolidar ${data.turnos.length} corte(s) de caja cerrados.`;
+        }
+        if (btnEjecutar) {
+          btnEjecutar.disabled = false;
+          btnEjecutar.style.opacity = "1";
+          btnEjecutar.style.cursor = "pointer";
+        }
+      }
+
+      // 2. Trazabilidad de Período y Conteo
+      const turnos = data.turnos || [];
+      if (cantTurnosEl) cantTurnosEl.textContent = turnos.length;
+      if (badgeTurnosEl) badgeTurnosEl.textContent = `${turnos.length} turno(s)`;
+
+      if (periodoEl) {
+        if (turnos.length > 0 && data.fecha_desde && data.fecha_hasta) {
+          const fDesde = new Date(data.fecha_desde).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" });
+          const fHasta = new Date(data.fecha_hasta).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" });
+          periodoEl.textContent = `${fDesde} ➔ ${fHasta}`;
+        } else if (data.ultimo_corte_dia) {
+          const fUlt = new Date(data.ultimo_corte_dia.fecha_corte).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" });
+          periodoEl.textContent = `Último corte: ${data.ultimo_corte_dia.folio} (${fUlt})`;
+        } else {
+          periodoEl.textContent = "Sin cortes previos";
+        }
+      }
+
+      // 3. Renderizar Tabla de Turnos
+      if (tbody) {
+        if (turnos.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="11" style="text-align:center; padding:1.75rem; color:var(--pos-text-muted);">
+                ${data.motivo_bloqueo === "TURNO_ABIERTO" 
+                  ? "⛔ Hay turnos de caja abiertos en el sistema. Deben cerrarse antes de consolidar." 
+                  : "No hay turnos pendientes para corte del día."}
+              </td>
+            </tr>`;
+        } else {
+          tbody.innerHTML = turnos.map((t, idx) => {
+            const numTurno = idx + 1;
+            const cajeroApertura = this.escapeHtml(t.usuario_apertura_nombre || "Cajero");
+            const cajeroCierre = this.escapeHtml(t.usuario_cierre_nombre || cajeroApertura);
+            const mismoCajero = cajeroApertura === cajeroCierre;
+            const cajeroHtml = mismoCajero 
+              ? `<span style="font-weight:600; color:#e2e8f0;">${cajeroApertura}</span>`
+              : `<span style="font-weight:600; color:#93c5fd;">${cajeroApertura}</span> <span style="color:var(--pos-text-muted); font-size:0.72rem;">(A)</span> / <span style="font-weight:600; color:#34d399;">${cajeroCierre}</span> <span style="color:var(--pos-text-muted); font-size:0.72rem;">(C)</span>`;
+
+            const fApertura = t.fecha_apertura ? new Date(t.fecha_apertura).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) : "—";
+            const fCierre = t.fecha_cierre ? new Date(t.fecha_cierre).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) : "—";
+            const fechaDia = t.fecha_apertura ? new Date(t.fecha_apertura).toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit" }) : "";
+
+            const fondoIni = parseFloat(t.monto_inicial || 0).toFixed(2);
+            const efec = parseFloat(t.total_efectivo || 0).toFixed(2);
+            const tarj = parseFloat(t.total_tarjeta || 0).toFixed(2);
+            const transf = parseFloat(t.total_transferencia || 0).toFixed(2);
+            const totalVentas = parseFloat(t.total_ventas_calculado || 0).toFixed(2);
+            const declarado = parseFloat(t.efectivo_declarado || 0).toFixed(2);
+            const dif = parseFloat(t.diferencia || 0);
+            const difClass = dif >= 0 ? "color:#34d399;" : "color:#f87171;";
+            const difSign = dif > 0 ? "+" : "";
+
+            return `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                <td style="padding:7px 10px; font-weight:700; color:#a78bfa;">#${numTurno} <span style="font-size:0.7rem; color:var(--pos-text-muted);">${fechaDia}</span></td>
+                <td style="padding:7px 10px;">${cajeroHtml}</td>
+                <td style="padding:7px 10px; color:#cbd5e1; font-family:'JetBrains Mono',monospace; font-size:0.75rem;">${fApertura}</td>
+                <td style="padding:7px 10px; color:#cbd5e1; font-family:'JetBrains Mono',monospace; font-size:0.75rem;">${fCierre}</td>
+                <td style="padding:7px 10px; text-align:right; font-family:'JetBrains Mono',monospace;">$${fondoIni}</td>
+                <td style="padding:7px 10px; text-align:right; font-family:'JetBrains Mono',monospace; color:#34d399;">$${efec}</td>
+                <td style="padding:7px 10px; text-align:right; font-family:'JetBrains Mono',monospace; color:#60a5fa;">$${tarj}</td>
+                <td style="padding:7px 10px; text-align:right; font-family:'JetBrains Mono',monospace; color:#c084fc;">$${transf}</td>
+                <td style="padding:7px 10px; text-align:right; font-family:'JetBrains Mono',monospace; font-weight:800; color:#f3e8ff;">$${totalVentas}</td>
+                <td style="padding:7px 10px; text-align:right; font-family:'JetBrains Mono',monospace; color:#38bdf8;">$${declarado}</td>
+                <td style="padding:7px 10px; text-align:right; font-family:'JetBrains Mono',monospace; font-weight:700; ${difClass}">${difSign}$${dif.toFixed(2)}</td>
+              </tr>
+            `;
+          }).join("");
+        }
+      }
+
+      // 4. Totales Consolidados
+      const totales = data.totales || {
+        total_efectivo: 0,
+        total_tarjeta: 0,
+        total_transferencia: 0,
+        total_ventas: 0,
+        total_efectivo_declarado: 0,
+        total_diferencia: 0
+      };
+
+      const setEl = (id, text, color) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.textContent = text;
+          if (color) el.style.color = color;
+        }
+      };
+
+      setEl("corte-dia-tot-efectivo", `$${parseFloat(totales.total_efectivo || 0).toFixed(2)}`);
+      setEl("corte-dia-tot-tarjeta", `$${parseFloat(totales.total_tarjeta || 0).toFixed(2)}`);
+      setEl("corte-dia-tot-transferencia", `$${parseFloat(totales.total_transferencia || 0).toFixed(2)}`);
+      setEl("corte-dia-tot-ventas", `$${parseFloat(totales.total_ventas || 0).toFixed(2)}`);
+      setEl("corte-dia-tot-declarado", `$${parseFloat(totales.total_efectivo_declarado || 0).toFixed(2)}`);
+
+      const difNet = parseFloat(totales.total_diferencia || 0);
+      const difNetColor = difNet >= 0 ? "#34d399" : "#f87171";
+      const difNetSign = difNet > 0 ? "+" : "";
+      setEl("corte-dia-tot-diferencia", `${difNetSign}$${difNet.toFixed(2)}`, difNetColor);
+
+      const obsEl = document.getElementById("corte-dia-observaciones");
+      if (obsEl) obsEl.value = "";
+
+      this.openModal("modal-corte-dia");
+    } catch (e) {
+      this.mostrarMensaje({
+        tipo: "error",
+        titulo: "Error de Conexión",
+        mensaje: "Error de comunicación con el servidor al consultar corte del día."
+      });
+    }
+  },
+
+  confirmarEjecutarCorteDia() {
+    if (!this._corteDiaData || !this._corteDiaData.puede_cortar) {
+      this.mostrarMensaje({
+        tipo: "warning",
+        titulo: "Acción No Permitida",
+        mensaje: this._corteDiaData ? this._corteDiaData.mensaje : "No es posible realizar el corte del día."
+      });
+      return;
+    }
+
+    const cant = this._corteDiaData.turnos.length;
+    const totVentas = parseFloat(this._corteDiaData.totales.total_ventas || 0).toFixed(2);
+
+    this.mostrarConfirmacion({
+      tipo: "warning",
+      titulo: "¿Realizar Corte General del Día?",
+      mensaje: `Se consolidarán ${cant} turno(s) de caja cerrados con un total de ventas de $${totVentas}.\n\nEsta acción registrará el balance final del día y vinculará todos los turnos. ¿Deseas proceder?`,
+      btnConfirmar: "Sí, realizar corte",
+      colorConfirmar: "#6366f1",
+      onConfirm: () => this.ejecutarCorteDia()
+    });
+  },
+
+  async ejecutarCorteDia() {
+    const obsEl = document.getElementById("corte-dia-observaciones");
+    const observaciones = obsEl ? obsEl.value.trim() : "";
+
+    try {
+      const res = await fetch("api/pos_api.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "ejecutar_corte_dia",
+          observaciones: observaciones
+        })
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        this.mostrarMensaje({
+          tipo: "error",
+          titulo: "No se pudo realizar el corte del día",
+          mensaje: data.message || "Error al procesar el corte del día."
+        });
+        return;
+      }
+
+      this.closeModal("modal-corte-dia");
+      this._ultimoCorteDiaEjecutado = data;
+
+      this.mostrarMensaje({
+        tipo: "success",
+        titulo: "¡Corte del Día Exitoso!",
+        mensaje: `${data.message}\n\nFolio: ${data.folio}\nTotal Ventas: $${parseFloat(data.totales.total_ventas).toFixed(2)}\n\nPuedes imprimir el comprobante a continuación.`,
+        onConfirm: () => {
+          this.imprimirTicketCorteDia(data);
+        }
+      });
+    } catch (e) {
+      this.mostrarMensaje({
+        tipo: "error",
+        titulo: "Error de Conexión",
+        mensaje: "Error de conexión al ejecutar el corte del día."
+      });
+    }
+  },
+
+  imprimirTicketCorteDia(cd) {
+    if (!cd) {
+      alert("No hay información de corte del día para imprimir.");
+      return;
+    }
+
+    const ahora = new Date().toLocaleString("es-MX");
+    const folio = cd.folio || "CD-000000";
+    const admin = cd.administrador_nombre || (this.user ? this.user.nombre : "Administrador");
+    const fDesde = cd.fecha_desde ? new Date(cd.fecha_desde).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" }) : "—";
+    const fHasta = cd.fecha_hasta ? new Date(cd.fecha_hasta).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" }) : "—";
+
+    const totales = cd.totales || {};
+    const totFondoIni = parseFloat(totales.total_fondo_inicial || 0).toFixed(2);
+    const totEfec = parseFloat(totales.total_efectivo || 0).toFixed(2);
+    const totTarj = parseFloat(totales.total_tarjeta || 0).toFixed(2);
+    const totTransf = parseFloat(totales.total_transferencia || 0).toFixed(2);
+    const totVentas = parseFloat(totales.total_ventas || 0).toFixed(2);
+    const totDecl = parseFloat(totales.total_efectivo_declarado || 0).toFixed(2);
+    const totDif = parseFloat(totales.total_diferencia || 0).toFixed(2);
+    const totCobrosAnt = parseFloat(totales.total_cobros_turnos_anteriores || 0).toFixed(2);
+
+    const turnos = cd.turnos || cd.turnos_decodificados || [];
+    let turnosHtml = "";
+    if (turnos.length > 0) {
+      turnosHtml = `
+<div class="sec-title">Desglose de Turnos Consolidados (${turnos.length})</div>
+<table>
+  ${turnos.map((t, idx) => {
+    const ape = t.usuario_apertura_nombre || "Cajero";
+    const cie = t.usuario_cierre_nombre || ape;
+    const hApe = t.fecha_apertura ? new Date(t.fecha_apertura).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) : "—";
+    const hCie = t.fecha_cierre ? new Date(t.fecha_cierre).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) : "—";
+    const vTot = parseFloat(t.total_ventas_calculado || (parseFloat(t.total_efectivo||0) + parseFloat(t.total_tarjeta||0) + parseFloat(t.total_transferencia||0))).toFixed(2);
+    const vDif = parseFloat(t.diferencia || 0).toFixed(2);
+    return `
+    <tr style="border-top:1px dashed #777;">
+      <td><strong>Turno #${idx+1}:</strong> ${ape} ${ape !== cie ? '➔ ' + cie : ''}</td>
+      <td style="text-align:right;"><strong>$${vTot}</strong></td>
+    </tr>
+    <tr>
+      <td colspan="2" style="font-size:10px; color:#444; padding-bottom:3px;">
+        Horario: ${hApe} - ${hCie} | Efec: $${parseFloat(t.total_efectivo||0).toFixed(2)} | Tarj: $${parseFloat(t.total_tarjeta||0).toFixed(2)} | Transf: $${parseFloat(t.total_transferencia||0).toFixed(2)} | Arqueo: $${parseFloat(t.efectivo_declarado||0).toFixed(2)} (Dif: ${vDif >= 0 ? '+' : ''}$${vDif})
+      </td>
+    </tr>
+    `;
+  }).join("")}
+</table>
+<hr>`;
+    }
+
+    const custodia = cd.custodia || {};
+    const totCustodia = custodia.total_pendientes_entrega || cd.cargas_pendientes_entrega || 0;
+    const totPendPago = custodia.total_pendientes_pago || cd.cargas_pendientes_pago || 0;
+    const montoPend = parseFloat(custodia.monto_pendiente_cobro || cd.monto_pendiente_cobro || 0).toFixed(2);
+
+    const obsText = cd.observaciones ? `
+<div class="sec-title">Observaciones</div>
+<div style="font-size:11px; font-style:italic; padding-bottom:4px;">${this.escapeHtml(cd.observaciones)}</div>
+<hr>` : "";
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Corte del Día - ${folio}</title>
+<style>
+  body { font-family: monospace; font-size: 12px; padding: 18px; color: #000; max-width: 420px; margin: 0 auto; }
+  h2 { text-align: center; margin-bottom: 2px; font-size: 16px; font-weight: 900; }
+  .sub { text-align: center; font-size: 11px; color: #333; margin-bottom: 2px; }
+  hr { border: none; border-top: 1px dashed #000; margin: 7px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 2px 0; vertical-align: top; }
+  td:last-child { text-align: right; font-weight: bold; }
+  .sec-title { font-weight: 900; font-size: 11px; letter-spacing: .05em; margin: 6px 0 2px; text-transform: uppercase; }
+  .total-row td { border-top: 1px solid #000; font-weight: 900; font-size: 14px; padding-top: 4px; }
+  .signature-box { margin-top: 25px; text-align: center; font-size: 11px; }
+  .signature-line { border-top: 1px solid #000; width: 65%; margin: 30px auto 4px; }
+  @media print { body { margin: 0; padding: 8px; } }
+</style>
+</head><body>
+<h2>LAVANDERÍA VERA</h2>
+<div class="sub">COMPROBANTE DE CORTE GENERAL DEL DÍA</div>
+<div class="sub"><strong>FOLIO: ${folio}</strong></div>
+<div class="sub">Emisión: ${ahora}</div>
+<hr>
+<div class="sec-title">Datos del Corte</div>
+<table>
+  <tr><td>Administrador:</td><td>${admin}</td></tr>
+  <tr><td>Período Desde:</td><td>${fDesde}</td></tr>
+  <tr><td>Período Hasta:</td><td>${fHasta}</td></tr>
+  <tr><td>Total Turnos:</td><td>${turnos.length} turno(s)</td></tr>
+</table>
+<hr>
+${turnosHtml}
+<div class="sec-title">Consolidado Financiero</div>
+<table>
+  <tr><td>Fondo Inicial Consolidado:</td><td>$${totFondoIni}</td></tr>
+  <tr><td>Ventas Efectivo Recaudado:</td><td>$${totEfec}</td></tr>
+  ${parseFloat(totCobrosAnt) > 0 ? `<tr><td>Cobros Turnos Ant. (Efec):</td><td>$${totCobrosAnt}</td></tr>` : ''}
+  <tr><td>Ventas Tarjeta Déb/Créd:</td><td>$${totTarj}</td></tr>
+  <tr><td>Ventas Transferencia:</td><td>$${totTransf}</td></tr>
+  <tr class="total-row"><td>GRAN TOTAL VENTAS:</td><td>$${totVentas}</td></tr>
+  <tr><td style="padding-top:4px;">Total Efectivo Contado (Arqueo):</td><td style="padding-top:4px;">$${totDecl}</td></tr>
+  <tr style="border-top:1px dashed #000; font-weight:900;"><td>DIFERENCIA NETA GLOBAL:</td><td>${totDif >= 0 ? '+' : ''}$${totDif}</td></tr>
+</table>
+<hr>
+<div class="sec-title">Custodia de Prendas al Cierre</div>
+<table>
+  <tr><td>Prendas en Custodia Pendientes:</td><td>${totCustodia} cargas</td></tr>
+  <tr><td>Cargas Pendientes de Cobro:</td><td>${totPendPago} cargas</td></tr>
+  <tr><td>Monto Pendiente de Cobro:</td><td>$${montoPend}</td></tr>
+</table>
+<hr>
+${obsText}
+<div class="signature-box">
+  <div class="signature-line"></div>
+  <strong>${admin}</strong><br>
+  Firma del Administrador / Supervisor
+</div>
+<div style="text-align:center; margin-top:14px; font-size:10px; color:#555;">
+  Sistema de Punto de Venta | Lavandería Vera
+</div>
+</body></html>`;
+
+    const win = window.open("", "_blank", "width=480,height=650");
+    if (!win) {
+      alert("El navegador bloqueó la ventana emergente. Favor de permitir ventanas emergentes para imprimir.");
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+    }, 450);
+  },
+
+  async abrirModalHistorialCorteDia() {
+    this.openModal("modal-historial-corte-dia");
+    const tbody = document.getElementById("corte-dia-historial-tbody");
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--pos-text-muted);">Cargando historial...</td></tr>`;
+    }
+
+    try {
+      const res = await fetch("api/pos_api.php?action=historial_corte_dia");
+      const data = await res.json();
+      if (!data.success) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:#f87171;">${data.message || 'Error cargando historial'}</td></tr>`;
+        return;
+      }
+
+      const lista = data.historial || [];
+      if (tbody) {
+        if (lista.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--pos-text-muted);">No se han realizado cortes del día todavía.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = lista.map(c => {
+          const folio = c.folio || "CD-000000";
+          const fCorte = c.fecha_corte ? new Date(c.fecha_corte).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" }) : "—";
+          const fDesde = c.fecha_desde ? new Date(c.fecha_desde).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" }) : "—";
+          const fHasta = c.fecha_hasta ? new Date(c.fecha_hasta).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" }) : "—";
+          const turnos = c.total_turnos || 0;
+          const totVentas = parseFloat(c.total_ventas || 0).toFixed(2);
+          const dif = parseFloat(c.total_diferencia || 0);
+          const difColor = dif >= 0 ? "#34d399" : "#f87171";
+          const admin = this.escapeHtml(c.administrador_nombre || "Admin");
+
+          return `
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+              <td style="padding:10px 12px; font-weight:800; color:#c4b5fd;">${folio}</td>
+              <td style="padding:10px 12px; color:#e2e8f0;">${fCorte}</td>
+              <td style="padding:10px 12px; font-size:0.75rem; color:var(--pos-text-muted);">${fDesde} ➔ ${fHasta}</td>
+              <td style="padding:10px 12px; text-align:center;"><span style="padding:2px 8px; border-radius:10px; background:rgba(99,102,241,0.2); color:#a5b4fc; font-weight:700;">${turnos}</span></td>
+              <td style="padding:10px 12px; text-align:right; font-family:'JetBrains Mono',monospace; font-weight:800; color:#f3e8ff;">$${totVentas}</td>
+              <td style="padding:10px 12px; text-align:right; font-family:'JetBrains Mono',monospace; font-weight:700; color:${difColor};">${dif >= 0 ? '+' : ''}$${dif.toFixed(2)}</td>
+              <td style="padding:10px 12px; color:#cbd5e1;">${admin}</td>
+              <td style="padding:10px 12px; text-align:center;">
+                <button type="button" class="pos-btn-head" style="font-size:0.75rem; padding:4px 8px;" onclick="POS.imprimirTicketCorteDiaPorId('${c.id}')" title="Reimprimir comprobante">
+                  🖨️ Imprimir
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
+    } catch (e) {
+      if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:#f87171;">Error de conexión.</td></tr>`;
+    }
+  },
+
+  async imprimirTicketCorteDiaPorId(id) {
+    try {
+      const res = await fetch(`api/pos_api.php?action=detalle_corte_dia&corte_diario_id=${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if (!data.success || !data.corte_dia) {
+        alert(data.message || "No se pudo obtener el detalle del corte del día.");
+        return;
+      }
+      this.imprimirTicketCorteDia(data.corte_dia);
+    } catch (e) {
+      alert("Error al obtener los datos para imprimir el ticket.");
+    }
+  },
 };
 
 document.addEventListener("DOMContentLoaded", () => {

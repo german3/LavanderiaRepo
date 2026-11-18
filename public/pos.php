@@ -549,6 +549,36 @@ $isAdmin  = $auth->isPosAdmin();
             border-bottom-color: #e2e8f0 !important;
         }
 
+        /* Corte del Día en Modo Claro */
+        [data-theme="light"] #modal-corte-dia .pos-modal-body > div,
+        [data-theme="light"] #modal-historial-corte-dia .pos-modal-body > div {
+            background: #ffffff !important;
+            border-color: #cbd5e1 !important;
+        }
+        [data-theme="light"] #modal-corte-dia th,
+        [data-theme="light"] #modal-historial-corte-dia th {
+            background: #f1f5f9 !important;
+            color: #475569 !important;
+        }
+        [data-theme="light"] #modal-corte-dia td,
+        [data-theme="light"] #modal-historial-corte-dia td {
+            color: #1e293b !important;
+            border-bottom-color: #e2e8f0 !important;
+        }
+        [data-theme="light"] #modal-corte-dia .pos-modal-head,
+        [data-theme="light"] #modal-historial-corte-dia .pos-modal-head {
+            background: linear-gradient(135deg, #e0e7ff, #ede9fe) !important;
+            border-bottom-color: #c7d2fe !important;
+        }
+        [data-theme="light"] #modal-corte-dia .pos-modal-head h3,
+        [data-theme="light"] #modal-historial-corte-dia .pos-modal-head h3 {
+            color: #312e81 !important;
+        }
+        [data-theme="light"] #modal-corte-dia .pos-modal-head div,
+        [data-theme="light"] #modal-historial-corte-dia .pos-modal-head div {
+            color: #4338ca !important;
+        }
+
         /* â”€â”€ Modales Generales â”€â”€ */
         [data-theme="light"] .pos-modal-overlay {
             background: rgba(15, 23, 42, 0.45) !important;
@@ -697,6 +727,14 @@ $isAdmin  = $auth->isPosAdmin();
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M12 8v8m-4-4h8"/></svg>
                 <span>Corte de Caja</span>
             </button>
+
+            <?php if ($isAdmin): ?>
+            <!-- Botón Corte del Día (Consolidación de Turnos — Solo Administrador) -->
+            <button class="pos-btn-head" onclick="POS.abrirModalCorteDia()" title="Corte General del Día (Consolidación de Turnos)" style="background:linear-gradient(135deg, rgba(99,102,241,0.22), rgba(139,92,246,0.18)); border:1px solid rgba(139,92,246,0.45); color:#c4b5fd;">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span>Corte del Día</span>
+            </button>
+            <?php endif; ?>
 
             <!-- Botón Historial de Ventas -->
             <button class="pos-btn-head" onclick="POS.abrirModalHistorial()" title="Historial del día y Cancelaciones">
@@ -1188,6 +1226,230 @@ $isAdmin  = $auth->isPosAdmin();
                 <button class="pos-btn-pay" style="background:#ef4444; box-shadow:0 4px 15px rgba(239,68,68,0.4);" onclick="POS.cerrarCajaConfirm()">
                     🔒 Cerrar Turno de Caja
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═════════════════════════════════════════════════════════════
+         MODAL: Corte del Día (Consolidación de Turnos — Solo Administrador)
+         ═════════════════════════════════════════════════════════════ -->
+    <div id="modal-corte-dia" class="pos-modal-overlay">
+        <div class="pos-modal-card" style="max-width:1180px; width:96vw; max-height:94vh; display:flex; flex-direction:column;">
+            <div class="pos-modal-head" style="background:linear-gradient(135deg, rgba(79,70,229,0.3), rgba(124,58,237,0.2)); border-bottom:1px solid rgba(139,92,246,0.35);">
+                <div style="display:flex; align-items:center; gap:0.65rem;">
+                    <span style="font-size:1.4rem;">📅</span>
+                    <div>
+                        <h3 style="margin:0; font-size:1.2rem; color:#f8fafc; font-weight:800;">Corte General del Día</h3>
+                        <div style="font-size:0.75rem; color:#c4b5fd; margin-top:2px;">Consolidación y cierre de turnos de caja — Exclusivo Administrador</div>
+                    </div>
+                </div>
+                <button class="pos-modal-close" onclick="POS.closeModal('modal-corte-dia')">✕</button>
+            </div>
+            
+            <div class="pos-modal-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:0.9rem; padding:1.1rem 1.35rem;">
+                
+                <!-- BANNERS DE ESTADO DINÁMICOS -->
+
+                <!-- 1. Banner de Bloqueo por Turno Abierto -->
+                <div id="corte-dia-banner-bloqueo" style="display:none; background:rgba(239,68,68,0.12); border:1.5px solid rgba(239,68,68,0.5); border-radius:10px; padding:0.9rem 1.15rem; color:#fecaca;">
+                    <div style="display:flex; align-items:flex-start; gap:0.75rem;">
+                        <span style="font-size:1.5rem; line-height:1;">⛔</span>
+                        <div style="flex:1;">
+                            <strong style="font-size:0.95rem; color:#f87171; display:block; margin-bottom:0.25rem;">
+                                No se puede realizar el Corte del Día: Hay un turno de caja actualmente abierto
+                            </strong>
+                            <div id="corte-dia-bloqueo-detalle" style="font-size:0.83rem; line-height:1.45; color:#cbd5e1;">
+                                Para realizar el corte del día, es requisito indispensable que todos los cajeros hayan concluido sus actividades, cerrado sus sesiones y realizado el corte de sus respectivos turnos.
+                            </div>
+                            <div id="corte-dia-bloqueo-cajeros" style="margin-top:0.4rem; font-size:0.82rem; font-weight:700; color:#fca5a5;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Banner de Información: Sin turnos pendientes -->
+                <div id="corte-dia-banner-vacio" style="display:none; background:rgba(59,130,246,0.12); border:1.5px solid rgba(59,130,246,0.4); border-radius:10px; padding:0.9rem 1.15rem; color:#bfdbfe;">
+                    <div style="display:flex; align-items:center; gap:0.75rem;">
+                        <span style="font-size:1.4rem;">ℹ️</span>
+                        <div>
+                            <strong style="font-size:0.92rem; color:#60a5fa; display:block;">No hay cortes de caja pendientes de consolidar</strong>
+                            <div style="font-size:0.82rem; color:#94a3b8; margin-top:2px;">
+                                Todos los turnos de caja cerrados ya fueron incluidos en un corte del día anterior, o aún no se han registrado turnos cerrados en el sistema.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Banner de Listo para Consolidar -->
+                <div id="corte-dia-banner-listo" style="display:none; background:rgba(16,185,129,0.12); border:1.5px solid rgba(16,185,129,0.45); border-radius:10px; padding:0.85rem 1.15rem; color:#a7f3d0;">
+                    <div style="display:flex; align-items:center; gap:0.75rem;">
+                        <span style="font-size:1.4rem;">✅</span>
+                        <div>
+                            <strong style="font-size:0.92rem; color:#34d399; display:block;">Todos los turnos de caja están cerrados correctamente</strong>
+                            <div id="corte-dia-listo-subtitulo" style="font-size:0.82rem; color:#cbd5e1; margin-top:2px;">
+                                Listo para consolidar los cortes de caja del período.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barra de Trazabilidad del Período y Administrador -->
+                <div style="background:rgba(30,41,59,0.7); border:1px solid rgba(148,163,184,0.25); border-radius:8px; padding:0.65rem 1rem; display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; gap:0.75rem; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:0.85rem; flex-wrap:wrap;">
+                        <div>
+                            <span style="color:var(--pos-text-muted);">🕒 Período comprendido:</span>
+                            <strong id="corte-dia-periodo" style="color:#e2e8f0; margin-left:4px;">Cargando...</strong>
+                        </div>
+                        <div style="border-left:1px solid rgba(255,255,255,0.15); height:16px;"></div>
+                        <div>
+                            <span style="color:var(--pos-text-muted);">📑 Turnos a Consolidar:</span>
+                            <strong id="corte-dia-cant-turnos" style="color:#38bdf8; font-weight:800; margin-left:4px;">0</strong>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="color:var(--pos-text-muted);">👤 Administrador:</span>
+                        <strong id="corte-dia-admin-nombre" style="color:#a78bfa; margin-left:4px;"><?= htmlspecialchars($userName) ?></strong>
+                    </div>
+                </div>
+
+                <!-- Tabla de Turnos a Consolidar -->
+                <div style="border:1px solid var(--pos-border); border-radius:10px; overflow:hidden; background:rgba(15,23,42,0.6);">
+                    <div style="padding:0.65rem 1rem; background:rgba(30,41,59,0.8); border-bottom:1px solid var(--pos-border); font-size:0.85rem; font-weight:700; color:#e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                        <span>📋 Desglose de Turnos de Caja a Consolidar</span>
+                        <span id="corte-dia-badge-turnos" style="font-size:0.75rem; padding:2px 8px; border-radius:12px; background:rgba(99,102,241,0.25); color:#c4b5fd; border:1px solid rgba(99,102,241,0.4);">0 turnos</span>
+                    </div>
+                    <div style="max-height:260px; overflow-y:auto; overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.8rem; text-align:left; min-width:850px;">
+                            <thead>
+                                <tr style="background:rgba(15,23,42,0.95); color:var(--pos-text-muted); border-bottom:1px solid var(--pos-border);">
+                                    <th style="padding:8px 10px;">Turno</th>
+                                    <th style="padding:8px 10px;">Cajero(s)</th>
+                                    <th style="padding:8px 10px;">Apertura</th>
+                                    <th style="padding:8px 10px;">Cierre</th>
+                                    <th style="padding:8px 10px; text-align:right;">Fondo Ini.</th>
+                                    <th style="padding:8px 10px; text-align:right;">Efectivo</th>
+                                    <th style="padding:8px 10px; text-align:right;">Tarjeta</th>
+                                    <th style="padding:8px 10px; text-align:right;">Transf.</th>
+                                    <th style="padding:8px 10px; text-align:right; color:#a78bfa;">Total Ventas</th>
+                                    <th style="padding:8px 10px; text-align:right;">Arqueo Físico</th>
+                                    <th style="padding:8px 10px; text-align:right;">Diferencia</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corte-dia-tbody-turnos">
+                                <tr>
+                                    <td colspan="11" style="text-align:center; padding:1.5rem; color:var(--pos-text-muted);">
+                                        Cargando información de turnos...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Totales Consolidados (Cards Grid) -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem;">
+                    
+                    <div style="background:rgba(15,23,42,0.6); border:1px solid var(--pos-border); border-radius:8px; padding:0.75rem 0.9rem;">
+                        <div style="font-size:0.72rem; color:var(--pos-text-muted); font-weight:600; text-transform:uppercase;">💵 Total Efectivo</div>
+                        <div id="corte-dia-tot-efectivo" style="font-size:1.15rem; font-weight:800; color:#34d399; font-family:'JetBrains Mono',monospace; margin-top:2px;">$0.00</div>
+                    </div>
+
+                    <div style="background:rgba(15,23,42,0.6); border:1px solid var(--pos-border); border-radius:8px; padding:0.75rem 0.9rem;">
+                        <div style="font-size:0.72rem; color:var(--pos-text-muted); font-weight:600; text-transform:uppercase;">💳 Total Tarjeta</div>
+                        <div id="corte-dia-tot-tarjeta" style="font-size:1.15rem; font-weight:800; color:#60a5fa; font-family:'JetBrains Mono',monospace; margin-top:2px;">$0.00</div>
+                    </div>
+
+                    <div style="background:rgba(15,23,42,0.6); border:1px solid var(--pos-border); border-radius:8px; padding:0.75rem 0.9rem;">
+                        <div style="font-size:0.72rem; color:var(--pos-text-muted); font-weight:600; text-transform:uppercase;">📱 Total Transferencia</div>
+                        <div id="corte-dia-tot-transferencia" style="font-size:1.15rem; font-weight:800; color:#c084fc; font-family:'JetBrains Mono',monospace; margin-top:2px;">$0.00</div>
+                    </div>
+
+                    <div style="background:linear-gradient(135deg, rgba(99,102,241,0.22), rgba(168,85,247,0.2)); border:1px solid rgba(168,85,247,0.45); border-radius:8px; padding:0.75rem 0.9rem; box-shadow:0 2px 10px rgba(99,102,241,0.15);">
+                        <div style="font-size:0.72rem; color:#e0e7ff; font-weight:700; text-transform:uppercase;">💰 Gran Total Ventas</div>
+                        <div id="corte-dia-tot-ventas" style="font-size:1.3rem; font-weight:900; color:#f3e8ff; font-family:'JetBrains Mono',monospace; margin-top:2px;">$0.00</div>
+                    </div>
+
+                    <div style="background:rgba(15,23,42,0.6); border:1px solid var(--pos-border); border-radius:8px; padding:0.75rem 0.9rem;">
+                        <div style="font-size:0.72rem; color:var(--pos-text-muted); font-weight:600; text-transform:uppercase;">📥 Arqueo Total Declarado</div>
+                        <div id="corte-dia-tot-declarado" style="font-size:1.15rem; font-weight:800; color:#38bdf8; font-family:'JetBrains Mono',monospace; margin-top:2px;">$0.00</div>
+                    </div>
+
+                    <div style="background:rgba(15,23,42,0.6); border:1px solid var(--pos-border); border-radius:8px; padding:0.75rem 0.9rem;">
+                        <div style="font-size:0.72rem; color:var(--pos-text-muted); font-weight:600; text-transform:uppercase;">⚖️ Diferencia Neta</div>
+                        <div id="corte-dia-tot-diferencia" style="font-size:1.15rem; font-weight:800; color:#e2e8f0; font-family:'JetBrains Mono',monospace; margin-top:2px;">$0.00</div>
+                    </div>
+
+                </div>
+
+                <!-- Observaciones del Administrador -->
+                <div>
+                    <label style="font-size:0.8rem; font-weight:700; color:var(--pos-text-muted); display:block; margin-bottom:0.35rem;">
+                        Observaciones del Corte del Día (Opcional):
+                    </label>
+                    <textarea id="corte-dia-observaciones" class="pos-search-input" rows="2" placeholder="Notas sobre el balance del día, incidencias o comentarios de supervisión..."></textarea>
+                </div>
+
+            </div>
+            
+            <div class="pos-modal-foot" style="justify-content:space-between;">
+                <div>
+                    <button type="button" class="pos-btn-cust" onclick="POS.abrirModalHistorialCorteDia()" style="padding:0.6rem 1.1rem; font-size:0.85rem;" title="Ver y reimprimir cortes del día anteriores">
+                        📜 Historial Cortes del Día
+                    </button>
+                </div>
+                <div style="display:flex; gap:0.6rem;">
+                    <button type="button" class="pos-btn-clear" onclick="POS.closeModal('modal-corte-dia')">Cerrar</button>
+                    <button type="button" id="corte-dia-btn-ejecutar" class="pos-btn-pay" style="background:linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow:0 4px 15px rgba(99,102,241,0.35);" onclick="POS.confirmarEjecutarCorteDia()">
+                        📊 Realizar Corte del Día
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═════════════════════════════════════════════════════════════
+         MODAL: Historial de Cortes del Día (Solo Administrador)
+         ═════════════════════════════════════════════════════════════ -->
+    <div id="modal-historial-corte-dia" class="pos-modal-overlay">
+        <div class="pos-modal-card" style="max-width:1050px; width:95vw; max-height:90vh; display:flex; flex-direction:column;">
+            <div class="pos-modal-head" style="background:linear-gradient(135deg, rgba(79,70,229,0.3), rgba(124,58,237,0.2)); border-bottom:1px solid rgba(139,92,246,0.35);">
+                <div style="display:flex; align-items:center; gap:0.65rem;">
+                    <span style="font-size:1.3rem;">📜</span>
+                    <div>
+                        <h3 style="margin:0; font-size:1.15rem; color:#f8fafc; font-weight:800;">Historial de Cortes del Día</h3>
+                        <div style="font-size:0.75rem; color:#c4b5fd; margin-top:2px;">Registro de cierres diarios consolidados y reimpresión de comprobantes</div>
+                    </div>
+                </div>
+                <button class="pos-modal-close" onclick="POS.closeModal('modal-historial-corte-dia')">✕</button>
+            </div>
+            <div class="pos-modal-body" style="overflow-y:auto; flex:1; padding:1rem;">
+                <div style="border:1px solid var(--pos-border); border-radius:10px; overflow:hidden; background:rgba(15,23,42,0.6);">
+                    <div style="max-height:500px; overflow-y:auto; overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.82rem; text-align:left; min-width:800px;">
+                            <thead>
+                                <tr style="background:rgba(15,23,42,0.95); color:var(--pos-text-muted); border-bottom:1px solid var(--pos-border);">
+                                    <th style="padding:10px 12px;">Folio</th>
+                                    <th style="padding:10px 12px;">Fecha y Hora</th>
+                                    <th style="padding:10px 12px;">Período Consolidado</th>
+                                    <th style="padding:10px 12px; text-align:center;">Turnos</th>
+                                    <th style="padding:10px 12px; text-align:right; color:#a78bfa;">Total Ventas</th>
+                                    <th style="padding:10px 12px; text-align:right;">Diferencia</th>
+                                    <th style="padding:10px 12px;">Administrador</th>
+                                    <th style="padding:10px 12px; text-align:center;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corte-dia-historial-tbody">
+                                <tr>
+                                    <td colspan="8" style="text-align:center; padding:2rem; color:var(--pos-text-muted);">
+                                        Cargando historial de cortes del día...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="pos-modal-foot">
+                <button type="button" class="pos-btn-clear" onclick="POS.closeModal('modal-historial-corte-dia')">Cerrar</button>
             </div>
         </div>
     </div>

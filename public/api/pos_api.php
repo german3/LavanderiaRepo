@@ -485,6 +485,60 @@ try {
                 'message' => $ok ? 'Carga marcada como Entregada al cliente.' : 'No se pudo marcar como entregada. Verifica el estado de la carga.'
             ]);
             break;
+
+        // ─────────────────────────────────────────────────────────────
+        // 19. Corte del Día (Consolidación de turnos — Solo Administrador)
+        // ─────────────────────────────────────────────────────────────
+        case 'resumen_corte_dia':
+            if (!$isAdmin) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Acceso denegado: Solo el Administrador puede consultar el resumen de corte del día.']);
+                exit;
+            }
+            $resumen = $cajaModel->obtenerResumenCorteDia();
+            echo json_encode($resumen);
+            break;
+
+        case 'ejecutar_corte_dia':
+            if (!$isAdmin) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Acceso denegado: Solo el Administrador puede realizar el corte del día.']);
+                exit;
+            }
+            $observaciones = trim($_POST['observaciones'] ?? '');
+            $res = $cajaModel->ejecutarCorteDia($currentUserId, $observaciones);
+            echo json_encode($res);
+            break;
+
+        case 'historial_corte_dia':
+            if (!$isAdmin) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Acceso denegado: Solo el Administrador puede consultar el historial de cortes del día.']);
+                exit;
+            }
+            $limite = intval($_GET['limite'] ?? $_POST['limite'] ?? 50);
+            $historial = $cajaModel->obtenerHistorialCortesDia($limite);
+            echo json_encode(['success' => true, 'historial' => $historial]);
+            break;
+
+        case 'detalle_corte_dia':
+            if (!$isAdmin) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Acceso denegado: Solo el Administrador puede consultar el detalle del corte del día.']);
+                exit;
+            }
+            $corteDiaId = trim($_GET['corte_diario_id'] ?? $_POST['corte_diario_id'] ?? '');
+            if (!$corteDiaId) {
+                echo json_encode(['success' => false, 'message' => 'ID de corte de día requerido.']);
+                exit;
+            }
+            $detalle = $cajaModel->obtenerDetalleCorteDia($corteDiaId);
+            if (!$detalle) {
+                echo json_encode(['success' => false, 'message' => 'Corte del día no encontrado.']);
+                exit;
+            }
+            echo json_encode(['success' => true, 'corte_dia' => $detalle]);
+            break;
         default:
             echo json_encode(['success' => false, 'message' => 'Acción no reconocida.']);
             break;

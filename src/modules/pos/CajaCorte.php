@@ -99,10 +99,43 @@ class CajaCorte
             "ALTER TABLE caja_cortes ADD COLUMN cargas_recibidas_entrega INT NOT NULL DEFAULT 0",
             "ALTER TABLE caja_cortes ADD COLUMN cargas_recibidas_pago INT NOT NULL DEFAULT 0",
             "ALTER TABLE caja_cortes ADD COLUMN monto_recibido_pendiente DECIMAL(12,2) NOT NULL DEFAULT 0.00",
-            "ALTER TABLE caja_cortes ADD COLUMN total_cobros_turnos_anteriores DECIMAL(12,2) NOT NULL DEFAULT 0.00"
+            "ALTER TABLE caja_cortes ADD COLUMN total_cobros_turnos_anteriores DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            "ALTER TABLE caja_cortes ADD COLUMN corte_diario_id VARCHAR(36) NULL AFTER estado",
+            "ALTER TABLE caja_cortes ADD INDEX (corte_diario_id)"
         ];
         foreach ($migraciones as $m) {
             try { $this->conn->exec($m); } catch (\Throwable $e) { /* ya existe */ }
+        }
+
+        // Crear tabla de Cortes Diarios (consolidación de varios turnos)
+        $sqlCortesDiarios = "CREATE TABLE IF NOT EXISTS cortes_diarios (
+            id                             VARCHAR(36) PRIMARY KEY,
+            folio                          VARCHAR(20) NOT NULL UNIQUE,
+            usuario_id                     VARCHAR(36) NOT NULL,
+            fecha_corte                    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            fecha_desde                    DATETIME NOT NULL,
+            fecha_hasta                    DATETIME NOT NULL,
+            total_turnos                   INT NOT NULL DEFAULT 0,
+            total_fondo_inicial            DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            total_efectivo                 DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            total_tarjeta                  DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            total_transferencia            DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            total_ventas                   DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            total_efectivo_declarado       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            total_diferencia               DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            total_cobros_turnos_anteriores DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            cargas_pendientes_entrega      INT NOT NULL DEFAULT 0,
+            cargas_pendientes_pago         INT NOT NULL DEFAULT 0,
+            monto_pendiente_cobro          DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            observaciones                  TEXT NULL,
+            detalle_turnos                 LONGTEXT NULL,
+            INDEX (usuario_id),
+            INDEX (fecha_corte)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        try {
+            $this->conn->exec($sqlCortesDiarios);
+        } catch (\Throwable $e) {
+            error_log("CajaCorte::asegurarTabla (cortes_diarios falló): " . $e->getMessage());
         }
     }
 
@@ -575,5 +608,325 @@ class CajaCorte
             'monto_pendiente_cobro'     => $custodia['monto_pendiente_cobro'],
             'custodia_cargas'           => $custodia
         ];
+    }
+
+    /**
+     * Obtiene el último corte del día realizado en el sistema
+     */
+    public function obtenerUltimoCorteDia(): ?array
+    {
+        try {
+            $sql = "SELECT cd.*, u.nombre AS administrador_nombre
+                    FROM cortes_diarios cd
+                    LEFT JOIN usuarios u ON cd.usuario_id COLLATE utf8mb4_unicode_ci = u.id COLLATE utf8mb4_unicode_ci
+                    ORDER BY cd.fecha_corte DESC LIMIT 1";
+            $stmt = $this->conn->query($sql);
+            $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+            return $row ?: null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Obtiene el resumen consolidado para el Corte del Día.
+     * Valida que no existan turnos abiertos y suma todos los cortes de caja cerrados
+     * pendientes de consolidar (del día de hoy o desde la última vez que se hizo el corte del día).
+     */
+    public function obtenerResumenCorteDia(): array
+    {
+        // 1. Verificar si existe algún turno de caja ABIERTO en el sistema
+        $sqlAbierta = "SELECT c.*, 
+                              uA.nombre AS usuario_nombre,
+                              uA.correo AS usuario_correo
+                       FROM caja_cortes c
+                       LEFT JOIN usuarios uA ON c.usuario_id COLLATE utf8mb4_unicode_ci = uA.id COLLATE utf8mb4_unicode_ci
+                       WHERE c.estado = 'ABIERTA'
+                       ORDER BY c.fecha_apertura ASC";
+        $stmtAbierta = $this->conn->query($sqlAbierta);
+        $cajasAbiertas = $stmtAbierta ? $stmtAbierta->fetchAll(PDO::FETCH_ASSOC) : [];
+
+        $ultimoCorteDia = $this->obtenerUltimoCorteDia();
+
+        if (!empty($cajasAbiertas)) {
+            $detallesAbiertas = [];
+            foreach ($cajasAbiertas as $ca) {
+                $nombre = $ca['usuario_nombre'] ?: 'Cajero';
+                $fApertura = !empty($ca['fecha_apertura']) ? date('d/m/Y H:i', strtotime($ca['fecha_apertura'])) : 'Sin fecha';
+                $monto = number_format(floatval($ca['monto_inicial']), 2);
+                $detallesAbiertas[] = "{$nombre} (Apertura: {$fApertura}, Fondo: \${$monto})";
+            }
+            $textoCajeros = implode(' | ', $detallesAbiertas);
+
+            return [
+                'success'          => true,
+                'puede_cortar'     => false,
+                'motivo_bloqueo'   => 'TURNO_ABIERTO',
+                'mensaje'          => 'No es posible realizar el corte del día porque actualmente existe un turno de caja abierto. Todos los cajeros deben cerrar su turno y realizar su corte antes de proceder con el corte del día.',
+                'cajas_abiertas'   => $cajasAbiertas,
+                'cajeros_texto'    => $textoCajeros,
+                'turnos'           => [],
+                'totales'          => null,
+                'ultimo_corte_dia' => $ultimoCorteDia
+            ];
+        }
+
+        // 2. Obtener todos los turnos cerrados pendientes de corte del día
+        // (es decir, desde el último corte del día o anteriores que no se hayan consolidado)
+        $sqlTurnos = "SELECT c.*,
+                             uA.nombre AS usuario_apertura_nombre,
+                             uA.correo AS usuario_apertura_correo,
+                             uC.nombre AS usuario_cierre_nombre,
+                             uC.correo AS usuario_cierre_correo
+                      FROM caja_cortes c
+                      LEFT JOIN usuarios uA ON c.usuario_id COLLATE utf8mb4_unicode_ci = uA.id COLLATE utf8mb4_unicode_ci
+                      LEFT JOIN usuarios uC ON c.usuario_cierre_id COLLATE utf8mb4_unicode_ci = uC.id COLLATE utf8mb4_unicode_ci
+                      WHERE c.estado = 'CERRADA'
+                        AND (c.corte_diario_id IS NULL OR c.corte_diario_id = '')
+                      ORDER BY c.fecha_apertura ASC";
+        $stmtTurnos = $this->conn->query($sqlTurnos);
+        $turnos = $stmtTurnos ? $stmtTurnos->fetchAll(PDO::FETCH_ASSOC) : [];
+
+        if (empty($turnos)) {
+            return [
+                'success'          => true,
+                'puede_cortar'     => false,
+                'motivo_bloqueo'   => 'SIN_TURNOS_PENDIENTES',
+                'mensaje'          => 'No hay turnos de caja pendientes de consolidar. Todos los cortes de caja previos ya fueron procesados en un corte del día.',
+                'cajas_abiertas'   => [],
+                'cajeros_texto'    => '',
+                'turnos'           => [],
+                'totales'          => null,
+                'ultimo_corte_dia' => $ultimoCorteDia
+            ];
+        }
+
+        // 3. Consolidar totales de los turnos cerrados
+        $totFondoInicial     = 0.0;
+        $totEfectivo         = 0.0;
+        $totTarjeta          = 0.0;
+        $totTransferencia    = 0.0;
+        $totVentas           = 0.0;
+        $totEsperadoEfectivo = 0.0;
+        $totDeclarado        = 0.0;
+        $totDiferencia       = 0.0;
+        $totCobrosAnteriores = 0.0;
+
+        foreach ($turnos as &$t) {
+            $mIni      = floatval($t['monto_inicial']);
+            $efec      = floatval($t['total_efectivo']);
+            $tarj      = floatval($t['total_tarjeta']);
+            $transf    = floatval($t['total_transferencia']);
+            $ventas    = $efec + $tarj + $transf;
+            $espEfec   = $mIni + $efec;
+            $decl      = floatval($t['efectivo_declarado']);
+            $dif       = floatval($t['diferencia']);
+            $cobrosAnt = floatval($t['total_cobros_turnos_anteriores'] ?? 0);
+
+            $t['total_ventas_calculado']      = round($ventas, 2);
+            $t['esperado_efectivo_calculado'] = round($espEfec, 2);
+
+            $totFondoInicial     += $mIni;
+            $totEfectivo         += $efec;
+            $totTarjeta          += $tarj;
+            $totTransferencia    += $transf;
+            $totVentas           += $ventas;
+            $totEsperadoEfectivo += $espEfec;
+            $totDeclarado        += $decl;
+            $totDiferencia       += $dif;
+            $totCobrosAnteriores += $cobrosAnt;
+        }
+        unset($t);
+
+        $fechaDesde = $turnos[0]['fecha_apertura'];
+        $fechaHasta = $turnos[count($turnos) - 1]['fecha_cierre'] ?: date('Y-m-d H:i:s');
+        $custodia   = $this->obtenerCargasPendientes();
+
+        return [
+            'success'          => true,
+            'puede_cortar'     => true,
+            'motivo_bloqueo'   => null,
+            'mensaje'          => 'Listo para consolidar ' . count($turnos) . ' turno(s) de caja.',
+            'cajas_abiertas'   => [],
+            'cajeros_texto'    => '',
+            'turnos'           => $turnos,
+            'fecha_desde'      => $fechaDesde,
+            'fecha_hasta'      => $fechaHasta,
+            'totales'          => [
+                'cantidad_turnos'                => count($turnos),
+                'total_fondo_inicial'           => round($totFondoInicial, 2),
+                'total_efectivo'                 => round($totEfectivo, 2),
+                'total_tarjeta'                  => round($totTarjeta, 2),
+                'total_transferencia'            => round($totTransferencia, 2),
+                'total_ventas'                   => round($totVentas, 2),
+                'total_esperado_efectivo'        => round($totEsperadoEfectivo, 2),
+                'total_efectivo_declarado'       => round($totDeclarado, 2),
+                'total_diferencia'               => round($totDiferencia, 2),
+                'total_cobros_turnos_anteriores' => round($totCobrosAnteriores, 2),
+            ],
+            'custodia_actual'  => $custodia,
+            'ultimo_corte_dia' => $ultimoCorteDia
+        ];
+    }
+
+    /**
+     * Ejecuta el Corte del Día.
+     * Restringido exclusivamente al Administrador.
+     */
+    public function ejecutarCorteDia(string $adminUsuarioId, ?string $observaciones = null): array
+    {
+        // 1. Validar que el usuario tenga rol ADMINISTRADOR
+        $stmtAdm = $this->conn->prepare("SELECT id, nombre, rol FROM usuarios WHERE id = :id LIMIT 1");
+        $stmtAdm->execute([':id' => $adminUsuarioId]);
+        $admin = $stmtAdm->fetch(PDO::FETCH_ASSOC);
+
+        if (!$admin || $admin['rol'] !== 'ADMINISTRADOR') {
+            return [
+                'success' => false,
+                'message' => 'Acceso denegado: Solo los usuarios con rol ADMINISTRADOR pueden realizar el corte del día.'
+            ];
+        }
+
+        // 2. Obtener resumen y verificar precondiciones
+        $resumen = $this->obtenerResumenCorteDia();
+        if (!$resumen['puede_cortar']) {
+            return [
+                'success'        => false,
+                'message'        => $resumen['mensaje'],
+                'motivo_bloqueo' => $resumen['motivo_bloqueo'] ?? null,
+                'cajas_abiertas' => $resumen['cajas_abiertas'] ?? []
+            ];
+        }
+
+        $turnos   = $resumen['turnos'];
+        $totales  = $resumen['totales'];
+        $custodia = $resumen['custodia_actual'];
+
+        try {
+            $this->conn->beginTransaction();
+
+            // 3. Generar Folio consecutivo CD-000001
+            $stmtFolio = $this->conn->query("SELECT MAX(CAST(SUBSTRING(folio, 4) AS UNSIGNED)) as max_folio FROM cortes_diarios");
+            $maxNum = $stmtFolio ? (int)$stmtFolio->fetchColumn() : 0;
+            $folio = sprintf("CD-%06d", $maxNum + 1);
+
+            $id = $this->uuid();
+
+            // 4. Insertar registro en cortes_diarios
+            $sqlInsert = "INSERT INTO cortes_diarios (
+                id, folio, usuario_id, fecha_corte, fecha_desde, fecha_hasta,
+                total_turnos, total_fondo_inicial, total_efectivo, total_tarjeta,
+                total_transferencia, total_ventas, total_efectivo_declarado, total_diferencia,
+                total_cobros_turnos_anteriores, cargas_pendientes_entrega, cargas_pendientes_pago,
+                monto_pendiente_cobro, observaciones, detalle_turnos
+            ) VALUES (
+                :id, :folio, :usuario_id, NOW(), :fecha_desde, :fecha_hasta,
+                :total_turnos, :total_fondo_inicial, :total_efectivo, :total_tarjeta,
+                :total_transferencia, :total_ventas, :total_efectivo_declarado, :total_diferencia,
+                :total_cobros_turnos_anteriores, :cargas_pendientes_entrega, :cargas_pendientes_pago,
+                :monto_pendiente_cobro, :observaciones, :detalle_turnos
+            )";
+
+            $stmtIns = $this->conn->prepare($sqlInsert);
+            $stmtIns->execute([
+                ':id'                             => $id,
+                ':folio'                          => $folio,
+                ':usuario_id'                     => $adminUsuarioId,
+                ':fecha_desde'                    => $resumen['fecha_desde'],
+                ':fecha_hasta'                    => $resumen['fecha_hasta'],
+                ':total_turnos'                   => $totales['cantidad_turnos'],
+                ':total_fondo_inicial'            => $totales['total_fondo_inicial'],
+                ':total_efectivo'                 => $totales['total_efectivo'],
+                ':total_tarjeta'                  => $totales['total_tarjeta'],
+                ':total_transferencia'            => $totales['total_transferencia'],
+                ':total_ventas'                   => $totales['total_ventas'],
+                ':total_efectivo_declarado'       => $totales['total_efectivo_declarado'],
+                ':total_diferencia'               => $totales['total_diferencia'],
+                ':total_cobros_turnos_anteriores' => $totales['total_cobros_turnos_anteriores'],
+                ':cargas_pendientes_entrega'      => $custodia['total_pendientes_entrega'],
+                ':cargas_pendientes_pago'         => $custodia['total_pendientes_pago'],
+                ':monto_pendiente_cobro'          => $custodia['monto_pendiente_cobro'],
+                ':observaciones'                  => $observaciones,
+                ':detalle_turnos'                 => json_encode($turnos, JSON_UNESCAPED_UNICODE)
+            ]);
+
+            // 5. Vincular los turnos consolidados con el corte_diario_id
+            $idsTurnos = array_column($turnos, 'id');
+            $inPlaceholders = implode(',', array_fill(0, count($idsTurnos), '?'));
+            $stmtUpdate = $this->conn->prepare("UPDATE caja_cortes SET corte_diario_id = ? WHERE id IN ($inPlaceholders)");
+            $stmtUpdate->execute(array_merge([$id], $idsTurnos));
+
+            $this->conn->commit();
+
+            return [
+                'success'              => true,
+                'message'              => "Corte del día {$folio} realizado exitosamente con " . count($turnos) . " turno(s) de caja consolidado(s).",
+                'corte_diario_id'      => $id,
+                'folio'                => $folio,
+                'administrador_nombre' => $admin['nombre'],
+                'fecha_corte'          => date('Y-m-d H:i:s'),
+                'fecha_desde'          => $resumen['fecha_desde'],
+                'fecha_hasta'          => $resumen['fecha_hasta'],
+                'totales'              => $totales,
+                'turnos'               => $turnos,
+                'custodia'             => $custodia,
+                'observaciones'        => $observaciones
+            ];
+        } catch (\Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log("Error al ejecutarCorteDia: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Error al registrar el corte del día: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Obtiene el historial de Cortes del Día realizados
+     */
+    public function obtenerHistorialCortesDia(int $limit = 50): array
+    {
+        try {
+            $sql = "SELECT cd.*, u.nombre as administrador_nombre
+                    FROM cortes_diarios cd
+                    LEFT JOIN usuarios u ON cd.usuario_id COLLATE utf8mb4_unicode_ci = u.id COLLATE utf8mb4_unicode_ci
+                    ORDER BY cd.fecha_corte DESC
+                    LIMIT :lim";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+        } catch (\Throwable $e) {
+            error_log("Error obteniendo historial cortes diarios: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Obtiene los datos detallados de un corte del día por ID
+     */
+    public function obtenerDetalleCorteDia(string $corteDiaId): ?array
+    {
+        try {
+            $sql = "SELECT cd.*, u.nombre as administrador_nombre, u.correo as administrador_correo
+                    FROM cortes_diarios cd
+                    LEFT JOIN usuarios u ON cd.usuario_id COLLATE utf8mb4_unicode_ci = u.id COLLATE utf8mb4_unicode_ci
+                    WHERE cd.id = :id LIMIT 1";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':id' => $corteDiaId]);
+            $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+            if ($row && !empty($row['detalle_turnos'])) {
+                $row['turnos_decodificados'] = json_decode($row['detalle_turnos'], true);
+            } else {
+                $row['turnos_decodificados'] = [];
+            }
+            return $row ?: null;
+        } catch (\Throwable $e) {
+            error_log("Error obteniendo detalle corte diario: " . $e->getMessage());
+            return null;
+        }
     }
 }
